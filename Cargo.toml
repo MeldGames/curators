@@ -7,3 +7,7 @@ edition = "2024"
 bevy = "0.15.3"
 serde = "1.0.219"
 mem_dbg = "0.3"
+
+bevy_meshem = "0.4"
+fast-surface-nets = "0.2.1"
+rand = "0.9"
