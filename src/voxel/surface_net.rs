@@ -8,7 +8,7 @@ use fast_surface_nets::glam::{Vec2, Vec3A};
 use fast_surface_nets::ndshape::{ConstShape, ConstShape3u32, RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
-use super::grid::{Voxel, VoxelGrid};
+use super::voxel_grid::{Voxel, VoxelGrid};
 
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
@@ -28,7 +28,6 @@ pub fn update_surface_net_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-
     for (entity, grid, mut net) in &mut surface_nets {
         info!("!!! Updating surface net mesh !!!");
         let mut material = StandardMaterial::from(Color::srgb(0.4, 0.4, 0.4));
@@ -40,11 +39,9 @@ pub fn update_surface_net_mesh(
         mesh.duplicate_vertices();
         mesh.compute_flat_normals();
 
-        commands.entity(entity)
-            .insert((
-                Mesh3d(meshes.add(mesh)),
-                MeshMaterial3d(materials.add(material)),
-            ));
+        commands
+            .entity(entity)
+            .insert((Mesh3d(meshes.add(mesh)), MeshMaterial3d(materials.add(material))));
     }
 }
 
@@ -74,14 +71,15 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
 impl VoxelGrid {
     pub fn update_surface_net(&self, buffer: &mut SurfaceNetsBuffer) {
         let grid_array = self.array();
-        let padded_grid_array = [grid_array[0] + 3, grid_array[1] + 3, grid_array[2] + 3];
+        let padded_grid_array =
+            [(grid_array[0] + 3) as u32, (grid_array[1] + 3) as u32, (grid_array[2] + 3) as u32];
 
         let shape = VoxelShape::new(padded_grid_array);
 
         let mut samples = vec![1.0; shape.usize()];
         // unpadded
         for i in 0..self.size() {
-            let point = self.delinearize(i as u32);
+            let point = self.delinearize(i);
 
             let sample = match self.voxel(point) {
                 Voxel::Air => 1.0,
@@ -90,13 +88,20 @@ impl VoxelGrid {
                 Voxel::Water => -1.0,
             };
 
-            let padded_point = [point[0] + 1, point[1] + 1, point[2] + 1];
+            let padded_point =
+                [(point[0] + 1) as u32, (point[1] + 1) as u32, (point[2] + 1) as u32];
             let padded_linear = shape.linearize(padded_point);
             samples[padded_linear as usize] = sample;
         }
         //info!("SIZES {:?} < {:?}", shape.linearize(padded_grid_array), shape.usize());
 
-        surface_nets(&samples, &shape, [0; 3], [grid_array[0] + 2, grid_array[1] + 2, grid_array[2] + 2], buffer);
+        surface_nets(
+            &samples,
+            &shape,
+            [0; 3],
+            [(grid_array[0] + 2) as u32, (grid_array[1] + 2) as u32, (grid_array[2] + 2) as u32],
+            buffer,
+        );
     }
 }
 
@@ -109,11 +114,7 @@ fn spawn_pbr(
     let mut material = StandardMaterial::from(Color::srgb(0.0, 0.0, 0.0));
     material.perceptual_roughness = 0.9;
 
-    commands.spawn((
-        Mesh3d(mesh),
-        MeshMaterial3d(materials.add(material)),
-        transform,
-    ));
+    commands.spawn((Mesh3d(mesh), MeshMaterial3d(materials.add(material)), transform));
 }
 
 fn into_domain(array_dim: u32, [x, y, z]: [u32; 3]) -> Vec3A {

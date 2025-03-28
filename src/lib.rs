@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 pub mod voxel;
+pub mod camera;
 
 pub struct ServerPlugin;
 impl Plugin for ServerPlugin {
@@ -9,7 +10,9 @@ impl Plugin for ServerPlugin {
 
 pub struct ClientPlugin;
 impl Plugin for ClientPlugin {
-    fn build(&self, app: &mut App) {}
+    fn build(&self, app: &mut App) {
+        app.add_plugins(camera::CameraControllerPlugin);
+    }
 }
 
 pub struct SharedPlugin;
