@@ -1,0 +1,10 @@
+
+  s
+s ? s s
+  s
+  s
+
+for each vertex:
+    check surrounding voxels
+    if missing:
+        minus -0.5

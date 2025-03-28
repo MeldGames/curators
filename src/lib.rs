@@ -1,7 +1,7 @@
-use bevy::prelude::*;
+use bevy::{pbr::wireframe::WireframePlugin, prelude::*};
 
-pub mod voxel;
 pub mod camera;
+pub mod voxel;
 
 pub struct ServerPlugin;
 impl Plugin for ServerPlugin {
@@ -18,6 +18,6 @@ impl Plugin for ClientPlugin {
 pub struct SharedPlugin;
 impl Plugin for SharedPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(voxel::VoxelPlugin::default());
+        app.add_plugins(voxel::VoxelPlugin::default()).add_plugins(WireframePlugin::default());
     }
 }
