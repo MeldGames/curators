@@ -4,7 +4,7 @@ use voxel_grid::{Voxel, VoxelGrid};
 pub mod pick;
 pub mod raycast;
 pub mod voxel_grid;
-// pub mod naive_mesh;
+pub mod box_mesh;
 pub mod ass_mesh;
 pub mod surface_net;
 
@@ -20,6 +20,7 @@ impl Plugin for VoxelPlugin {
 
         app.add_plugins(surface_net::SurfaceNetPlugin);
         app.add_plugins(ass_mesh::ASSMeshPlugin);
+        app.add_plugins(box_mesh::BoxMeshPlugin);
 
         app.add_plugins(pick::VoxelPickPlugin);
 
@@ -64,7 +65,8 @@ impl Plugin for VoxelPlugin {
         app.world_mut().spawn((
             grid,
             //surface_net::SurfaceNet::default(),
-            ass_mesh::ASSMesh,
+            //ass_mesh::ASSMesh,
+            box_mesh::Meshem,
         ));
 
         app.world_mut().spawn((

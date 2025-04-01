@@ -27,18 +27,32 @@ pub enum Voxel {
     Water,
 }
 
+impl Voxel  {
+    pub fn iter() -> impl Iterator<Item = Voxel> {
+        [
+            Voxel::Air,
+            Voxel::Dirt,
+            Voxel::Stone,
+            Voxel::Water,
+        ].into_iter()
+    }
+}
+
 /// Simple Voxel grid, zero optimizations done like octrees/etc.
 #[derive(MemSize, Debug, Component, Reflect)]
 pub struct VoxelGrid {
     pub grid: Grid,
     pub voxels: Vec<Voxel>,
+
+    // Changed over the last frame.
+    changed: Vec<[Scalar; 3]>,
 }
 
 impl VoxelGrid {
     pub fn new([x, y, z]: [Scalar; 3]) -> Self {
         let grid = Grid::new([x, y, z]);
         let size = grid.size();
-        Self { grid, voxels: vec![Voxel::Air; size as usize] }
+        Self { grid, voxels: vec![Voxel::Air; size as usize], changed: Vec::new() }
     }
 
     #[inline]
@@ -70,6 +84,11 @@ impl VoxelGrid {
         }
 
         let index = self.linearize(point);
+        self.linear_voxel(index)
+    }
+
+    #[inline]
+    pub fn linear_voxel(&self, index: Scalar) -> Voxel {
         self.voxels[index as usize]
     }
 
@@ -78,8 +97,17 @@ impl VoxelGrid {
             panic!("Point out of bounds: {:?}", point);
         }
 
+        self.changed.push(point);
         let index = self.linearize(point);
         self.voxels[index as usize] = voxel;
+    }
+
+    pub fn changed(&self) -> impl Iterator<Item = &[Scalar; 3]> {
+        self.changed.iter()
+    }
+
+    pub fn clear_changed(&mut self) {
+        self.changed.clear();
     }
 
     #[inline]

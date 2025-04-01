@@ -360,6 +360,10 @@ impl Vertices {
         self.neg_xy_plane_mesh(voxels, &mut positions, &mut indices);
         self.pos_xy_plane_mesh(voxels, &mut positions, &mut indices);
 
+        for pos in &mut positions {
+            pos[1] += 1.0;
+        }
+
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all());
         mesh.insert_attribute(
             Mesh::ATTRIBUTE_POSITION,

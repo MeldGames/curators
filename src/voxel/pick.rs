@@ -36,7 +36,7 @@ pub fn draw_cursor(
     // Draw a circle just above the ground plane at that position.
 
     if let Some(hit) = hit {
-        info!("hit: {:?}", hit);
+        //info!("hit: {:?}", hit);
         let point: IVec3 = hit.voxel.into();
         let point: Vec3 = point.as_vec3() + Vec3::splat(0.5);
 

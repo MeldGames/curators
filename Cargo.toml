@@ -5,7 +5,8 @@ edition = "2024"
 
 [dependencies]
 bevy = "0.15.3"
-bevy_meshem = "0.4"
+#bevy_meshem = { git = "https://github.com/Adamkob12/Meshem" }
+bevy_meshem = { path = "../Meshem" }
 fast-surface-nets = "0.2.1"
 rand = "0.9"
 serde = "1.0.219"
