@@ -56,7 +56,7 @@ pub struct Vertices {
 impl Vertices {
     pub fn from_unpadded_grid(grid: &Grid) -> Self {
         let padded = grid.pad([1; 3]);
-        let vertices = vec![0.0; padded.size() as usize];
+        let vertices = vec![1.0; padded.size() as usize];
         Self { grid: padded, vertices }
     }
 
@@ -72,6 +72,10 @@ impl Vertices {
     }
 
     pub fn set_vertex_heights(&mut self, voxels: &VoxelGrid) {
+        for vertex in &mut self.vertices {
+            *vertex = 1.0;
+        }
+
         // Each voxel has 8 vertices.
         // We use the top 4 to determine the meshing vertices and combine
         // later.
@@ -80,7 +84,6 @@ impl Vertices {
         // certain amount.
 
         for p in self.grid.point_iter() {
-            const OCCUPIED: f32 = 0.5;
             let weight = |p| {
                 if voxels.in_bounds(p) {
                     if let Voxel::Air = voxels.voxel(p) { 0 } else { 1 }
@@ -155,25 +158,74 @@ impl Vertices {
             positions.push(v2);
             positions.push(v3);
             positions.push(v4);
-            indices.extend([current, current + 3, current + 1]);
-            indices.extend([current + 1, current + 3, current + 2]);
+            indices.extend([current, current + 2, current + 1]);
+            indices.extend([current, current + 3, current + 2]);
+            // sideways
+            //indices.extend([current, current + 3, current + 1]);
+            //indices.extend([current + 1, current + 3, current + 2]);
         }
     }
 
-    pub fn zy_plane_mesh(
+    pub fn neg_zy_plane_mesh(
         &self,
         voxels: &VoxelGrid,
         positions: &mut Vec<[f32; 3]>,
         indices: &mut Vec<u32>,
     ) {
-        // xy/zy planes
+        // zy planes
         for voxel_point in voxels.point_iter() {
             match voxels.get_voxel(voxel_point) {
                 Some(Voxel::Air) | None => continue,
                 _ => {},
             }
 
-            // xy plane
+            // zy plane
+            let adjacent = [voxel_point[0] - 1, voxel_point[1], voxel_point[2]];
+
+            match voxels.get_voxel(adjacent) {
+                Some(Voxel::Air) | None => {},
+                _ => continue,
+            }
+
+            if voxel_point[1] == 0 {
+                continue;
+            }
+
+            // get side xy vertices for this voxel
+            let p1 = [voxel_point[0], voxel_point[1], voxel_point[2]];
+            let p2 = [voxel_point[0], voxel_point[1], voxel_point[2] + 1];
+            let p3 = [voxel_point[0], voxel_point[1] - 1, voxel_point[2]];
+            let p4 = [voxel_point[0], voxel_point[1] - 1, voxel_point[2] + 1];
+
+            let v1 = self.weighted_vertex(p1);
+            let v2 = self.weighted_vertex(p2);
+            let v3 = self.weighted_vertex(p3);
+            let v4 = self.weighted_vertex(p4);
+
+            let current = positions.len() as u32;
+            positions.push(v1);
+            positions.push(v2);
+            positions.push(v3);
+            positions.push(v4);
+            indices.extend([current, current + 2, current + 3]);
+            indices.extend([current, current + 3, current + 1]);
+        }
+    }
+
+    pub fn pos_zy_plane_mesh(
+        &self,
+        voxels: &VoxelGrid,
+        positions: &mut Vec<[f32; 3]>,
+        indices: &mut Vec<u32>,
+    ) {
+        // zy planes
+        for voxel_point in voxels.point_iter() {
+            match voxels.get_voxel(voxel_point) {
+                Some(Voxel::Air) | None => continue,
+                _ => {},
+            }
+
+            // zy plane
             let adjacent = [voxel_point[0] + 1, voxel_point[1], voxel_point[2]];
 
             match voxels.get_voxel(adjacent) {
@@ -206,10 +258,107 @@ impl Vertices {
         }
     }
 
+    pub fn neg_xy_plane_mesh(
+        &self,
+        voxels: &VoxelGrid,
+        positions: &mut Vec<[f32; 3]>,
+        indices: &mut Vec<u32>,
+    ) {
+        // xy planes
+        for voxel_point in voxels.point_iter() {
+            match voxels.get_voxel(voxel_point) {
+                Some(Voxel::Air) | None => continue,
+                _ => {},
+            }
+
+            // xy plane
+            let adjacent = [voxel_point[0], voxel_point[1], voxel_point[2] - 1];
+
+            match voxels.get_voxel(adjacent) {
+                Some(Voxel::Air) | None => {},
+                _ => continue,
+            }
+
+            if voxel_point[1] == 0 {
+                continue;
+            }
+
+            // get side xy vertices for this voxel
+            let p1 = [voxel_point[0], voxel_point[1], voxel_point[2]];
+            let p2 = [voxel_point[0] + 1, voxel_point[1], voxel_point[2]];
+            let p3 = [voxel_point[0], voxel_point[1] - 1, voxel_point[2]];
+            let p4 = [voxel_point[0] + 1, voxel_point[1] - 1, voxel_point[2]];
+
+            let v1 = self.weighted_vertex(p1);
+            let v2 = self.weighted_vertex(p2);
+            let v3 = self.weighted_vertex(p3);
+            let v4 = self.weighted_vertex(p4);
+
+            let current = positions.len() as u32;
+            positions.push(v1);
+            positions.push(v2);
+            positions.push(v3);
+            positions.push(v4);
+            indices.extend([current, current + 3, current + 2]);
+            indices.extend([current, current + 1, current + 3]);
+        }
+    }
+
+    pub fn pos_xy_plane_mesh(
+        &self,
+        voxels: &VoxelGrid,
+        positions: &mut Vec<[f32; 3]>,
+        indices: &mut Vec<u32>,
+    ) {
+        // xy planes
+        for voxel_point in voxels.point_iter() {
+            match voxels.get_voxel(voxel_point) {
+                Some(Voxel::Air) | None => continue,
+                _ => {},
+            }
+
+            // xy plane
+            let adjacent = [voxel_point[0], voxel_point[1], voxel_point[2] + 1];
+
+            match voxels.get_voxel(adjacent) {
+                Some(Voxel::Air) | None => {},
+                _ => continue,
+            }
+
+            if voxel_point[1] == 0 {
+                continue;
+            }
+
+            // get side xy vertices for this voxel
+            let p1 = [voxel_point[0], voxel_point[1], voxel_point[2] + 1];
+            let p2 = [voxel_point[0] + 1, voxel_point[1], voxel_point[2] + 1];
+            let p3 = [voxel_point[0], voxel_point[1] - 1, voxel_point[2] + 1];
+            let p4 = [voxel_point[0] + 1, voxel_point[1] - 1, voxel_point[2] + 1];
+
+            let v1 = self.weighted_vertex(p1);
+            let v2 = self.weighted_vertex(p2);
+            let v3 = self.weighted_vertex(p3);
+            let v4 = self.weighted_vertex(p4);
+
+            let current = positions.len() as u32;
+            positions.push(v1);
+            positions.push(v2);
+            positions.push(v3);
+            positions.push(v4);
+            indices.extend([current, current + 2, current + 3]);
+            indices.extend([current, current + 3, current + 1]);
+        }
+    }
+
     pub fn mesh(&self, voxels: &VoxelGrid) -> Mesh {
         let mut positions = Vec::new();
         let mut indices = Vec::new();
         self.xz_plane_mesh(voxels, &mut positions, &mut indices);
+
+        self.neg_zy_plane_mesh(voxels, &mut positions, &mut indices);
+        self.pos_zy_plane_mesh(voxels, &mut positions, &mut indices);
+        self.neg_xy_plane_mesh(voxels, &mut positions, &mut indices);
+        self.pos_xy_plane_mesh(voxels, &mut positions, &mut indices);
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all());
         mesh.insert_attribute(
@@ -227,6 +376,8 @@ impl Vertices {
             Mesh::ATTRIBUTE_UV_0,
             VertexAttributeValues::Float32x2(vec![[0.0; 2]; num_vertices]),
         );*/
+
+        mesh
     }
 }
 
@@ -235,7 +386,5 @@ pub fn grid_to_mesh(voxels: &VoxelGrid) -> Mesh {
     vertices.set_vertex_heights(&voxels);
     let mesh = vertices.mesh(voxels);
 
-    //info!("{:?}", positions);
-    //info!("{:?}", indices);
     mesh
 }

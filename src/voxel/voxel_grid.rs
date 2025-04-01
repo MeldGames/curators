@@ -2,7 +2,9 @@ use bevy::prelude::*;
 use mem_dbg::MemSize;
 use serde::{Deserialize, Serialize};
 
-use super::grid::{Grid, Scalar};
+use crate::voxel::raycast::BoundingVolume3;
+
+use super::{grid::{Grid, Scalar}, raycast::Hit};
 
 #[derive(
     MemSize,
@@ -45,7 +47,7 @@ impl VoxelGrid {
     }
 
     #[inline]
-    pub fn delinearize(&self, mut i: Scalar) -> [Scalar; 3] {
+    pub fn delinearize(&self, i: Scalar) -> [Scalar; 3] {
         self.grid.delinearize(i)
     }
 
@@ -118,6 +120,34 @@ impl VoxelGrid {
             if voxel != Voxel::Air {
                 return Some((voxel, y));
             }
+        }
+
+        None
+    }
+
+    pub fn cast_ray(&self, grid_transform: &Transform, ray: Ray3d) -> Option<Hit> {
+        let inv_matrix = grid_transform.compute_matrix().inverse();
+        let local_direction = Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3())).unwrap();
+        let local_origin = inv_matrix.transform_vector3(ray.origin);
+
+        let local_ray = Ray3d {
+            origin: local_origin,
+            direction: local_direction,
+        };
+
+        self.cast_local_ray(local_ray)
+    }
+
+    /// Cast a ray in the localspace of the voxel grid.
+    pub fn cast_local_ray(&self, ray: Ray3d) -> Option<Hit> {
+        let volume = BoundingVolume3 { size: self.array().into() };
+        for hit in volume.traverse_ray(ray, f32::INFINITY) {
+            let voxel = self.voxel(hit.voxel.into());
+            if let Voxel::Air = voxel {
+                continue;
+            }
+
+            return Some(hit);
         }
 
         None

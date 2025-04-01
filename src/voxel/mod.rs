@@ -1,6 +1,8 @@
 use bevy::{pbr::wireframe::WireframeConfig, prelude::*};
 use voxel_grid::{Voxel, VoxelGrid};
 
+pub mod pick;
+pub mod raycast;
 pub mod voxel_grid;
 // pub mod naive_mesh;
 pub mod ass_mesh;
@@ -19,6 +21,8 @@ impl Plugin for VoxelPlugin {
         app.add_plugins(surface_net::SurfaceNetPlugin);
         app.add_plugins(ass_mesh::ASSMeshPlugin);
 
+        app.add_plugins(pick::VoxelPickPlugin);
+
         app.insert_resource(WireframeConfig { global: true, ..default() });
 
         let mut grid = VoxelGrid::new([50, 50, 50]);
@@ -27,6 +31,12 @@ impl Plugin for VoxelPlugin {
                 grid.set([x, 1, z], Voxel::Dirt);
             }
         }
+
+        /*for x in 0..3 {
+            for z in 0..3 {
+                grid.set([x, 2, z], Voxel::Dirt);
+            }
+        }*/
 
         for x in 0..2 {
             grid.set([x, 2, 0], Voxel::Dirt);
