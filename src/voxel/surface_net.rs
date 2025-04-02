@@ -1,5 +1,4 @@
 use bevy::asset::RenderAssetUsages;
-use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy::render::render_resource::{PrimitiveTopology, WgpuFeatures};
@@ -86,6 +85,7 @@ impl VoxelGrid {
                 Voxel::Dirt => -1.0,
                 Voxel::Stone => -1.0,
                 Voxel::Water => -1.0,
+                Voxel::Base => -1.0,
             };
 
             let padded_point =

@@ -37,9 +37,7 @@ impl Plugin for BoxMeshPlugin {
         app.insert_resource(BlockRegistry::new())
             .insert_resource(AmbientLight { brightness: 400.0, color: Color::WHITE });
 
-        app.add_systems(Update, (setup_meshem, toggle_wireframe, meshem_update));
-
-        app.add_event::<ToggleWireframe>().add_event::<RegenerateMesh>();
+        app.add_systems(Update, (setup_meshem, meshem_update));
     }
 }
 
@@ -49,67 +47,7 @@ pub struct MeshemData {
 }
 
 #[derive(Component)]
-struct MeshInfo;
-
-#[derive(Component)]
 pub struct Meshem;
-
-#[derive(Event, Default)]
-struct ToggleWireframe;
-
-#[derive(Event, Default)]
-struct RegenerateMesh;
-
-/// Setting up everything to showcase the mesh.
-pub fn setup_meshem(
-    breg: Res<BlockRegistry>,
-    mut commands: Commands,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    grids: Query<(Entity, &VoxelGrid), (Added<VoxelGrid>, With<Meshem>)>,
-    // wireframe_config: ResMut<WireframeConfig>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    asset_server: Res<AssetServer>,
-) {
-    for (grid_entity, grid) in &grids {
-        let dims: Dimensions = {
-            let array = grid.array();
-            (array[0] as usize, array[1] as usize, array[2] as usize)
-        };
-        info!("Setting up meshem for grid: {:?}", dims);
-        //let texture_mesh = asset_server.load("array_texture.png");
-
-        let (culled_mesh, metadata) =
-            mesh_grid::<Voxel>(dims, &[], &grid.voxels, &*breg, MeshingAlgorithm::Culling, Some(SmoothLightingParameters {
-                smoothing: 1.0,
-                apply_at_gen: true,
-                intensity: 0.5,
-                max: 0.6,
-            }))
-                .unwrap();
-        let culled_mesh_handle: Handle<Mesh> = meshes.add(culled_mesh.clone());
-
-        commands.entity(grid_entity)
-            .insert((
-                Transform {
-                    scale: Vec3::new(1.0, 0.2, 1.0),
-                    ..default()
-                },
-                MeshemData { data: metadata },
-            ))
-            .with_child((
-                Transform {
-                    translation: Vec3::new(0.5, 0.5, 0.5),
-                    ..default()
-                },
-                Mesh3d(culled_mesh_handle),
-                MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::Srgba(LIMEGREEN),
-                    //base_color_texture: Some(texture_mesh),
-                    ..default()
-                })),
-            ));
-    }
-}
 
 #[derive(Resource)]
 pub struct BlockRegistry {
@@ -185,31 +123,59 @@ impl VoxelRegistry for BlockRegistry {
     }
 }
 
-/// Function to toggle wireframe (seeing the vertices and indices of the mesh).
-pub fn toggle_wireframe(
+pub fn setup_meshem(
+    breg: Res<BlockRegistry>,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    with: Query<Entity, With<Wireframe>>,
-    without: Query<Entity, (Without<Wireframe>, With<MeshemData>)>,
-    mut events: EventReader<ToggleWireframe>,
+    grids: Query<(Entity, &VoxelGrid), (Added<VoxelGrid>, With<Meshem>)>,
+    // wireframe_config: ResMut<WireframeConfig>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    asset_server: Res<AssetServer>,
 ) {
-    for _ in events.read() {
-        if let Ok(ent) = with.get_single() {
-            commands.entity(ent).remove::<Wireframe>();
-            for (_, material) in materials.iter_mut() {
-                material.base_color.set_alpha(1.0);
-            }
-        } else if let Ok(ent) = without.get_single() {
-            commands.entity(ent).insert(Wireframe);
-            for (_, material) in materials.iter_mut() {
-                material.base_color.set_alpha(0.0);
-            }
-        }
+    for (grid_entity, grid) in &grids {
+        let dims: Dimensions = {
+            let array = grid.array();
+            (array[0] as usize, array[1] as usize, array[2] as usize)
+        };
+        info!("Setting up meshem for grid: {:?}", dims);
+        //let texture_mesh = asset_server.load("array_texture.png");
+
+        let (culled_mesh, metadata) =
+            mesh_grid::<Voxel>(dims, &[], &grid.voxels, &*breg, MeshingAlgorithm::Culling, Some(SmoothLightingParameters {
+                smoothing: 1.0,
+                apply_at_gen: true,
+                intensity: 0.5,
+                max: 0.6,
+            }))
+                .unwrap();
+        let culled_mesh_handle: Handle<Mesh> = meshes.add(culled_mesh.clone());
+
+        commands.entity(grid_entity)
+            .insert((
+                Transform {
+                    scale: Vec3::new(1.0, 0.1, 1.0),
+                    ..default()
+                },
+                MeshemData { data: metadata },
+            ))
+            .with_child((
+                Transform {
+                    translation: Vec3::new(0.5, 0.5, 0.5),
+                    ..default()
+                },
+                Mesh3d(culled_mesh_handle),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Color::Srgba(LIMEGREEN),
+                    //base_color_texture: Some(texture_mesh),
+                    ..default()
+                })),
+            ));
     }
 }
 
+
 pub fn meshem_update(
-    mut meshem: Query<(&mut VoxelGrid, &mut MeshemData, &Children)>,
+    mut meshem: Query<(&mut VoxelGrid, &mut MeshemData, &Children), Changed<VoxelGrid>>,
     mesh3ds: Query<&Mesh3d>,
     block_registry: Res<BlockRegistry>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -232,21 +198,28 @@ pub fn meshem_update(
                 for i in 0..6 {
                     match get_neighbor(linear_index as usize, Face::from(i), meshem.data.dims) {
                         None => {},
-                        Some(j) => r[i] = Some(grid.linear_voxel(j as i32)),
+                        Some(j) => match grid.linear_voxel(j as i32) {
+                            Voxel::Air => {},
+                            voxel => r[i] = Some(voxel),
+                        }
                     }
                 }
                 r
             };
 
-            info!("neighbors: {:?}", neighbors);
-
             let voxel = grid.voxel(*changed);
             let change =
                 if let Voxel::Air = voxel { VoxelChange::Broken } else { VoxelChange::Added };
-            meshem.data.log(change, linear_index as usize, voxel, neighbors);
+            meshem.data.log(change, linear_index as usize, Voxel::Dirt, neighbors);
         }
 
         update_mesh::<Voxel>(mesh, &mut meshem.data, &*block_registry);
+
+        let dims: Dimensions = {
+            let array = grid.array();
+            (array[0] as usize, array[1] as usize, array[2] as usize)
+        };
+        apply_smooth_lighting(&*block_registry, mesh, &meshem.data, dims, 0, grid.size() as usize, &grid.voxels);
         grid.clear_changed();
     }
 }

@@ -25,6 +25,7 @@ pub enum Voxel {
     Dirt,
     Stone,
     Water,
+    Base,
 }
 
 impl Voxel  {
@@ -34,6 +35,7 @@ impl Voxel  {
             Voxel::Dirt,
             Voxel::Stone,
             Voxel::Water,
+            Voxel::Base,
         ].into_iter()
     }
 }

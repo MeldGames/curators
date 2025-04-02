@@ -25,11 +25,38 @@ impl Plugin for VoxelPlugin {
 
         app.add_plugins(pick::VoxelPickPlugin);
 
-        app.insert_resource(WireframeConfig { global: true, ..default() });
+        app.insert_resource(WireframeConfig { global: false, ..default() });
 
         // Meshem is XZY
         // Others are XYZ
         let mut grid = VoxelGrid::new([50, 50, 50], Ordering::XZY);
+        let width = 4;
+        let length = 4;
+        let height = 14;
+        for x in 0..width {
+            for z in 0..length {
+                for y in 0..height {
+                    grid.set([x, y, z], Voxel::Stone);
+                }
+            }
+        }
+
+        for x in 0..width {
+            for z in 0..length {
+                for y in (height - 2)..height {
+                    grid.set([x, y, z], Voxel::Dirt);
+                }
+            }
+        }
+
+        for x in 0..width {
+            for z in 0..length {
+                for y in 0..1 {
+                    grid.set([x, y, z], Voxel::Base);
+                }
+            }
+        }
+
         for x in 0..4 {
             for z in 0..4 {
                 grid.set([x, 1, z], Voxel::Dirt);

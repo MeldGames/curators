@@ -56,10 +56,14 @@ pub fn draw_cursor(
         if input.just_pressed(MouseButton::Right) {
             // Place block
             let normal_block: [i32; 3] = (point_ivec + normal_ivec).into();
-            grid.set(normal_block, Voxel::Dirt);
+            if grid.in_bounds(normal_block.into()) {
+                grid.set(normal_block, Voxel::Dirt);
+            }
         } else if input.just_pressed(MouseButton::Left) {
             // Remove block
-            grid.set(point_ivec.into(), Voxel::Air);
+            if grid.in_bounds(point_ivec.into()) {
+                grid.set(point_ivec.into(), Voxel::Air);
+            }
         }
     }
 }
