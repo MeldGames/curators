@@ -153,7 +153,7 @@ impl VoxelGrid {
         None
     }
 
-    pub fn cast_ray(&self, grid_transform: &Transform, ray: Ray3d) -> Option<Hit> {
+    pub fn cast_ray(&self, grid_transform: &GlobalTransform, ray: Ray3d) -> Option<Hit> {
         let inv_matrix = grid_transform.compute_matrix().inverse();
         let local_direction = Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3())).unwrap();
         let local_origin = inv_matrix.transform_vector3(ray.origin);

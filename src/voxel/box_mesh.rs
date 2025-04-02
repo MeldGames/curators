@@ -90,11 +90,17 @@ pub fn setup_meshem(
 
         commands.entity(grid_entity)
             .insert((
-                Transform::default(),
+                Transform {
+                    scale: Vec3::new(1.0, 0.2, 1.0),
+                    ..default()
+                },
                 MeshemData { data: metadata },
             ))
             .with_child((
-                Transform::from_xyz(0.5, 0.5, 0.5),
+                Transform {
+                    translation: Vec3::new(0.5, 0.5, 0.5),
+                    ..default()
+                },
                 Mesh3d(culled_mesh_handle),
                 MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::Srgba(LIMEGREEN),

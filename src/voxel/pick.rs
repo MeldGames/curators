@@ -11,7 +11,7 @@ impl Plugin for VoxelPickPlugin {
 
 pub fn draw_cursor(
     camera_query: Single<(&Camera, &GlobalTransform)>,
-    grids: Query<&VoxelGrid>,
+    grids: Query<(&GlobalTransform, &VoxelGrid)>,
     windows: Single<&Window>,
     mut gizmos: Gizmos,
 ) {
@@ -30,8 +30,8 @@ pub fn draw_cursor(
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
-    let grid = grids.single();
-    let hit = grid.cast_local_ray(ray);
+    let (grid_transform, grid) = grids.single();
+    let hit = grid.cast_ray(grid_transform, ray);
 
     // Draw a circle just above the ground plane at that position.
 
@@ -43,9 +43,12 @@ pub fn draw_cursor(
         let normal: IVec3 = hit.normal.map(|n| n.into()).unwrap_or(IVec3::new(0, 1, 0));
         let normal: Vec3 = normal.as_vec3();
 
+        let point_with_normal = point + normal * 0.501;
+        let world_space_point = grid_transform.transform_point(point_with_normal);
+
         gizmos.circle(
-            Isometry3d::new(point + normal * 0.51, Quat::from_rotation_arc(Vec3::Z, normal)),
-            0.2,
+            Isometry3d::new(world_space_point, Quat::from_rotation_arc(Vec3::Z, normal)),
+            0.1,
             Color::WHITE,
         );
     }
