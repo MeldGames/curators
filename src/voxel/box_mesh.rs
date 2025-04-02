@@ -57,8 +57,9 @@ pub struct BlockRegistry {
 impl BlockRegistry {
     pub fn new() -> Self {
         let mut registry = Self { meshes: HashMap::new() };
-        registry.add(Voxel::Dirt);
-        registry.add(Voxel::Stone);
+        for voxel in Voxel::iter() {
+            registry.add(voxel);
+        }
         registry
     }
 

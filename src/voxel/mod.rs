@@ -30,8 +30,8 @@ impl Plugin for VoxelPlugin {
         // Meshem is XZY
         // Others are XYZ
         let mut grid = VoxelGrid::new([50, 50, 50], Ordering::XZY);
-        let width = 4;
-        let length = 4;
+        let width = 8;
+        let length = 8;
         let height = 14;
         for x in 0..width {
             for z in 0..length {
