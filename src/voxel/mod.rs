@@ -100,8 +100,8 @@ impl Plugin for VoxelPlugin {
         ));
 
         app.world_mut().spawn((
-            Transform::from_translation(Vec3::new(4.0, 9.0, 4.0)),
-            PointLight { range: 200.0, intensity: 800000.0, ..Default::default() },
+            Transform::from_translation(Vec3::new(3.0, 3.0, 3.0)),
+            PointLight { range: 200.0, intensity: 800000.0, shadows_enabled: true, ..Default::default() },
         ));
         app.world_mut().spawn((
             crate::camera::CameraController::default(),

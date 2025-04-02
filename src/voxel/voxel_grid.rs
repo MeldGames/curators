@@ -38,6 +38,20 @@ impl Voxel  {
             Voxel::Base,
         ].into_iter()
     }
+
+    pub fn pickable(&self) -> bool {
+        match self {
+            Voxel::Air => false,
+            _ => true,
+        }
+    }
+
+    pub fn breakable(&self) -> bool {
+        match self {
+            Voxel::Air | Voxel::Base => false,
+            _ => true,
+        }
+    }
 }
 
 /// Simple Voxel grid, zero optimizations done like octrees/etc.
@@ -173,11 +187,9 @@ impl VoxelGrid {
         let volume = BoundingVolume3 { size: self.array().into() };
         for hit in volume.traverse_ray(ray, f32::INFINITY) {
             let voxel = self.voxel(hit.voxel.into());
-            if let Voxel::Air = voxel {
-                continue;
+            if voxel.pickable() {
+                return Some(hit);
             }
-
-            return Some(hit);
         }
 
         None

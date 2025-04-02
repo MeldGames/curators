@@ -62,7 +62,9 @@ pub fn draw_cursor(
         } else if input.just_pressed(MouseButton::Left) {
             // Remove block
             if grid.in_bounds(point_ivec.into()) {
-                grid.set(point_ivec.into(), Voxel::Air);
+                if grid.voxel(point_ivec.into()).breakable() {
+                    grid.set(point_ivec.into(), Voxel::Air);
+                }
             }
         }
     }
