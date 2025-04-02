@@ -4,14 +4,8 @@ use bevy::pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy::{color::palettes::css::LIMEGREEN, utils::HashMap};
 use bevy_meshem::prelude::*;
-use rand::prelude::*;
 
 use super::voxel_grid::{Voxel, VoxelGrid};
-
-/// Constants for us to use.
-const FACTOR: usize = 8;
-const CHUNK_LEN: usize = FACTOR * FACTOR * FACTOR;
-const SPEED: f32 = FACTOR as f32 * 2.0;
 
 impl Voxel {
     pub fn box_mesh(&self) -> Option<Mesh> {
@@ -82,30 +76,32 @@ pub fn setup_meshem(
             (array[0] as usize, array[1] as usize, array[2] as usize)
         };
         info!("Setting up meshem for grid: {:?}", dims);
-        let mut non_zero_voxels = 0;
-        for voxel in &grid.voxels {
-            match voxel {
-                Voxel::Air => {},
-                _ => non_zero_voxels += 1,
-            }
-        }
-        info!("Non zero voxels: {:?}", non_zero_voxels);
         //let texture_mesh = asset_server.load("array_texture.png");
 
         let (culled_mesh, metadata) =
-            mesh_grid::<Voxel>(dims, &[], &grid.voxels, &*breg, MeshingAlgorithm::Naive, None)
+            mesh_grid::<Voxel>(dims, &[], &grid.voxels, &*breg, MeshingAlgorithm::Culling, Some(SmoothLightingParameters {
+                smoothing: 1.0,
+                apply_at_gen: true,
+                intensity: 0.5,
+                max: 0.6,
+            }))
                 .unwrap();
         let culled_mesh_handle: Handle<Mesh> = meshes.add(culled_mesh.clone());
 
-        commands.entity(grid_entity).insert((
-            Mesh3d(culled_mesh_handle),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: Color::Srgba(LIMEGREEN),
-                //base_color_texture: Some(texture_mesh),
-                ..default()
-            })),
-            MeshemData { data: metadata },
-        ));
+        commands.entity(grid_entity)
+            .insert((
+                Transform::default(),
+                MeshemData { data: metadata },
+            ))
+            .with_child((
+                Transform::from_xyz(0.5, 0.5, 0.5),
+                Mesh3d(culled_mesh_handle),
+                MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: Color::Srgba(LIMEGREEN),
+                    //base_color_texture: Some(texture_mesh),
+                    ..default()
+                })),
+            ));
     }
 }
 
@@ -179,7 +175,7 @@ impl VoxelRegistry for BlockRegistry {
     /// unpredictable behaviour. We chose these 3 because they are very
     /// common, the algorithm does preserve UV data.
     fn all_attributes(&self) -> Vec<bevy::render::mesh::MeshVertexAttribute> {
-        return vec![Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_UV_0, Mesh::ATTRIBUTE_NORMAL];
+        return vec![Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_UV_0, Mesh::ATTRIBUTE_NORMAL, Mesh::ATTRIBUTE_COLOR];
     }
 }
 

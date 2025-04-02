@@ -1,4 +1,5 @@
 use bevy::{pbr::wireframe::WireframeConfig, prelude::*};
+use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
 
 pub mod pick;
@@ -16,7 +17,7 @@ pub struct VoxelPlugin;
 
 impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Voxel>().register_type::<VoxelGrid>();
+        app.register_type::<Voxel>();//.register_type::<VoxelGrid>();
 
         app.add_plugins(surface_net::SurfaceNetPlugin);
         app.add_plugins(ass_mesh::ASSMeshPlugin);
@@ -26,7 +27,9 @@ impl Plugin for VoxelPlugin {
 
         app.insert_resource(WireframeConfig { global: true, ..default() });
 
-        let mut grid = VoxelGrid::new([50, 50, 50]);
+        // Meshem is XZY
+        // Others are XYZ
+        let mut grid = VoxelGrid::new([50, 50, 50], Ordering::XZY);
         for x in 0..4 {
             for z in 0..4 {
                 grid.set([x, 1, z], Voxel::Dirt);

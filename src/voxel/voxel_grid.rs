@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::voxel::raycast::BoundingVolume3;
 
-use super::{grid::{Grid, Scalar}, raycast::Hit};
+use super::{grid::{Grid, Ordering, Scalar}, raycast::Hit};
 
 #[derive(
     MemSize,
@@ -49,8 +49,8 @@ pub struct VoxelGrid {
 }
 
 impl VoxelGrid {
-    pub fn new([x, y, z]: [Scalar; 3]) -> Self {
-        let grid = Grid::new([x, y, z]);
+    pub fn new([x, y, z]: [Scalar; 3], ordering: Ordering) -> Self {
+        let grid = Grid::new([x, y, z], ordering);
         let size = grid.size();
         Self { grid, voxels: vec![Voxel::Air; size as usize], changed: Vec::new() }
     }
@@ -200,21 +200,21 @@ pub mod tests {
 
     #[test]
     pub fn in_bounds() {
-        let grid = VoxelGrid::new([5, 5, 5]);
+        let grid = VoxelGrid::new([5, 5, 5], Ordering::XYZ);
         assert!(grid.in_bounds([0, 0, 0]));
         assert!(grid.in_bounds([4, 4, 4]));
         assert!(!grid.in_bounds([5, 5, 5]));
         assert!(!grid.in_bounds([5, 0, 0]));
 
         // Stupid case that should never happen, but just to check:
-        let grid = VoxelGrid::new([0, 0, 0]);
+        let grid = VoxelGrid::new([0, 0, 0], Ordering::XYZ);
         assert!(!grid.in_bounds([0, 0, 0]));
         assert!(!grid.in_bounds([3, 1, 2]));
     }
 
     #[test]
     pub fn test_size() {
-        let grid = VoxelGrid::new([500, 500, 500]);
+        let grid = VoxelGrid::new([500, 500, 500], Ordering::XYZ);
         println!(
             "grid mem usage: {:?}",
             memory_human_readable(grid.mem_size(mem_dbg::SizeFlags::CAPACITY)),

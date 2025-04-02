@@ -7,25 +7,54 @@ pub type Scalar = i32;
 pub struct Grid {
     array: [Scalar; 3],
     strides: [Scalar; 3],
+    ordering: Ordering,
     size: Scalar,
 }
 
+#[derive(Copy, Clone, Reflect, MemSize, Debug)]
+pub enum Ordering {
+    XYZ,
+    XZY,
+    ZYX,
+    ZXY,
+    YXZ,
+    YZX,
+}
+
+impl Ordering {
+    pub fn strides(&self, [x, y, z]: [Scalar; 3]) -> [Scalar; 3] {
+        match self {
+            Ordering::XYZ => [1, x, x * y],
+            Ordering::XZY => [1, x * z, x],
+            Ordering::ZYX => [z * y, z, 1],
+            Ordering::ZXY => [z, z * x, 1],
+            Ordering::YXZ => [y, 1, y * x],
+            Ordering::YZX => [y * x, 1, y],
+        }
+    }
+}
+
 impl Grid {
-    pub fn new([x, y, z]: [Scalar; 3]) -> Self {
-        Self { array: [x, y, z], strides: [1, x, x * y], size: x * y * z }
+    pub fn new([x, y, z]: [Scalar; 3], ordering: Ordering) -> Self {
+        Self {
+            array: [x, y, z],
+            strides: ordering.strides([x, y, z]),
+            ordering: ordering,
+            size: x * y * z,
+        }
     }
 
     /// Pad the this shape.
     pub fn pad(&self, padding: [Scalar; 3]) -> Self {
         let padded =
             [self.array[0] + padding[0], self.array[1] + padding[1], self.array[2] + padding[2]];
-        Self::new(padded)
+        Self::new(padded, self.ordering)
     }
 
     /// Convert this 3d point into the linear index of this grid.
     #[inline]
     pub fn linearize(&self, point: [Scalar; 3]) -> Scalar {
-        point[0] + self.strides[1].wrapping_mul(point[1]) + self.strides[2].wrapping_mul(point[2])
+        self.strides[0].wrapping_mul(point[0]) + self.strides[1].wrapping_mul(point[1]) + self.strides[2].wrapping_mul(point[2])
     }
 
     /// Convert this index into this grid into a 3d point.
