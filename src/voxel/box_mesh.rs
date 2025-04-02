@@ -209,11 +209,20 @@ pub fn toggle_wireframe(
 }
 
 pub fn meshem_update(
-    mut meshem: Query<(&mut VoxelGrid, &Mesh3d, &mut MeshemData)>,
+    mut meshem: Query<(&mut VoxelGrid, &mut MeshemData, &Children)>,
+    mesh3ds: Query<&Mesh3d>,
     block_registry: Res<BlockRegistry>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (mut grid, mesh, mut meshem) in &mut meshem {
+    for (mut grid, mut meshem, children) in &mut meshem {
+        let mut mesh: Option<&Mesh3d> = None;
+        for child in children {
+            if let Ok(child_mesh) = mesh3ds.get(*child) {
+                mesh = Some(child_mesh);
+            }
+        }
+
+        let Some(mesh) = mesh else { continue; };
         let mesh = meshes.get_mut(mesh.id()).unwrap();
         for changed in grid.changed() {
             let linear_index = grid.linearize(*changed);
@@ -228,6 +237,8 @@ pub fn meshem_update(
                 }
                 r
             };
+
+            info!("neighbors: {:?}", neighbors);
 
             let voxel = grid.voxel(*changed);
             let change =

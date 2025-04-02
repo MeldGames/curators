@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::voxel_grid::VoxelGrid;
+use super::voxel_grid::{Voxel, VoxelGrid};
 
 pub struct VoxelPickPlugin;
 impl Plugin for VoxelPickPlugin {
@@ -11,7 +11,8 @@ impl Plugin for VoxelPickPlugin {
 
 pub fn draw_cursor(
     camera_query: Single<(&Camera, &GlobalTransform)>,
-    grids: Query<(&GlobalTransform, &VoxelGrid)>,
+    mut grids: Query<(&GlobalTransform, &mut VoxelGrid)>,
+    input: Res<ButtonInput<MouseButton>>,
     windows: Single<&Window>,
     mut gizmos: Gizmos,
 ) {
@@ -30,26 +31,35 @@ pub fn draw_cursor(
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
-    let (grid_transform, grid) = grids.single();
+    let (grid_transform, mut grid) = grids.single_mut();
     let hit = grid.cast_ray(grid_transform, ray);
 
     // Draw a circle just above the ground plane at that position.
 
     if let Some(hit) = hit {
         //info!("hit: {:?}", hit);
-        let point: IVec3 = hit.voxel.into();
-        let point: Vec3 = point.as_vec3() + Vec3::splat(0.5);
+        let point_ivec: IVec3 = hit.voxel.into();
+        let point: Vec3 = point_ivec.as_vec3() + Vec3::splat(0.5);
 
-        let normal: IVec3 = hit.normal.map(|n| n.into()).unwrap_or(IVec3::new(0, 1, 0));
-        let normal: Vec3 = normal.as_vec3();
+        let normal_ivec: IVec3 = hit.normal.map(|n| n.into()).unwrap_or(IVec3::new(0, 1, 0));
+        let normal: Vec3 = normal_ivec.as_vec3();
 
         let point_with_normal = point + normal * 0.501;
         let world_space_point = grid_transform.transform_point(point_with_normal);
 
         gizmos.circle(
             Isometry3d::new(world_space_point, Quat::from_rotation_arc(Vec3::Z, normal)),
-            0.1,
+            0.09,
             Color::WHITE,
         );
+
+        if input.just_pressed(MouseButton::Right) {
+            // Place block
+            let normal_block: [i32; 3] = (point_ivec + normal_ivec).into();
+            grid.set(normal_block, Voxel::Dirt);
+        } else if input.just_pressed(MouseButton::Left) {
+            // Remove block
+            grid.set(point_ivec.into(), Voxel::Air);
+        }
     }
 }
