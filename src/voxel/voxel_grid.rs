@@ -23,6 +23,7 @@ use super::{
     Serialize,
     Deserialize,
 )]
+
 pub enum Voxel {
     Air,
     Dirt,
@@ -130,6 +131,12 @@ impl VoxelGrid {
 
     pub fn clear_changed(&mut self) {
         self.changed.clear();
+    }
+
+    pub fn clear_changed_system(mut grids: Query<&mut VoxelGrid>) {
+        for mut grid in &mut grids {
+            grid.clear_changed();
+        }
     }
 
     #[inline]

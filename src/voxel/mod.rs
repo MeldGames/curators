@@ -2,11 +2,10 @@ use bevy::{pbr::wireframe::WireframeConfig, prelude::*};
 use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
 
-pub mod ass_mesh;
-pub mod box_mesh;
+pub mod collider;
+pub mod mesh;
 pub mod pick;
 pub mod raycast;
-pub mod surface_net;
 pub mod voxel_grid;
 
 /// Flat vec storage of 2d/3d grids.
@@ -19,20 +18,25 @@ impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Voxel>(); //.register_type::<VoxelGrid>();
 
-        app.add_plugins(surface_net::SurfaceNetPlugin);
-        app.add_plugins(ass_mesh::ASSMeshPlugin);
-        app.add_plugins(box_mesh::BoxMeshPlugin);
+        app.add_plugins(mesh::surface_net::SurfaceNetPlugin);
+        app.add_plugins(mesh::ass_mesh::ASSMeshPlugin);
+        app.add_plugins(mesh::box_mesh::BoxMeshPlugin);
 
         app.add_plugins(pick::VoxelPickPlugin);
+        app.add_plugins(collider::VoxelBoxColliderPlugin);
+
+        app
+            .add_systems(Update, VoxelGrid::clear_changed_system)
+            .add_systems(Update, rename_grids);
 
         app.insert_resource(WireframeConfig { global: false, ..default() });
 
         // Meshem is XZY
         // Others are XYZ
-        let mut grid = VoxelGrid::new([50, 50, 50], Ordering::XZY);
-        let width = 8;
-        let length = 8;
-        let height = 14;
+        let mut grid = VoxelGrid::new([128, 50, 128], Ordering::XZY);
+        let width = 12;
+        let length = 12;
+        let height = 10;
         for x in 0..width {
             for z in 0..length {
                 for y in 0..height {
@@ -94,9 +98,9 @@ impl Plugin for VoxelPlugin {
 
         app.world_mut().spawn((
             grid,
-            //surface_net::SurfaceNet::default(),
-            //ass_mesh::ASSMesh,
-            box_mesh::Meshem,
+            //mesh::surface_net::SurfaceNet::default(),
+            //mesh::ass_mesh::ASSMesh,
+            mesh::box_mesh::Meshem,
         ));
 
         /*app.world_mut().spawn((
@@ -121,5 +125,13 @@ impl Plugin for VoxelPlugin {
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ));
+    }
+}
+
+
+pub fn rename_grids(mut commands: Commands, grids: Query<Entity, (With<VoxelGrid>, Without<Name>)>) {
+    for grid in &grids {
+        commands.entity(grid)
+            .insert(Name::new("Voxel Grid"));
     }
 }

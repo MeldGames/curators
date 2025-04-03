@@ -88,7 +88,7 @@ impl Default for CameraController {
             keyboard_key_toggle_cursor_grab: KeyCode::KeyM,
             walk_speed: 8.0,
             run_speed: 15.0,
-            scroll_factor: 0.1,
+            scroll_factor: 1.0,
             friction: 0.5,
             pitch: 0.0,
             yaw: 0.0,
@@ -156,8 +156,8 @@ fn run_camera_controller(
         MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
         MouseScrollUnit::Pixel => accumulated_mouse_scroll.delta.y / 16.0,
     };
-    scroll += amount;
-    controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
+    //scroll += amount;
+    //controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
     controller.run_speed = controller.walk_speed * 3.0;
 
     // Handle key input

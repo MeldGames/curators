@@ -57,11 +57,22 @@ impl Grid {
     /// Convert this index into this grid into a 3d point.
     #[inline]
     pub fn delinearize(&self, mut i: Scalar) -> [Scalar; 3] {
-        let z = i / self.strides[2];
-        i -= z * self.strides[2];
-        let y = i / self.strides[1];
-        let x = i % self.strides[1];
-        [x, y, z]
+        let [s1, s2] = match self.ordering {
+            Ordering::XYZ => [self.strides[1], self.strides[2]],
+            Ordering::XZY => [self.strides[2], self.strides[1]],
+            _ => [self.strides[1], self.strides[2]],
+        };
+
+        let n2 = i / s2;
+        i -= n2 * s2;
+        let n1 = i / s1;
+        let n0 = i % s1;
+
+        match self.ordering {
+            Ordering::XYZ => [n0, n1, n2],
+            Ordering::XZY => [n0, n2, n1],
+            _ => [n0, n1, n2],
+        }
     }
 
     /// Iterate over all points in this grid.

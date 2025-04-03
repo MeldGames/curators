@@ -1,6 +1,7 @@
 use bevy::{pbr::wireframe::WireframePlugin, prelude::*};
 
 pub mod camera;
+pub mod character;
 pub mod voxel;
 
 pub struct ServerPlugin;

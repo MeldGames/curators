@@ -7,7 +7,7 @@ use fast_surface_nets::glam::{Vec2, Vec3A};
 use fast_surface_nets::ndshape::{ConstShape, ConstShape3u32, RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
-use super::voxel_grid::{Voxel, VoxelGrid};
+use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
 
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {

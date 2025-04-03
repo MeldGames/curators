@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy_meshem::prelude::*;
 
-use super::voxel_grid::{Voxel, VoxelGrid};
+use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
 
 pub fn box_mesh(index: u32) -> Mesh {
     generate_voxel_mesh(
@@ -45,7 +45,10 @@ impl Plugin for BoxMeshPlugin {
         app.insert_resource(BlockRegistry::new());
         //.insert_resource(AmbientLight { brightness: 400.0, color: Color::WHITE });
 
-        app.add_systems(Update, (setup_meshem, meshem_update));
+        app.add_systems(
+            Update,
+            (setup_meshem, meshem_update).chain().before(VoxelGrid::clear_changed_system),
+        );
     }
 }
 
@@ -174,7 +177,7 @@ pub fn setup_meshem(
         commands
             .entity(grid_entity)
             .insert((
-                Transform { scale: Vec3::new(1.0, 0.1, 1.0), ..default() },
+                Transform { scale: Vec3::new(0.25, 0.1, 0.25), ..default() },
                 MeshemData { data: metadata },
             ))
             .with_child((

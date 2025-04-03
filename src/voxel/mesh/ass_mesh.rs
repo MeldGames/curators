@@ -2,10 +2,9 @@
 //! ASS Meshing for short.
 //!
 
-use crate::voxel::voxel_grid::Voxel;
-
-use super::{
+use crate::voxel::{
     grid::{Grid, Scalar},
+    voxel_grid::Voxel,
     voxel_grid::VoxelGrid,
 };
 use bevy::{
