@@ -20,7 +20,7 @@ pub fn box_mesh(index: u32) -> Mesh {
             (Forward, [5, index]),
         ],
         [0.0, 0.0, 0.0],
-        0.001,
+        0.01,
         Some(1.0),
         1.0,
     )
@@ -200,8 +200,8 @@ pub fn meshem_update(
 
         let Some(mesh) = mesh else { continue; };
         let mesh = meshes.get_mut(mesh.id()).unwrap();
-        for changed in grid.changed() {
-            let linear_index = grid.linearize(*changed);
+        for change in grid.changed() {
+            let linear_index = grid.linearize(change.point);
 
             let neighbors: [Option<Voxel>; 6] = {
                 let mut r = [None; 6];
@@ -217,10 +217,13 @@ pub fn meshem_update(
                 r
             };
 
-            let voxel = grid.voxel(*changed);
-            let change =
-                if let Voxel::Air = voxel { VoxelChange::Broken } else { VoxelChange::Added };
-            meshem.data.log(change, linear_index as usize, Voxel::Dirt, neighbors);
+            let (voxel, meshem_change) =
+                if let Voxel::Air = change.new_voxel { 
+                    (change.last_voxel, VoxelChange::Broken)
+                } else {
+                    (change.new_voxel, VoxelChange::Added)
+                };
+            meshem.data.log(meshem_change, linear_index as usize, voxel, neighbors);
         }
 
         update_mesh::<Voxel>(mesh, &mut meshem.data, &*block_registry);
@@ -229,7 +232,7 @@ pub fn meshem_update(
             let array = grid.array();
             (array[0] as usize, array[1] as usize, array[2] as usize)
         };
-        //apply_smooth_lighting(&*block_registry, mesh, &meshem.data, dims, 0, grid.size() as usize, &grid.voxels);
+        apply_smooth_lighting(&*block_registry, mesh, &meshem.data, dims, 0, grid.size() as usize, &grid.voxels);
         grid.clear_changed();
     }
 }

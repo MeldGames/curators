@@ -63,7 +63,14 @@ pub struct VoxelGrid {
     pub voxels: Vec<Voxel>,
 
     // Changed over the last frame.
-    changed: Vec<[Scalar; 3]>,
+    changed: Vec<GridChange>,
+}
+
+#[derive(MemSize, Debug, Component, Reflect)]
+pub struct GridChange {
+    pub point: [Scalar; 3],
+    pub last_voxel: Voxel,
+    pub new_voxel: Voxel,
 }
 
 impl VoxelGrid {
@@ -115,12 +122,17 @@ impl VoxelGrid {
             panic!("Point out of bounds: {:?}", point);
         }
 
-        self.changed.push(point);
         let index = self.linearize(point);
+        let last_voxel = self.linear_voxel(index);
+        self.changed.push(GridChange {
+            point: point,
+            last_voxel: last_voxel,
+            new_voxel: voxel,
+        });
         self.voxels[index as usize] = voxel;
     }
 
-    pub fn changed(&self) -> impl Iterator<Item = &[Scalar; 3]> {
+    pub fn changed(&self) -> impl Iterator<Item = &GridChange> {
         self.changed.iter()
     }
 
