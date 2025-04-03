@@ -2,63 +2,38 @@
 #[allow(unused_imports, dead_code)]
 use bevy::pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
-use bevy::{color::palettes::css::LIMEGREEN, utils::HashMap};
+use bevy::utils::HashMap;
 use bevy_meshem::prelude::*;
 
 use super::voxel_grid::{Voxel, VoxelGrid};
+
+pub fn box_mesh(index: u32) -> Mesh {
+    generate_voxel_mesh(
+        [1.0, 1.0, 1.0],
+        [6, 4],
+        [
+            (Top, [0, index]),
+            (Bottom, [0, index]),
+            (Right, [2, index]),
+            (Left, [3, index]),
+            (Back, [4, index]),
+            (Forward, [5, index]),
+        ],
+        [0.0, 0.0, 0.0],
+        0.001,
+        Some(1.0),
+        1.0,
+    )
+}
 
 impl Voxel {
     pub fn box_mesh(&self) -> Option<Mesh> {
         match self {
             Voxel::Air => None,
-            Voxel::Dirt => Some(generate_voxel_mesh(
-                [1.0, 1.0, 1.0],
-                [6, 4],
-                [
-                    (Top, [0, 2]),
-                    (Bottom, [1, 2]),
-                    (Right, [2, 2]),
-                    (Left, [3, 2]),
-                    (Back, [4, 2]),
-                    (Forward, [5, 2]),
-                ],
-                [0.0, 0.0, 0.0],
-                0.001,
-                Some(0.8),
-                1.0,
-            )),
-            Voxel::Stone => Some(generate_voxel_mesh(
-                [1.0, 1.0, 1.0],
-                [6, 4],
-                [
-                    (Top, [0, 1]),
-                    (Bottom, [1, 1]),
-                    (Right, [2, 1]),
-                    (Left, [3, 1]),
-                    (Back, [4, 1]),
-                    (Forward, [5, 1]),
-                ],
-                [0.0, 0.0, 0.0],
-                0.05,
-                Some(0.8),
-                1.0,
-            )),
-            Voxel::Base => Some(generate_voxel_mesh(
-                [1.0, 1.0, 1.0],
-                [6, 4],
-                [
-                    (Top, [0, 3]),
-                    (Bottom, [1, 3]),
-                    (Right, [2, 3]),
-                    (Left, [3, 3]),
-                    (Back, [4, 3]),
-                    (Forward, [5, 3]),
-                ],
-                [0.0, 0.0, 0.0],
-                0.05,
-                Some(0.8),
-                1.0,
-            )),
+            Voxel::Grass => Some(box_mesh(0)),
+            Voxel::Stone => Some(box_mesh(1)),
+            Voxel::Dirt => Some(box_mesh(2)),
+            Voxel::Base => Some(box_mesh(3)),
             _ => None,
         }
     }
@@ -67,8 +42,8 @@ impl Voxel {
 pub struct BoxMeshPlugin;
 impl Plugin for BoxMeshPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(BlockRegistry::new())
-            .insert_resource(AmbientLight { brightness: 400.0, color: Color::WHITE });
+        app.insert_resource(BlockRegistry::new());
+            //.insert_resource(AmbientLight { brightness: 400.0, color: Color::WHITE });
 
         app.add_systems(Update, (setup_meshem, meshem_update));
     }
@@ -178,7 +153,7 @@ pub fn setup_meshem(
         let (culled_mesh, metadata) =
             mesh_grid::<Voxel>(dims, &[], &grid.voxels, &*breg, MeshingAlgorithm::Culling, Some(SmoothLightingParameters {
                 smoothing: 1.0,
-                apply_at_gen: true,
+                apply_at_gen: false,
                 intensity: 0.5,
                 max: 0.6,
             }))
@@ -200,7 +175,7 @@ pub fn setup_meshem(
                 },
                 Mesh3d(culled_mesh_handle),
                 MeshMaterial3d(materials.add(StandardMaterial {
-                    base_color: Color::Srgba(LIMEGREEN),
+                    base_color: Color::WHITE,
                     base_color_texture: Some(texture_mesh),
                     ..default()
                 })),
@@ -254,7 +229,7 @@ pub fn meshem_update(
             let array = grid.array();
             (array[0] as usize, array[1] as usize, array[2] as usize)
         };
-        apply_smooth_lighting(&*block_registry, mesh, &meshem.data, dims, 0, grid.size() as usize, &grid.voxels);
+        //apply_smooth_lighting(&*block_registry, mesh, &meshem.data, dims, 0, grid.size() as usize, &grid.voxels);
         grid.clear_changed();
     }
 }

@@ -36,7 +36,7 @@ impl Plugin for VoxelPlugin {
         for x in 0..width {
             for z in 0..length {
                 for y in 0..height {
-                    grid.set([x, y, z], Voxel::Stone);
+                    grid.set([x, y, z], Voxel::Dirt);
                 }
             }
         }
@@ -44,7 +44,7 @@ impl Plugin for VoxelPlugin {
         for x in 0..width {
             for z in 0..length {
                 for y in (height - 2)..height {
-                    grid.set([x, y, z], Voxel::Dirt);
+                    grid.set([x, y, z], Voxel::Grass);
                 }
             }
         }
@@ -99,9 +99,14 @@ impl Plugin for VoxelPlugin {
             box_mesh::Meshem,
         ));
 
-        app.world_mut().spawn((
+        /*app.world_mut().spawn((
             Transform::from_translation(Vec3::new(3.0, 3.0, 3.0)),
             PointLight { range: 200.0, intensity: 800000.0, shadows_enabled: true, ..Default::default() },
+        ));*/
+
+        app.world_mut().spawn((
+            Transform::from_translation(Vec3::new(3.0, 3.0, 3.0)).looking_at(Vec3::ZERO, Vec3::Y),
+            DirectionalLight { shadows_enabled: true, illuminance: 25_000.0, color: Color::WHITE, ..default() },
         ));
         app.world_mut().spawn((
             crate::camera::CameraController::default(),

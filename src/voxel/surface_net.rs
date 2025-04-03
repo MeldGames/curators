@@ -82,10 +82,7 @@ impl VoxelGrid {
 
             let sample = match self.voxel(point) {
                 Voxel::Air => 1.0,
-                Voxel::Dirt => -1.0,
-                Voxel::Stone => -1.0,
-                Voxel::Water => -1.0,
-                Voxel::Base => -1.0,
+                _ => -1.0,
             };
 
             let padded_point =

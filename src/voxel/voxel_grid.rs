@@ -23,6 +23,7 @@ use super::{grid::{Grid, Ordering, Scalar}, raycast::Hit};
 pub enum Voxel {
     Air,
     Dirt,
+    Grass,
     Stone,
     Water,
     Base,
@@ -33,6 +34,7 @@ impl Voxel  {
         [
             Voxel::Air,
             Voxel::Dirt,
+            Voxel::Grass,
             Voxel::Stone,
             Voxel::Water,
             Voxel::Base,
