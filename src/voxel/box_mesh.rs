@@ -11,22 +11,55 @@ impl Voxel {
     pub fn box_mesh(&self) -> Option<Mesh> {
         match self {
             Voxel::Air => None,
-            _ => Some(generate_voxel_mesh(
+            Voxel::Dirt => Some(generate_voxel_mesh(
                 [1.0, 1.0, 1.0],
-                [1, 4],
+                [6, 4],
                 [
-                    (Top, [0, 0]),
-                    (Bottom, [0, 0]),
-                    (Right, [0, 0]),
-                    (Left, [0, 0]),
-                    (Back, [0, 0]),
-                    (Forward, [0, 0]),
+                    (Top, [0, 2]),
+                    (Bottom, [1, 2]),
+                    (Right, [2, 2]),
+                    (Left, [3, 2]),
+                    (Back, [4, 2]),
+                    (Forward, [5, 2]),
+                ],
+                [0.0, 0.0, 0.0],
+                0.001,
+                Some(0.8),
+                1.0,
+            )),
+            Voxel::Stone => Some(generate_voxel_mesh(
+                [1.0, 1.0, 1.0],
+                [6, 4],
+                [
+                    (Top, [0, 1]),
+                    (Bottom, [1, 1]),
+                    (Right, [2, 1]),
+                    (Left, [3, 1]),
+                    (Back, [4, 1]),
+                    (Forward, [5, 1]),
                 ],
                 [0.0, 0.0, 0.0],
                 0.05,
                 Some(0.8),
                 1.0,
             )),
+            Voxel::Base => Some(generate_voxel_mesh(
+                [1.0, 1.0, 1.0],
+                [6, 4],
+                [
+                    (Top, [0, 3]),
+                    (Bottom, [1, 3]),
+                    (Right, [2, 3]),
+                    (Left, [3, 3]),
+                    (Back, [4, 3]),
+                    (Forward, [5, 3]),
+                ],
+                [0.0, 0.0, 0.0],
+                0.05,
+                Some(0.8),
+                1.0,
+            )),
+            _ => None,
         }
     }
 }
@@ -140,6 +173,7 @@ pub fn setup_meshem(
         };
         info!("Setting up meshem for grid: {:?}", dims);
         //let texture_mesh = asset_server.load("array_texture.png");
+        let texture_mesh = asset_server.load("texture_map.png");
 
         let (culled_mesh, metadata) =
             mesh_grid::<Voxel>(dims, &[], &grid.voxels, &*breg, MeshingAlgorithm::Culling, Some(SmoothLightingParameters {
@@ -167,7 +201,7 @@ pub fn setup_meshem(
                 Mesh3d(culled_mesh_handle),
                 MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::Srgba(LIMEGREEN),
-                    //base_color_texture: Some(texture_mesh),
+                    base_color_texture: Some(texture_mesh),
                     ..default()
                 })),
             ));
