@@ -2,12 +2,12 @@ use bevy::{pbr::wireframe::WireframeConfig, prelude::*};
 use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
 
+pub mod ass_mesh;
+pub mod box_mesh;
 pub mod pick;
 pub mod raycast;
-pub mod voxel_grid;
-pub mod box_mesh;
-pub mod ass_mesh;
 pub mod surface_net;
+pub mod voxel_grid;
 
 /// Flat vec storage of 2d/3d grids.
 pub mod grid;
@@ -17,7 +17,7 @@ pub struct VoxelPlugin;
 
 impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Voxel>();//.register_type::<VoxelGrid>();
+        app.register_type::<Voxel>(); //.register_type::<VoxelGrid>();
 
         app.add_plugins(surface_net::SurfaceNetPlugin);
         app.add_plugins(ass_mesh::ASSMeshPlugin);
@@ -106,7 +106,12 @@ impl Plugin for VoxelPlugin {
 
         app.world_mut().spawn((
             Transform::from_translation(Vec3::new(3.0, 3.0, 3.0)).looking_at(Vec3::ZERO, Vec3::Y),
-            DirectionalLight { shadows_enabled: true, illuminance: 25_000.0, color: Color::WHITE, ..default() },
+            DirectionalLight {
+                shadows_enabled: true,
+                illuminance: 25_000.0,
+                color: Color::WHITE,
+                ..default()
+            },
         ));
         app.world_mut().spawn((
             crate::camera::CameraController::default(),

@@ -36,12 +36,7 @@ impl Ordering {
 
 impl Grid {
     pub fn new([x, y, z]: [Scalar; 3], ordering: Ordering) -> Self {
-        Self {
-            array: [x, y, z],
-            strides: ordering.strides([x, y, z]),
-            ordering: ordering,
-            size: x * y * z,
-        }
+        Self { array: [x, y, z], strides: ordering.strides([x, y, z]), ordering, size: x * y * z }
     }
 
     /// Pad the this shape.
@@ -54,7 +49,9 @@ impl Grid {
     /// Convert this 3d point into the linear index of this grid.
     #[inline]
     pub fn linearize(&self, point: [Scalar; 3]) -> Scalar {
-        self.strides[0].wrapping_mul(point[0]) + self.strides[1].wrapping_mul(point[1]) + self.strides[2].wrapping_mul(point[2])
+        self.strides[0].wrapping_mul(point[0])
+            + self.strides[1].wrapping_mul(point[1])
+            + self.strides[2].wrapping_mul(point[2])
     }
 
     /// Convert this index into this grid into a 3d point.

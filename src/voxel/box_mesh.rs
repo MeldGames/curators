@@ -43,7 +43,7 @@ pub struct BoxMeshPlugin;
 impl Plugin for BoxMeshPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(BlockRegistry::new());
-            //.insert_resource(AmbientLight { brightness: 400.0, color: Color::WHITE });
+        //.insert_resource(AmbientLight { brightness: 400.0, color: Color::WHITE });
 
         app.add_systems(Update, (setup_meshem, meshem_update));
     }
@@ -128,7 +128,12 @@ impl VoxelRegistry for BlockRegistry {
     /// unpredictable behaviour. We chose these 3 because they are very
     /// common, the algorithm does preserve UV data.
     fn all_attributes(&self) -> Vec<bevy::render::mesh::MeshVertexAttribute> {
-        return vec![Mesh::ATTRIBUTE_POSITION, Mesh::ATTRIBUTE_UV_0, Mesh::ATTRIBUTE_NORMAL, Mesh::ATTRIBUTE_COLOR];
+        return vec![
+            Mesh::ATTRIBUTE_POSITION,
+            Mesh::ATTRIBUTE_UV_0,
+            Mesh::ATTRIBUTE_NORMAL,
+            Mesh::ATTRIBUTE_COLOR,
+        ];
     }
 }
 
@@ -150,29 +155,30 @@ pub fn setup_meshem(
         //let texture_mesh = asset_server.load("array_texture.png");
         let texture_mesh = asset_server.load("texture_map.png");
 
-        let (culled_mesh, metadata) =
-            mesh_grid::<Voxel>(dims, &[], &grid.voxels, &*breg, MeshingAlgorithm::Culling, Some(SmoothLightingParameters {
+        let (culled_mesh, metadata) = mesh_grid::<Voxel>(
+            dims,
+            &[],
+            &grid.voxels,
+            &*breg,
+            MeshingAlgorithm::Culling,
+            Some(SmoothLightingParameters {
                 smoothing: 1.0,
                 apply_at_gen: false,
                 intensity: 0.5,
                 max: 0.6,
-            }))
-                .unwrap();
+            }),
+        )
+        .unwrap();
         let culled_mesh_handle: Handle<Mesh> = meshes.add(culled_mesh.clone());
 
-        commands.entity(grid_entity)
+        commands
+            .entity(grid_entity)
             .insert((
-                Transform {
-                    scale: Vec3::new(1.0, 0.1, 1.0),
-                    ..default()
-                },
+                Transform { scale: Vec3::new(1.0, 0.1, 1.0), ..default() },
                 MeshemData { data: metadata },
             ))
             .with_child((
-                Transform {
-                    translation: Vec3::new(0.5, 0.5, 0.5),
-                    ..default()
-                },
+                Transform { translation: Vec3::new(0.5, 0.5, 0.5), ..default() },
                 Mesh3d(culled_mesh_handle),
                 MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::WHITE,
@@ -182,7 +188,6 @@ pub fn setup_meshem(
             ));
     }
 }
-
 
 pub fn meshem_update(
     mut meshem: Query<(&mut VoxelGrid, &mut MeshemData, &Children), Changed<VoxelGrid>>,
@@ -198,7 +203,9 @@ pub fn meshem_update(
             }
         }
 
-        let Some(mesh) = mesh else { continue; };
+        let Some(mesh) = mesh else {
+            continue;
+        };
         let mesh = meshes.get_mut(mesh.id()).unwrap();
         for change in grid.changed() {
             let linear_index = grid.linearize(change.point);
@@ -211,18 +218,17 @@ pub fn meshem_update(
                         Some(j) => match grid.linear_voxel(j as i32) {
                             Voxel::Air => {},
                             voxel => r[i] = Some(voxel),
-                        }
+                        },
                     }
                 }
                 r
             };
 
-            let (voxel, meshem_change) =
-                if let Voxel::Air = change.new_voxel { 
-                    (change.last_voxel, VoxelChange::Broken)
-                } else {
-                    (change.new_voxel, VoxelChange::Added)
-                };
+            let (voxel, meshem_change) = if let Voxel::Air = change.new_voxel {
+                (change.last_voxel, VoxelChange::Broken)
+            } else {
+                (change.new_voxel, VoxelChange::Added)
+            };
             meshem.data.log(meshem_change, linear_index as usize, voxel, neighbors);
         }
 
@@ -232,7 +238,15 @@ pub fn meshem_update(
             let array = grid.array();
             (array[0] as usize, array[1] as usize, array[2] as usize)
         };
-        apply_smooth_lighting(&*block_registry, mesh, &meshem.data, dims, 0, grid.size() as usize, &grid.voxels);
+        apply_smooth_lighting(
+            &*block_registry,
+            mesh,
+            &meshem.data,
+            dims,
+            0,
+            grid.size() as usize,
+            &grid.voxels,
+        );
         grid.clear_changed();
     }
 }

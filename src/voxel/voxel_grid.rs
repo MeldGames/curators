@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::voxel::raycast::BoundingVolume3;
 
-use super::{grid::{Grid, Ordering, Scalar}, raycast::Hit};
+use super::{
+    grid::{Grid, Ordering, Scalar},
+    raycast::Hit,
+};
 
 #[derive(
     MemSize,
@@ -29,16 +32,9 @@ pub enum Voxel {
     Base,
 }
 
-impl Voxel  {
+impl Voxel {
     pub fn iter() -> impl Iterator<Item = Voxel> {
-        [
-            Voxel::Air,
-            Voxel::Dirt,
-            Voxel::Grass,
-            Voxel::Stone,
-            Voxel::Water,
-            Voxel::Base,
-        ].into_iter()
+        [Voxel::Air, Voxel::Dirt, Voxel::Grass, Voxel::Stone, Voxel::Water, Voxel::Base].into_iter()
     }
 
     pub fn pickable(&self) -> bool {
@@ -124,11 +120,7 @@ impl VoxelGrid {
 
         let index = self.linearize(point);
         let last_voxel = self.linear_voxel(index);
-        self.changed.push(GridChange {
-            point: point,
-            last_voxel: last_voxel,
-            new_voxel: voxel,
-        });
+        self.changed.push(GridChange { point, last_voxel, new_voxel: voxel });
         self.voxels[index as usize] = voxel;
     }
 
@@ -185,13 +177,11 @@ impl VoxelGrid {
 
     pub fn cast_ray(&self, grid_transform: &GlobalTransform, ray: Ray3d) -> Option<Hit> {
         let inv_matrix = grid_transform.compute_matrix().inverse();
-        let local_direction = Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3())).unwrap();
+        let local_direction =
+            Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3())).unwrap();
         let local_origin = inv_matrix.transform_vector3(ray.origin);
 
-        let local_ray = Ray3d {
-            origin: local_origin,
-            direction: local_direction,
-        };
+        let local_ray = Ray3d { origin: local_origin, direction: local_direction };
 
         self.cast_local_ray(local_ray)
     }
