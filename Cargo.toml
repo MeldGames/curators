@@ -12,5 +12,6 @@ rand = "0.9"
 serde = "1.0.219"
 avian3d = "0.2.1"
 
+iyes_perf_ui = "0.4.0"
 mem_dbg = "0.3"
 bevy-inspector-egui = "0.30.0"
