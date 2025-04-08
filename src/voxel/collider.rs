@@ -10,8 +10,8 @@ impl Plugin for VoxelBoxColliderPlugin {
         app.add_plugins(PhysicsPlugins::default());
         app.add_plugins(PhysicsDebugPlugin::default());
 
-        app.add_systems(Update, spawn_box_colliders.before(VoxelGrid::clear_changed_system));
-        app.add_systems(Update, spawn_ball);
+        //app.add_systems(Update, spawn_box_colliders.before(VoxelGrid::clear_changed_system));
+        //app.add_systems(Update, spawn_ball);
     }
 }
 
@@ -45,7 +45,7 @@ pub fn spawn_ball(mut commands: Commands, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::KeyB) {
         commands.spawn((
             RigidBody::Dynamic,
-            Transform::from_xyz(1.0, 10.0,1.0),
+            Transform::from_xyz(1.0, 10.0, 1.0),
             Collider::sphere(0.5),
         ));
     }

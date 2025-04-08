@@ -38,6 +38,13 @@ impl Voxel {
         [Voxel::Air, Voxel::Dirt, Voxel::Grass, Voxel::Stone, Voxel::Water, Voxel::Base].into_iter()
     }
 
+    pub fn filling(&self) -> bool {
+        match self {
+            Voxel::Air => false,
+            _ => true,
+        }
+    }
+
     pub fn pickable(&self) -> bool {
         match self {
             Voxel::Air => false,
@@ -58,6 +65,7 @@ impl Voxel {
 pub struct VoxelGrid {
     pub grid: Grid,
     pub voxels: Vec<Voxel>,
+    pub surface: Vec<Scalar>,
 
     // Changed over the last frame.
     changed: Vec<GridChange>,
@@ -74,7 +82,12 @@ impl VoxelGrid {
     pub fn new([x, y, z]: [Scalar; 3], ordering: Ordering) -> Self {
         let grid = Grid::new([x, y, z], ordering);
         let size = grid.size();
-        Self { grid, voxels: vec![Voxel::Air; size as usize], changed: Vec::new() }
+        Self {
+            grid,
+            voxels: vec![Voxel::Air; size as usize],
+            surface: Vec::new(),
+            changed: Vec::new(),
+        }
     }
 
     #[inline]
@@ -122,6 +135,14 @@ impl VoxelGrid {
         let index = self.linearize(point);
         let last_voxel = self.linear_voxel(index);
         self.changed.push(GridChange { point, last_voxel, new_voxel: voxel });
+
+        if voxel.filling() {
+            // if filling, check that neighbors are still in the surface.
+
+        } else {
+
+        }
+
         self.voxels[index as usize] = voxel;
     }
 

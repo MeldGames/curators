@@ -186,6 +186,8 @@ pub fn setup_meshem(
                 MeshMaterial3d(materials.add(StandardMaterial {
                     base_color: Color::WHITE,
                     base_color_texture: Some(texture_mesh),
+                    perceptual_roughness: 1.0,
+                    reflectance: 0.0,
                     ..default()
                 })),
             ));
@@ -199,6 +201,10 @@ pub fn meshem_update(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (mut grid, mut meshem, children) in &mut meshem {
+        if grid.changed().count() == 0 {
+            continue;
+        }
+
         let mut mesh: Option<&Mesh3d> = None;
         for child in children {
             if let Ok(child_mesh) = mesh3ds.get(*child) {

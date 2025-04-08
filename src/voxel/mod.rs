@@ -25,9 +25,7 @@ impl Plugin for VoxelPlugin {
         app.add_plugins(pick::VoxelPickPlugin);
         app.add_plugins(collider::VoxelBoxColliderPlugin);
 
-        app
-            .add_systems(Update, VoxelGrid::clear_changed_system)
-            .add_systems(Update, rename_grids);
+        app.add_systems(Update, VoxelGrid::clear_changed_system).add_systems(Update, rename_grids);
 
         app.insert_resource(WireframeConfig { global: false, ..default() });
 
@@ -109,7 +107,7 @@ impl Plugin for VoxelPlugin {
         ));*/
 
         app.world_mut().spawn((
-            Transform::from_translation(Vec3::new(3.0, 3.0, 3.0)).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_translation(Vec3::new(0.0, 10.0, 10.0)).looking_at(Vec3::ZERO, Vec3::Y),
             DirectionalLight {
                 shadows_enabled: true,
                 illuminance: 25_000.0,
@@ -128,10 +126,11 @@ impl Plugin for VoxelPlugin {
     }
 }
 
-
-pub fn rename_grids(mut commands: Commands, grids: Query<Entity, (With<VoxelGrid>, Without<Name>)>) {
+pub fn rename_grids(
+    mut commands: Commands,
+    grids: Query<Entity, (With<VoxelGrid>, Without<Name>)>,
+) {
     for grid in &grids {
-        commands.entity(grid)
-            .insert(Name::new("Voxel Grid"));
+        commands.entity(grid).insert(Name::new("Voxel Grid"));
     }
 }
