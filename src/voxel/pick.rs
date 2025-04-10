@@ -22,7 +22,8 @@ pub fn draw_cursor(
         return;
     };
 
-    // Calculate a ray pointing from the camera into the world based on the cursor's position.
+    // Calculate a ray pointing from the camera into the world based on the cursor's
+    // position.
 
     let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
         return;
@@ -31,13 +32,15 @@ pub fn draw_cursor(
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
-    let (grid_transform, mut grid) = grids.single_mut();
+    let Ok((grid_transform, mut grid)) = grids.get_single_mut() else {
+        return;
+    };
     let hit = grid.cast_ray(grid_transform, ray);
 
     // Draw a circle just above the ground plane at that position.
 
     if let Some(hit) = hit {
-        //info!("hit: {:?}", hit);
+        // info!("hit: {:?}", hit);
         let point_ivec: IVec3 = hit.voxel.into();
         let point: Vec3 = point_ivec.as_vec3() + Vec3::splat(0.5);
 
