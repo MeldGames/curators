@@ -1,8 +1,9 @@
 //! Basic static box colliders
 
-use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
 use avian3d::prelude::*;
 use bevy::prelude::*;
+
+use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
 
 pub struct VoxelBoxColliderPlugin;
 impl Plugin for VoxelBoxColliderPlugin {
@@ -10,10 +11,12 @@ impl Plugin for VoxelBoxColliderPlugin {
         app.add_plugins(PhysicsPlugins::default());
         app.add_plugins(PhysicsDebugPlugin::default());
 
-        //app.add_systems(Update, spawn_box_colliders.before(VoxelGrid::clear_changed_system));
-        //app.add_systems(Update, spawn_ball);
+        app.add_systems(Update, spawn_box_colliders.before(VoxelGrid::clear_changed_system));
+        // app.add_systems(Update, spawn_ball);
     }
 }
+
+pub fn spawn_mesh_collider() {}
 
 pub fn spawn_box_colliders(
     mut commands: Commands,

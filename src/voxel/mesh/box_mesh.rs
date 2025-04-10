@@ -20,7 +20,7 @@ pub fn box_mesh(index: u32) -> Mesh {
             (Forward, [5, index]),
         ],
         [0.0, 0.0, 0.0],
-        0.01,
+        0.05,
         Some(1.0),
         1.0,
     )
@@ -155,7 +155,7 @@ pub fn setup_meshem(
             (array[0] as usize, array[1] as usize, array[2] as usize)
         };
         info!("Setting up meshem for grid: {:?}", dims);
-        //let texture_mesh = asset_server.load("array_texture.png");
+        // let texture_mesh = asset_server.load("array_texture.png");
         let texture_mesh = asset_server.load("texture_map.png");
 
         let (culled_mesh, metadata) = mesh_grid::<Voxel>(
@@ -176,10 +176,9 @@ pub fn setup_meshem(
 
         commands
             .entity(grid_entity)
-            .insert((
-                Transform { scale: Vec3::new(0.25, 0.1, 0.25), ..default() },
-                MeshemData { data: metadata },
-            ))
+            .insert((Transform { scale: Vec3::new(0.25, 0.1, 0.25), ..default() }, MeshemData {
+                data: metadata,
+            }))
             .with_child((
                 Transform { translation: Vec3::new(0.5, 0.5, 0.5), ..default() },
                 Mesh3d(culled_mesh_handle),
@@ -260,47 +259,45 @@ pub fn meshem_update(
     }
 }
 
-/*
-/// System to add or break random voxels.
-fn mesh_update(
-    mut meshy: Query<(&mut VoxelGrid, &mut MeshemData)>,
-    breg: Res<BlockRegistry>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mesh_query: Query<&Mesh3d>,
-    mut event_reader: EventReader<RegenerateMesh>,
-) {
-    for _ in event_reader.read() {
-        let mesh = meshes
-            .get_mut(mesh_query.get_single().unwrap())
-            .expect("Couldn't get a mut ref to the mesh");
-
-        let m = meshy.get_single_mut().unwrap().into_inner();
-        let mut rng = rand::thread_rng();
-        let choice = m.grid.iter().enumerate().choose(&mut rng).unwrap();
-        let neighbors: [Option<u16>; 6] = {
-            let mut r = [None; 6];
-            for i in 0..6 {
-                match get_neighbor(choice.0, Face::from(i), m.meta.dims) {
-                    None => {},
-                    Some(j) => r[i] = Some(m.grid[j]),
-                }
-            }
-            r
-        };
-        match choice {
-            (i, 1) => {
-                m.meta.log(VoxelChange::Broken, i, 1, neighbors);
-                update_mesh::<Voxel>(mesh, &mut m.meta, breg.into_inner());
-                m.grid[i] = 0;
-            },
-            (i, 0) => {
-                m.meta.log(VoxelChange::Added, i, 1, neighbors);
-                update_mesh::<Voxel>(mesh, &mut m.meta, breg.into_inner());
-                m.grid[i] = 1;
-            },
-            _ => {},
-        }
-        break;
-    }
-}
-*/
+// System to add or break random voxels.
+// fn mesh_update(
+// mut meshy: Query<(&mut VoxelGrid, &mut MeshemData)>,
+// breg: Res<BlockRegistry>,
+// mut meshes: ResMut<Assets<Mesh>>,
+// mesh_query: Query<&Mesh3d>,
+// mut event_reader: EventReader<RegenerateMesh>,
+// ) {
+// for _ in event_reader.read() {
+// let mesh = meshes
+// .get_mut(mesh_query.get_single().unwrap())
+// .expect("Couldn't get a mut ref to the mesh");
+//
+// let m = meshy.get_single_mut().unwrap().into_inner();
+// let mut rng = rand::thread_rng();
+// let choice = m.grid.iter().enumerate().choose(&mut rng).unwrap();
+// let neighbors: [Option<u16>; 6] = {
+// let mut r = [None; 6];
+// for i in 0..6 {
+// match get_neighbor(choice.0, Face::from(i), m.meta.dims) {
+// None => {},
+// Some(j) => r[i] = Some(m.grid[j]),
+// }
+// }
+// r
+// };
+// match choice {
+// (i, 1) => {
+// m.meta.log(VoxelChange::Broken, i, 1, neighbors);
+// update_mesh::<Voxel>(mesh, &mut m.meta, breg.into_inner());
+// m.grid[i] = 0;
+// },
+// (i, 0) => {
+// m.meta.log(VoxelChange::Added, i, 1, neighbors);
+// update_mesh::<Voxel>(mesh, &mut m.meta, breg.into_inner());
+// m.grid[i] = 1;
+// },
+// _ => {},
+// }
+// break;
+// }
+// }

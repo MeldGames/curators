@@ -102,34 +102,11 @@ impl Plugin for VoxelPlugin {
             mesh::box_mesh::Meshem,
         ));
 
+        app.add_systems(Startup, spawn_directional_lights);
         // app.world_mut().spawn((
         // Transform::from_translation(Vec3::new(3.0, 3.0, 3.0)),
         // PointLight { range: 200.0, intensity: 800000.0, shadows_enabled: true,
         // ..Default::default() }, ));
-
-        app.world_mut().spawn((
-            Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)).looking_at(Vec3::ZERO, Vec3::Y),
-            DirectionalLight {
-                shadows_enabled: false,
-                illuminance: 25_000.0,
-                color: Color::WHITE,
-                ..default()
-            },
-        ));
-
-        let angled_lights =
-            [Vec3::Y + Vec3::Z, Vec3::Y - Vec3::Z, Vec3::Y + Vec3::X, Vec3::Y - Vec3::X];
-        for light in angled_lights {
-            app.world_mut().spawn((
-                Transform::from_translation(light).looking_at(Vec3::ZERO, Vec3::Y),
-                DirectionalLight {
-                    shadows_enabled: false,
-                    illuminance: 10_000.0,
-                    color: Color::WHITE,
-                    ..default()
-                },
-            ));
-        }
 
         app.world_mut().spawn((
             crate::camera::CameraController::default(),
@@ -138,6 +115,32 @@ impl Plugin for VoxelPlugin {
             Projection::Perspective(PerspectiveProjection::default()),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        ));
+    }
+}
+
+pub fn spawn_directional_lights(mut commands: Commands) {
+    commands.spawn((
+        Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)).looking_at(Vec3::ZERO, Vec3::Y),
+        DirectionalLight {
+            shadows_enabled: false,
+            illuminance: 25_000.0,
+            color: Color::WHITE,
+            ..default()
+        },
+    ));
+
+    let angled_lights =
+        [Vec3::Y + Vec3::Z, Vec3::Y - Vec3::Z, Vec3::Y + Vec3::X, Vec3::Y - Vec3::X];
+    for light in angled_lights {
+        commands.spawn((
+            Transform::from_translation(light).looking_at(Vec3::ZERO, Vec3::Y),
+            DirectionalLight {
+                shadows_enabled: false,
+                illuminance: 10_000.0,
+                color: Color::WHITE,
+                ..default()
+            },
         ));
     }
 }
