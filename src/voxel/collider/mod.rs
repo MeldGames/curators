@@ -1,8 +1,9 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-pub mod avian;
+//pub mod avian;
 pub mod boxes;
+pub mod trimesh;
 
 pub struct VoxelColliderPlugin;
 impl Plugin for VoxelColliderPlugin {
@@ -11,5 +12,6 @@ impl Plugin for VoxelColliderPlugin {
         app.add_plugins(PhysicsDebugPlugin::default());
 
         //app.add_plugins(boxes::VoxelBoxColliderPlugin);
+        app.add_plugins(trimesh::VoxelTrimeshColliderPlugin);
     }
 }

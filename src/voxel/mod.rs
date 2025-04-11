@@ -21,7 +21,7 @@ impl Plugin for VoxelPlugin {
 
         app.add_plugins(mesh::surface_net::SurfaceNetPlugin);
         app.add_plugins(mesh::ass_mesh::ASSMeshPlugin);
-        app.add_plugins(mesh::box_mesh::BoxMeshPlugin);
+        app.add_plugins(mesh::meshem::BoxMeshPlugin);
 
         app.add_plugins(pick::VoxelPickPlugin);
         app.add_plugins(collider::VoxelColliderPlugin);
@@ -99,7 +99,7 @@ impl Plugin for VoxelPlugin {
             grid,
             // mesh::surface_net::SurfaceNet::default(),
             // mesh::ass_mesh::ASSMesh,
-            mesh::box_mesh::Meshem,
+            mesh::meshem::Meshem,
         ));
 
         app.add_systems(Startup, spawn_directional_lights);
