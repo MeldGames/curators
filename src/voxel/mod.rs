@@ -24,7 +24,7 @@ impl Plugin for VoxelPlugin {
         app.add_plugins(mesh::box_mesh::BoxMeshPlugin);
 
         app.add_plugins(pick::VoxelPickPlugin);
-        app.add_plugins(collider::VoxelBoxColliderPlugin);
+        app.add_plugins(collider::VoxelColliderPlugin);
 
         app.add_systems(Update, VoxelGrid::clear_changed_system).add_systems(Update, rename_grids);
 
@@ -32,10 +32,10 @@ impl Plugin for VoxelPlugin {
 
         // Meshem is XZY
         // Others are XYZ
-        let mut grid = VoxelGrid::new([128, 50, 128], Ordering::XZY);
         let width = 64;
         let length = 64;
         let height = 20;
+        let mut grid = VoxelGrid::new([width, height.max(50), length], Ordering::XZY);
         for x in 0..width {
             for z in 0..length {
                 for y in 0..height {
