@@ -3,6 +3,8 @@ use bevy::prelude::*;
 use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
 
+use crate::character;
+
 pub mod collider;
 pub mod mesh;
 pub mod pick;
@@ -25,6 +27,7 @@ impl Plugin for VoxelPlugin {
 
         app.add_plugins(pick::VoxelPickPlugin);
         app.add_plugins(collider::VoxelColliderPlugin);
+        app.add_plugins(character::plugin);
 
         app.add_systems(Update, VoxelGrid::clear_changed_system).add_systems(Update, rename_grids);
 

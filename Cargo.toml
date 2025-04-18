@@ -8,7 +8,7 @@ bevy = { version = "0.15.3", features = ["trace_tracy"] }
 bevy_meshem = { git = "https://github.com/Adamkob12/Meshem" }
 #bevy_meshem = { path = "../Meshem" }
 fast-surface-nets = "0.2.1"
-rand = "0.9"
+rand = "0.9.1"
 serde = "1.0.219"
 avian3d = "0.2.1"
 

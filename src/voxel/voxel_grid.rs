@@ -60,7 +60,9 @@ impl Voxel {
     }
 }
 
-/// Simple Voxel grid, zero optimizations done like octrees/etc.
+// TODO: Chunking
+
+/// Simple Voxel grid, zero optimizations done like octrees/chunking/etc.
 #[derive(MemSize, Debug, Component, Reflect)]
 pub struct VoxelGrid {
     pub grid: Grid,
