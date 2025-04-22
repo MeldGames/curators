@@ -29,10 +29,10 @@ const DEPENETRATION_EPSILON: f32 = 0.01;
 
 /// Result of a movement calculation iteration
 #[derive(Debug)]
-struct MovementResult {
-    movement: Vec3,
-    remaining_velocity: Vec3,
-    hit_normal: Option<Vec3>,
+pub struct MovementResult {
+    pub movement: Vec3,
+    pub remaining_velocity: Vec3,
+    pub hit_normal: Option<Vec3>,
 }
 
 /// Main system for handling character movement and collision response
@@ -102,7 +102,7 @@ pub fn collide_and_slide_system(
 ///
 /// Returns a `MovementResult` containing the actual movement performed and any
 /// remaining velocity that couldn't be applied due to collisions.
-fn process_movement(
+pub fn process_movement(
     spatial_query: &mut spatial_query::SpatialQuery,
     filter: &spatial_query::SpatialQueryFilter,
     controller: &KinematicCharacterController,

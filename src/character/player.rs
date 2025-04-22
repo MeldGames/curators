@@ -1,5 +1,6 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
+use bevy_enhanced_input::prelude::*;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(Startup, spawn_player);
@@ -15,11 +16,11 @@ pub fn spawn_player(mut commands: Commands) {
         Player,
         Transform::from_xyz(0.0, 10.0, 0.0),
         collider.clone(),
-        RigidBody::Kinematic,
         super::kinematic::KinematicCharacterController {
             up: Vec3::Y,
             collider: collider.clone(),
             ..default()
         },
+        Actions::<super::input::PlayerInput>::default(),
     ));
 }
