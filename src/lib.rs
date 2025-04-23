@@ -13,13 +13,15 @@ impl Plugin for ServerPlugin {
 pub struct ClientPlugin;
 impl Plugin for ClientPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(camera::CameraControllerPlugin);
+        app.add_plugins(camera::plugin);
     }
 }
 
 pub struct SharedPlugin;
 impl Plugin for SharedPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(bevy_enhanced_input::EnhancedInputPlugin);
+
         app.add_plugins(voxel::VoxelPlugin::default())
             .add_plugins(WireframePlugin::default())
             .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())

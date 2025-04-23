@@ -39,7 +39,7 @@ pub fn spawn_box_colliders(
         }
 
         let mut collider = Collider::compound(colliders);
-        collider.set_scale(Vec3::new(0.25, 0.1, 0.25), 32);
+        collider.set_scale(crate::voxel::GRID_SCALE, 32);
         commands.entity(entity).insert((collider, RigidBody::Static));
     }
 }

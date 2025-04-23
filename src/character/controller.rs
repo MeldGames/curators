@@ -13,7 +13,7 @@ pub(super) fn plugin(app: &mut App) {
 
 pub fn apply_movement(trigger: Trigger<Fired<Move>>, mut players: Query<&mut KinematicCharacterController>) {
     let mut controller = players.get_mut(trigger.entity()).unwrap();
-    let speed = 10.0;
+    let speed = 5.0;
     controller.velocity.x = trigger.value.x * speed;
     controller.velocity.z = trigger.value.y * speed;
 

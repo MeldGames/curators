@@ -9,7 +9,6 @@ pub struct Controlling;
 pub struct PlayerInput;
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_plugins(EnhancedInputPlugin);
 
     app.add_input_context::<PlayerInput>();
 

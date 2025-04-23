@@ -31,7 +31,7 @@ pub fn spawn_mesh_collider(
 
         let mesh = meshes.get(mesh).unwrap();
         let mut new_collider = Collider::trimesh_from_mesh(mesh).unwrap();
-        new_collider.set_scale(Vec3::new(0.25, 0.1, 0.25), 32);
+        new_collider.set_scale(crate::voxel::GRID_SCALE, 32);
 
         if let Some(child) = children.iter().find_map(|child| collider_child.get(*child).ok()) {
             let Ok(mut collider) = colliders.get_mut(child) else {

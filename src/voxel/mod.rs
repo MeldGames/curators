@@ -1,5 +1,6 @@
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
+use bevy_enhanced_input::prelude::Actions;
 use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
 
@@ -10,6 +11,8 @@ pub mod mesh;
 pub mod pick;
 pub mod raycast;
 pub mod voxel_grid;
+
+pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.25, 1.0);
 
 /// Flat vec storage of 2d/3d grids.
 pub mod grid;
@@ -33,6 +36,12 @@ impl Plugin for VoxelPlugin {
 
         app.insert_resource(WireframeConfig { global: false, ..default() });
 
+        app.add_systems(Startup, spawn_voxel_grid);
+        app.add_systems(Startup, spawn_directional_lights);
+    }
+}
+
+pub fn spawn_voxel_grid(mut commands: Commands) {
         // Meshem is XZY
         // Others are XYZ
         let width = 64;
@@ -98,28 +107,23 @@ impl Plugin for VoxelPlugin {
 
         grid.set([1, 1, 1], Voxel::Dirt);
 
-        app.world_mut().spawn((
+        commands.spawn((
             grid,
             // mesh::surface_net::SurfaceNet::default(),
             // mesh::ass_mesh::ASSMesh,
             mesh::meshem::Meshem,
         ));
 
-        app.add_systems(Startup, spawn_directional_lights);
-        // app.world_mut().spawn((
-        // Transform::from_translation(Vec3::new(3.0, 3.0, 3.0)),
-        // PointLight { range: 200.0, intensity: 800000.0, shadows_enabled: true,
-        // ..Default::default() }, ));
-
-        app.world_mut().spawn((
-            crate::camera::CameraController::default(),
+        commands.spawn((
+            //Actions::<crate::camera::Flying>::default(),
+            //Actions::<Flying>::default(),
+            crate::camera::flying::CameraController::default(),
             Camera { is_active: true, ..default() },
             Camera3d::default(),
             Projection::Perspective(PerspectiveProjection::default()),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ));
-    }
 }
 
 pub fn spawn_directional_lights(mut commands: Commands) {

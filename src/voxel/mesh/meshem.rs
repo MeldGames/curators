@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy_meshem::prelude::*;
 
-use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
+use crate::voxel::{voxel_grid::{Voxel, VoxelGrid}, GRID_SCALE};
 
 pub fn box_mesh(index: u32) -> Mesh {
     generate_voxel_mesh(
@@ -176,7 +176,7 @@ pub fn setup_meshem(
 
         commands
             .entity(grid_entity)
-            .insert((Transform { scale: Vec3::new(0.25, 0.1, 0.25), ..default() }, MeshemData {
+            .insert((Transform { scale: GRID_SCALE, ..default() }, MeshemData {
                 data: metadata,
             }))
             .with_child((

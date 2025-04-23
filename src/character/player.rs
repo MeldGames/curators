@@ -11,7 +11,7 @@ pub(super) fn plugin(app: &mut App) {
 pub struct Player;
 
 pub fn spawn_player(mut commands: Commands) {
-    let collider = Collider::capsule(0.5, 1.0);
+    let collider = Collider::capsule(0.4, 0.8);
     commands.spawn((
         Player,
         Transform::from_xyz(0.0, 10.0, 0.0),
