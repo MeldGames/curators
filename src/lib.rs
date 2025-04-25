@@ -2,6 +2,7 @@ use bevy::{pbr::wireframe::WireframePlugin, prelude::*};
 use iyes_perf_ui::prelude::*;
 
 pub mod camera;
+pub mod cursor;
 pub mod character;
 pub mod voxel;
 
@@ -13,7 +14,9 @@ impl Plugin for ServerPlugin {
 pub struct ClientPlugin;
 impl Plugin for ClientPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(camera::plugin);
+        app
+            .add_plugins(camera::plugin)
+            .add_plugins(cursor::plugin);
     }
 }
 

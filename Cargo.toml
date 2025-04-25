@@ -10,7 +10,7 @@ bevy = { version = "0.15.3", features = ["dynamic_linking", "trace_tracy"] }
 # Bevy crates
 iyes_perf_ui = "0.4.0"
 bevy-inspector-egui = "0.30.0"
-bevy_enhanced_input = "0.9.0"
+bevy_enhanced_input = "0.10.0"
 bevy_meshem = { git = "https://github.com/Adamkob12/Meshem" }
 #bevy_meshem = { path = "../Meshem" }
 avian3d = "0.2.1"

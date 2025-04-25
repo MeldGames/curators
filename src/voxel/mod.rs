@@ -4,7 +4,7 @@ use bevy_enhanced_input::prelude::Actions;
 use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
 
-use crate::character;
+use crate::{camera::{FlyingCamera, FlyingState, FlyingSettings}, character};
 
 pub mod collider;
 pub mod mesh;
@@ -44,9 +44,9 @@ impl Plugin for VoxelPlugin {
 pub fn spawn_voxel_grid(mut commands: Commands) {
         // Meshem is XZY
         // Others are XYZ
-        let width = 64;
-        let length = 64;
-        let height = 20;
+        let width = 16;
+        let length = 16;
+        let height = 10;
         let mut grid = VoxelGrid::new([width, height.max(50), length], Ordering::XZY);
         for x in 0..width {
             for z in 0..length {
@@ -115,9 +115,9 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         ));
 
         commands.spawn((
-            //Actions::<crate::camera::Flying>::default(),
-            //Actions::<Flying>::default(),
-            crate::camera::flying::CameraController::default(),
+            Actions::<FlyingCamera>::default(),
+            FlyingSettings::default(),
+            FlyingState::default(),
             Camera { is_active: true, ..default() },
             Camera3d::default(),
             Projection::Perspective(PerspectiveProjection::default()),
