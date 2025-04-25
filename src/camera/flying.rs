@@ -21,11 +21,10 @@ use crate::cursor::CursorGrabOffset;
 /// A freecam-style camera controller plugin.
 pub fn plugin(app: &mut App) {
     app.add_input_context::<FlyingCamera>();
-    app.add_systems(Update, handle_movement);
+    app.add_systems(Update, (handle_movement, handle_rotation));
 
     app.add_observer(camera_binding)
-        .add_observer(started_flying)
-        .add_observer(handle_rotation);
+        .add_observer(started_flying);
 }
 
 /// Based on Valorant's default sensitivity, not entirely sure why it is exactly
@@ -198,39 +197,33 @@ pub fn started_flying(
 }
 
 pub fn handle_rotation(
-    trigger: Trigger<Fired<CameraRotate>>,
-    mut camera: Query<(&mut Transform, &mut FlyingState, &FlyingSettings)>,
+    mut camera: Query<(&mut Transform, &mut FlyingState, &FlyingSettings, &Actions<FlyingCamera>)>,
     windows: Query<&Window>,
     mut cursor_grab_offset: ResMut<CursorGrabOffset>,
-    mut initialized: Local<bool>,
 ) {
-    /*
-    // Ignore the first run of this.
-    if !*initialized {
-        *initialized = !*initialized;
+    let Ok((mut transform, mut state, settings, actions)) = camera.get_single_mut() else {
         return;
-    }
-    */
+    };
+
+    let camera_rotate = actions.action::<CameraRotate>();
+
+    // If the cursor grab setting caused this, prevent it from doing anything.
+    let mut rotation = camera_rotate.value().as_axis2d();
 
     if !crate::cursor::cursor_grabbed(windows) {
         return;
     }
 
-    let Ok((mut transform, mut state, settings)) = camera.get_mut(trigger.entity()) else {
-        return;
-    };
-
-    if cursor_grab_offset.is_none() { // Unknown delta, ignore first frame.
-        cursor_grab_offset.0 = Some(Vec2::ZERO);
-        return;
-    }
-
-    // If the cursor grab setting caused this, prevent it from doing anything.
-    let rotation = trigger.value + cursor_grab_offset.unwrap();
-    cursor_grab_offset.0 = Some(Vec2::ZERO);
-
     // Handle mouse input
     if rotation != Vec2::ZERO {
+        if cursor_grab_offset.is_none() { // Unknown delta, ignore this one.
+            cursor_grab_offset.0 = Some(Vec2::ZERO);
+            return;
+        }
+
+        rotation += cursor_grab_offset.unwrap();
+        cursor_grab_offset.0 = Some(Vec2::ZERO);
+
         // Apply look update
         state.pitch = (state.pitch
             - rotation.y * RADIANS_PER_DOT * settings.sensitivity)

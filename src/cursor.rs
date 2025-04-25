@@ -18,7 +18,7 @@ pub fn plugin(app: &mut App) {
     app.insert_resource(CursorGrabOffset(None));
 
     app.add_observer(cursor_binding);
-    app.add_systems(First, cursor_grab);
+    app.add_systems(PostUpdate, cursor_grab);
     app.add_systems(Startup, spawn_cursor_input);
 }
 
@@ -63,12 +63,18 @@ pub fn cursor_grab(
             }
         }
 
+        let position = window.cursor_position();
+        if position.is_none() {
+            grab = false;
+        }
+
         if grab && window.cursor_options.grab_mode == CursorGrabMode::None {
             window.cursor_options.grab_mode = CursorGrabMode::Locked;
             window.cursor_options.visible = false;
 
             let center = window.resolution.size() / 2.0;
             offset.0 = window.cursor_position().map(|current| current - center);
+            //offset.0 = None;
             window.set_cursor_position(Some(center));
         } else if !grab && window.cursor_options.grab_mode == CursorGrabMode::Locked {
             window.cursor_options.grab_mode = CursorGrabMode::None;
