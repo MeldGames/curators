@@ -10,15 +10,16 @@ impl Plugin for VoxelPickPlugin {
 }
 
 pub fn draw_cursor(
-    camera_query: Single<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+    windows: Query<&Window>,
+
     mut grids: Query<(&GlobalTransform, &mut VoxelGrid)>,
     input: Res<ButtonInput<MouseButton>>,
-    windows: Single<&Window>,
     mut gizmos: Gizmos,
 ) {
-    let (camera, camera_transform) = *camera_query;
-
-    let Some(cursor_position) = windows.cursor_position() else {
+    let Some((camera, camera_transform)) = camera_query.iter().find(|(camera, _)| camera.is_active) else { return; };
+    let Some(window) = windows.iter().find(|window| window.focused) else { return; }; 
+    let Some(cursor_position) = window.cursor_position() else {
         return;
     };
 

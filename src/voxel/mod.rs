@@ -4,7 +4,7 @@ use bevy_enhanced_input::prelude::Actions;
 use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
 
-use crate::{camera::{FlyingCamera, FlyingState, FlyingSettings}, character};
+use crate::{camera::{ActiveCamera, CameraEntities, CameraToggle, FlyingCamera, FlyingSettings, FlyingState, FollowCamera, FollowSettings, FollowState}, character};
 
 pub mod collider;
 pub mod mesh;
@@ -72,41 +72,6 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
             }
         }
 
-        for x in 0..4 {
-            for z in 0..4 {
-                grid.set([x, 1, z], Voxel::Dirt);
-            }
-        }
-
-        // for x in 0..3 {
-        // for z in 0..3 {
-        // grid.set([x, 2, z], Voxel::Dirt);
-        // }
-        // }
-
-        for x in 0..2 {
-            grid.set([x, 2, 0], Voxel::Dirt);
-            grid.set([0, 2, x], Voxel::Dirt);
-        }
-
-        grid.set([1, 2, 1], Voxel::Dirt);
-        grid.set([2, 2, 2], Voxel::Dirt);
-
-        for y in 3..=5 {
-            grid.set([0, y, 0], Voxel::Dirt);
-        }
-
-        for y in 0..=8 {
-            grid.set([4, y, 0], Voxel::Dirt);
-        }
-
-        grid.set([8, 2, 1], Voxel::Dirt);
-        grid.set([8, 2, 3], Voxel::Dirt);
-        grid.set([8, 2, 5], Voxel::Dirt);
-        grid.set([7, 2, 4], Voxel::Dirt);
-
-        grid.set([1, 1, 1], Voxel::Dirt);
-
         commands.spawn((
             grid,
             // mesh::surface_net::SurfaceNet::default(),
@@ -114,7 +79,9 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
             mesh::meshem::Meshem,
         ));
 
-        commands.spawn((
+
+        let flying = commands.spawn((
+            Name::new("Flying camera"),
             Actions::<FlyingCamera>::default(),
             FlyingSettings::default(),
             FlyingState::default(),
@@ -123,8 +90,31 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
             Projection::Perspective(PerspectiveProjection::default()),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        )).id();
+
+        let follow = commands.spawn((
+            Name::new("Follow camera"),
+            Actions::<FollowCamera>::default(),
+            FollowSettings::default(),
+            FollowState::default(),
+            Camera { is_active: false, ..default() },
+            Camera3d::default(),
+            Projection::Perspective(PerspectiveProjection::default()),
+            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        )).id();
+
+        commands.spawn((
+            Name::new("Camera toggle"),
+            Actions::<CameraToggle>::default(),
+            CameraEntities {
+                flying: flying,
+                follow: follow,
+                active: ActiveCamera::Flying,
+            }
         ));
 }
+
 
 pub fn spawn_directional_lights(mut commands: Commands) {
     commands.spawn((
