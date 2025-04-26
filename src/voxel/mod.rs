@@ -29,8 +29,8 @@ impl Plugin for VoxelPlugin {
         app.add_plugins(mesh::meshem::BoxMeshPlugin);
 
         app.add_plugins(pick::VoxelPickPlugin);
-        app.add_plugins(collider::VoxelColliderPlugin);
-        app.add_plugins(character::plugin);
+        app.add_plugins(collider::plugin)
+            .add_plugins(character::plugin);
 
         app.add_systems(Update, VoxelGrid::clear_changed_system).add_systems(Update, rename_grids);
 
@@ -46,11 +46,13 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         // Others are XYZ
         let width = 16;
         let length = 16;
-        let height = 10;
-        let mut grid = VoxelGrid::new([width, height.max(50), length], Ordering::XZY);
+        let height = 20;
+        let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
+
+        let ground_level = grid.ground_level();
         for x in 0..width {
             for z in 0..length {
-                for y in 0..height {
+                for y in 0..ground_level {
                     grid.set([x, y, z], Voxel::Dirt);
                 }
             }
@@ -58,7 +60,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
 
         for x in 0..width {
             for z in 0..length {
-                for y in (height - 2)..height {
+                for y in (ground_level - 2)..ground_level {
                     grid.set([x, y, z], Voxel::Grass);
                 }
             }

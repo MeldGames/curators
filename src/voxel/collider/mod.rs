@@ -1,17 +1,12 @@
-use avian3d::prelude::*;
+
+pub mod grid;
+pub mod border;
+
+pub use grid::*;
+
 use bevy::prelude::*;
 
-//pub mod avian;
-pub mod boxes;
-pub mod trimesh;
-
-pub struct VoxelColliderPlugin;
-impl Plugin for VoxelColliderPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins(PhysicsPlugins::default());
-        app.add_plugins(PhysicsDebugPlugin::default());
-
-        //app.add_plugins(boxes::VoxelBoxColliderPlugin);
-        app.add_plugins(trimesh::VoxelTrimeshColliderPlugin);
-    }
+pub(super) fn plugin(app: &mut App) {
+    app.add_plugins(grid::plugin)
+        .add_plugins(border::plugin);
 }

@@ -168,6 +168,21 @@ impl VoxelGrid {
     }
 
     #[inline]
+    pub fn scaled_bounds(&self) -> Vec3 {
+        self.grid.scaled_bounds()
+    }
+
+    #[inline]
+    pub fn bounds(&self) -> Vec3 {
+        self.grid.bounds()
+    }
+
+    #[inline]
+    pub fn ground_level(&self) -> Scalar {
+        (self.grid.y() as f32 / 2.0).ceil() as Scalar
+    }
+
+    #[inline]
     pub fn array(&self) -> [Scalar; 3] {
         self.grid.array()
     }
@@ -177,25 +192,10 @@ impl VoxelGrid {
         self.grid.size()
     }
 
-    #[inline]
-    pub fn width(&self) -> Scalar {
-        self.grid.width()
-    }
-
-    #[inline]
-    pub fn height(&self) -> Scalar {
-        self.grid.height()
-    }
-
-    #[inline]
-    pub fn length(&self) -> Scalar {
-        self.grid.length()
-    }
-
     // Closest voxel to the surface at a specified x and z.
     // This is a hack compared to a real screenspace raycast.
     pub fn surface_voxel(&self, x: Scalar, z: Scalar) -> Option<(Voxel, Scalar)> {
-        for y in (0..self.height()).rev() {
+        for y in (0..self.grid.y()).rev() {
             let voxel = self.voxel([x, y, z]);
             if voxel != Voxel::Air {
                 return Some((voxel, y));

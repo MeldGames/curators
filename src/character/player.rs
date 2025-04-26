@@ -23,7 +23,7 @@ pub fn spawn_player(mut commands: Commands) {
             collider: collider.clone(),
             ..default()
         },
-        Actions::<super::input::PlayerInput>::default(),
+        //Actions::<super::input::PlayerInput>::default(),
     )).id();
 
         let flying = commands.spawn((

@@ -86,9 +86,9 @@ impl Grid {
         point[0] >= 0
             && point[1] >= 0
             && point[2] >= 0
-            && point[0] < self.width()
-            && point[1] < self.height()
-            && point[2] < self.length()
+            && point[0] < self.array[0]
+            && point[1] < self.array[1]
+            && point[2] < self.array[2]
     }
 
     #[inline]
@@ -102,17 +102,41 @@ impl Grid {
     }
 
     #[inline]
-    pub fn width(&self) -> Scalar {
-        self.array[0]
+    pub fn x(&self) -> Scalar {
+        match self.ordering {
+            Ordering::XYZ => self.array[0],
+            Ordering::XZY => self.array[0],
+            _ => todo!(),
+        }
     }
 
     #[inline]
-    pub fn height(&self) -> Scalar {
+    pub fn y(&self) -> Scalar {
         self.array[1]
+        /*match self.ordering {
+            Ordering::XYZ => self.array[1],
+            Ordering::XZY => self.array[2],
+            _ => todo!(),
+        }*/
     }
 
     #[inline]
-    pub fn length(&self) -> Scalar {
+    pub fn z(&self) -> Scalar {
         self.array[2]
+        /*match self.ordering {
+            Ordering::XYZ => self.array[2],
+            Ordering::XZY => self.array[1],
+            _ => todo!(),
+        }*/
+    }
+
+    #[inline]
+    pub fn scaled_bounds(&self) -> Vec3 {
+        self.bounds() * crate::voxel::GRID_SCALE
+    }
+
+    #[inline]
+    pub fn bounds(&self) -> Vec3 {
+        Vec3::new(self.x() as f32, self.y() as f32, self.z() as f32)
     }
 }
