@@ -33,7 +33,7 @@ pub fn plugin(app: &mut App) {
 pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
 #[derive(InputContext)]
-#[input_context(priority = 5)]
+#[input_context(priority = 10)]
 pub struct FlyingCamera;
 
 #[derive(InputAction, Debug)]
@@ -43,10 +43,6 @@ pub struct CameraMove;
 #[derive(InputAction, Debug)]
 #[input_action(output = Vec2)]
 pub struct CameraRotate;
-
-#[derive(InputAction, Debug)]
-#[input_action(output = bool)]
-pub struct TestPriority;
 
 pub struct SixDOF<I: IntoBindings> {
     pub forward: I,
@@ -109,8 +105,8 @@ pub fn camera_binding(trigger: Trigger<Binding<FlyingCamera>>, mut flying: Query
     info!("binding flying camera");
     actions.bind::<CameraMove>().to(SixDOF {
         forward: KeyCode::KeyW,
-        backward: KeyCode::KeyS,
         left: KeyCode::KeyA,
+        backward: KeyCode::KeyS,
         right: KeyCode::KeyD,
         up: KeyCode::Space,
         down: KeyCode::ControlRight,
@@ -247,6 +243,7 @@ pub fn handle_movement(
     let dt = time.delta_secs();
 
     let Ok((mut transform, actions, settings, mut state)) = query.get_single_mut() else { return; };
+    info!("camera move: {:?}", actions.action::<CameraMove>().state());
     let movement = actions.action::<CameraMove>().value().as_axis3d();
 
     // Apply movement update

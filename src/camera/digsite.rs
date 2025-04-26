@@ -17,6 +17,7 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(InputContext)]
+#[input_context(priority = 10)]
 pub struct DigsiteCamera;
 
 // No actions for digsite camera right now.

@@ -39,8 +39,6 @@ pub fn rebuild_borders(
     const PADDING: f32 = 20.0;
     let digsite_bounds = digsite.scaled_bounds();
     let ground_level = digsite.ground_level() as f32 * GRID_SCALE.y;
-    let x_dist = digsite_bounds.x / 2.0 + PADDING;
-    let z_dist = digsite_bounds.z / 2.0 + PADDING;
     let y_pos = ground_level / 2.0;
     let y_height = ground_level;
 

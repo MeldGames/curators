@@ -13,6 +13,7 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(InputContext)]
+#[input_context(priority = 10)]
 pub struct FollowCamera;
 
 // No actions for follow camera right now.

@@ -14,6 +14,18 @@ pub struct Player;
 
 pub fn spawn_player(mut commands: Commands) {
     let collider = Collider::capsule(0.4, 0.8);
+        let flying = commands.spawn((
+            Name::new("Flying camera"),
+            Actions::<FlyingCamera>::default(),
+            FlyingSettings::default(),
+            FlyingState::default(),
+            Camera { ..default() },
+            Camera3d::default(),
+            Projection::Perspective(PerspectiveProjection::default()),
+            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        )).id();
+
     let player = commands.spawn((
         Player,
         Transform::from_xyz(0.0, 10.0, 0.0),
@@ -23,19 +35,9 @@ pub fn spawn_player(mut commands: Commands) {
             collider: collider.clone(),
             ..default()
         },
-        //Actions::<super::input::PlayerInput>::default(),
+        Actions::<super::input::PlayerInput>::default(),
     )).id();
 
-        let flying = commands.spawn((
-            Name::new("Flying camera"),
-            FlyingSettings::default(),
-            FlyingState::default(),
-            Camera { ..default() },
-            Camera3d::default(),
-            Projection::Perspective(PerspectiveProjection::default()),
-            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        )).id();
 
         let follow = commands.spawn((
             Name::new("Follow camera"),
@@ -68,7 +70,7 @@ pub fn spawn_player(mut commands: Commands) {
                 flying: flying,
                 follow: follow,
                 digsite: digsite,
-                active: ActiveCamera::Digsite,
+                active: ActiveCamera::Flying,
             }
         ));
 }

@@ -17,7 +17,7 @@ pub fn plugin(app: &mut App) {
 
     app.add_systems(Update, changed_camera_toggle);
     
-    app.add_observer(toggle_binding).add_observer(switch_cameras);
+    //app.add_observer(toggle_binding).add_observer(switch_cameras);
 }
 
 #[derive(InputContext)]
