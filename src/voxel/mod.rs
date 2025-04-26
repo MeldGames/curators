@@ -80,39 +80,6 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         ));
 
 
-        let flying = commands.spawn((
-            Name::new("Flying camera"),
-            Actions::<FlyingCamera>::default(),
-            FlyingSettings::default(),
-            FlyingState::default(),
-            Camera { is_active: true, ..default() },
-            Camera3d::default(),
-            Projection::Perspective(PerspectiveProjection::default()),
-            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        )).id();
-
-        let follow = commands.spawn((
-            Name::new("Follow camera"),
-            Actions::<FollowCamera>::default(),
-            FollowSettings::default(),
-            FollowState::default(),
-            Camera { is_active: false, ..default() },
-            Camera3d::default(),
-            Projection::Perspective(PerspectiveProjection::default()),
-            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        )).id();
-
-        commands.spawn((
-            Name::new("Camera toggle"),
-            Actions::<CameraToggle>::default(),
-            CameraEntities {
-                flying: flying,
-                follow: follow,
-                active: ActiveCamera::Flying,
-            }
-        ));
 }
 
 

@@ -27,7 +27,9 @@ pub fn player_binding(
     };
 
     info!("player binding");
-    actions.bind::<Move>().to(Cardinal::wasd_keys()).to(Cardinal::arrow_keys());
+    actions.bind::<Move>()
+        .to(Cardinal::wasd_keys())
+        .to(Cardinal::arrow_keys());
     actions.bind::<Jump>().to(KeyCode::Space);
 }
 

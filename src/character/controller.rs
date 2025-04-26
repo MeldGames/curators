@@ -15,7 +15,7 @@ pub fn apply_movement(trigger: Trigger<Fired<Move>>, mut players: Query<&mut Kin
     let mut controller = players.get_mut(trigger.entity()).unwrap();
     let speed = 5.0;
     controller.velocity.x = trigger.value.x * speed;
-    controller.velocity.z = trigger.value.y * speed;
+    controller.velocity.z = -trigger.value.y * speed;
 
     if controller.velocity.y.is_nan() {
         controller.velocity.y = 0.0;

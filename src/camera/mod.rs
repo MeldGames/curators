@@ -6,7 +6,7 @@ pub mod flying;
 pub mod follow;
 
 pub use flying::{FlyingCamera, FlyingSettings, FlyingState};
-pub use follow::{FollowCamera, FollowSettings, FollowState};
+pub use follow::{FollowCamera, FollowSettings, FollowState, FollowPlayer};
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(follow::plugin).add_plugins(flying::plugin);
@@ -58,14 +58,14 @@ impl CameraEntities {
                 commands.entity(self.follow).remove::<Actions<FollowCamera>>();
                 follow_camera.is_active = false;
 
-                commands.entity(self.flying).insert(Actions::<FlyingCamera>::default());
+                commands.entity(self.flying).insert_if_new(Actions::<FlyingCamera>::default());
                 flying_camera.is_active = true;
             }
             ActiveCamera::Follow => {
                 commands.entity(self.flying).remove::<Actions<FlyingCamera>>();
                 flying_camera.is_active = false;
 
-                commands.entity(self.follow).insert(Actions::<FollowCamera>::default());
+                commands.entity(self.follow).insert_if_new(Actions::<FollowCamera>::default());
                 follow_camera.is_active = true;
             }
         }

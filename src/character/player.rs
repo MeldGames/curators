@@ -2,6 +2,8 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
+use crate::camera::*;
+
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(Startup, spawn_player);
 }
@@ -12,7 +14,7 @@ pub struct Player;
 
 pub fn spawn_player(mut commands: Commands) {
     let collider = Collider::capsule(0.4, 0.8);
-    commands.spawn((
+    let player = commands.spawn((
         Player,
         Transform::from_xyz(0.0, 10.0, 0.0),
         collider.clone(),
@@ -22,5 +24,40 @@ pub fn spawn_player(mut commands: Commands) {
             ..default()
         },
         Actions::<super::input::PlayerInput>::default(),
-    ));
+    )).id();
+
+        let flying = commands.spawn((
+            Name::new("Flying camera"),
+            Actions::<FlyingCamera>::default(),
+            FlyingSettings::default(),
+            FlyingState::default(),
+            Camera { is_active: true, ..default() },
+            Camera3d::default(),
+            Projection::Perspective(PerspectiveProjection::default()),
+            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        )).id();
+
+        let follow = commands.spawn((
+            Name::new("Follow camera"),
+            Actions::<FollowCamera>::default(),
+            FollowSettings::default(),
+            FollowState::default(),
+            FollowPlayer(player),
+            Camera { is_active: false, ..default() },
+            Camera3d::default(),
+            Projection::Perspective(PerspectiveProjection::default()),
+            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        )).id();
+
+        commands.spawn((
+            Name::new("Camera toggle"),
+            Actions::<CameraToggle>::default(),
+            CameraEntities {
+                flying: flying,
+                follow: follow,
+                active: ActiveCamera::Flying,
+            }
+        ));
 }
