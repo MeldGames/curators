@@ -1,3 +1,5 @@
+//! Basic following camera for a specific Entity.
+
 use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
@@ -26,7 +28,7 @@ pub struct FollowSettings {
 impl Default for FollowSettings {
     fn default() -> Self {
         Self {
-            offset: Vec3::new(0.0, 5.0, 2.0),
+            offset: Vec3::new(0.0, 2.0, 1.0) * 10.0,
         }
     }
 }

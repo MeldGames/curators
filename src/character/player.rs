@@ -28,10 +28,9 @@ pub fn spawn_player(mut commands: Commands) {
 
         let flying = commands.spawn((
             Name::new("Flying camera"),
-            Actions::<FlyingCamera>::default(),
             FlyingSettings::default(),
             FlyingState::default(),
-            Camera { is_active: true, ..default() },
+            Camera { ..default() },
             Camera3d::default(),
             Projection::Perspective(PerspectiveProjection::default()),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
@@ -40,16 +39,27 @@ pub fn spawn_player(mut commands: Commands) {
 
         let follow = commands.spawn((
             Name::new("Follow camera"),
-            Actions::<FollowCamera>::default(),
             FollowSettings::default(),
             FollowState::default(),
             FollowPlayer(player),
-            Camera { is_active: false, ..default() },
+            Camera { ..default() },
             Camera3d::default(),
             Projection::Perspective(PerspectiveProjection::default()),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         )).id();
+
+        let digsite = commands.spawn((
+            Name::new("Digsite camera"),
+            DigsiteSettings::default(),
+            DigsiteState::default(),
+            Camera { ..default() },
+            Camera3d::default(),
+            Projection::Perspective(PerspectiveProjection::default()),
+            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        )).id();
+
 
         commands.spawn((
             Name::new("Camera toggle"),
@@ -57,7 +67,8 @@ pub fn spawn_player(mut commands: Commands) {
             CameraEntities {
                 flying: flying,
                 follow: follow,
-                active: ActiveCamera::Flying,
+                digsite: digsite,
+                active: ActiveCamera::Digsite,
             }
         ));
 }
