@@ -243,7 +243,6 @@ pub fn handle_movement(
     let dt = time.delta_secs();
 
     let Ok((mut transform, actions, settings, mut state)) = query.get_single_mut() else { return; };
-    info!("camera move: {:?}", actions.action::<CameraMove>().state());
     let movement = actions.action::<CameraMove>().value().as_axis3d();
 
     // Apply movement update

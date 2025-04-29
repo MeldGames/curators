@@ -12,7 +12,7 @@ pub mod pick;
 pub mod raycast;
 pub mod voxel_grid;
 
-pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.25, 1.0);
+pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
 
 /// Flat vec storage of 2d/3d grids.
 pub mod grid;
@@ -22,7 +22,7 @@ pub struct VoxelPlugin;
 
 impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Voxel>(); //.register_type::<VoxelGrid>();
+        app.register_type::<Voxel>();
 
         app.add_plugins(mesh::surface_net::SurfaceNetPlugin);
         app.add_plugins(mesh::ass_mesh::ASSMeshPlugin);
@@ -42,11 +42,12 @@ impl Plugin for VoxelPlugin {
 }
 
 pub fn spawn_voxel_grid(mut commands: Commands) {
+
         // Meshem is XZY
         // Others are XYZ
-        let width = 16;
+        let width =  16;
         let length = 16;
-        let height = 20;
+        let height = 30;
         let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
 
         let ground_level = grid.ground_level();

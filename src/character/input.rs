@@ -6,7 +6,7 @@ use bevy_enhanced_input::{EnhancedInputPlugin, prelude::*};
 pub struct Controlling;
 
 #[derive(Component, InputContext)]
-#[input_context(priority = 1000)]
+#[input_context(priority = 0)]
 pub struct PlayerInput;
 
 pub(super) fn plugin(app: &mut App) {
@@ -25,9 +25,9 @@ pub fn player_binding(
 
     info!("player binding");
     actions.bind::<Move>()
-        .to(Cardinal::wasd_keys());
-        //.to(Cardinal::arrow_keys());
-    //actions.bind::<Jump>().to(KeyCode::Space);
+        .to(Cardinal::wasd_keys())
+        .to(Cardinal::arrow_keys());
+    actions.bind::<Jump>().to(KeyCode::Space);
 }
 
 #[derive(Debug, InputAction)]

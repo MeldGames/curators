@@ -11,13 +11,12 @@ pub use follow::{FollowCamera, FollowSettings, FollowState, FollowPlayer};
 pub use digsite::{DigsiteCamera, DigsiteSettings, DigsiteState, DigsiteEntity};
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins(follow::plugin).add_plugins(flying::plugin).add_plugins(digsite::plugin);
-
+    app.register_type::<ActiveCamera>();
     app.add_input_context::<CameraToggle>();
 
+    app.add_plugins(follow::plugin).add_plugins(flying::plugin).add_plugins(digsite::plugin);
     app.add_systems(Update, changed_camera_toggle);
-    
-    //app.add_observer(toggle_binding).add_observer(switch_cameras);
+    app.add_observer(toggle_binding).add_observer(switch_cameras);
 }
 
 #[derive(InputContext)]

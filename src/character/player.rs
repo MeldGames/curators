@@ -1,5 +1,5 @@
 use avian3d::prelude::*;
-use bevy::prelude::*;
+use bevy::{color::palettes::css::GRAY, prelude::*};
 use bevy_enhanced_input::prelude::*;
 
 use crate::camera::*;
@@ -12,19 +12,13 @@ pub(super) fn plugin(app: &mut App) {
 #[require(Name(|| Name::new("Player")))]
 pub struct Player;
 
-pub fn spawn_player(mut commands: Commands) {
+pub fn spawn_player(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let collider = Collider::capsule(0.4, 0.8);
-        let flying = commands.spawn((
-            Name::new("Flying camera"),
-            Actions::<FlyingCamera>::default(),
-            FlyingSettings::default(),
-            FlyingState::default(),
-            Camera { ..default() },
-            Camera3d::default(),
-            Projection::Perspective(PerspectiveProjection::default()),
-            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        )).id();
+    let mesh = meshes.add(Mesh::from(Capsule3d::new(0.4, 0.8)));
 
     let player = commands.spawn((
         Player,
@@ -35,42 +29,58 @@ pub fn spawn_player(mut commands: Commands) {
             collider: collider.clone(),
             ..default()
         },
+        Mesh3d(mesh),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: GRAY.into(),
+            ..Default::default()
+        })
+    ),
         Actions::<super::input::PlayerInput>::default(),
     )).id();
 
+    let flying = commands.spawn((
+        Name::new("Flying camera"),
+        FlyingSettings::default(),
+        FlyingState::default(),
+        Camera { ..default() },
+        Camera3d::default(),
+        Projection::Perspective(PerspectiveProjection::default()),
+        Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+            .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    )).id();
 
-        let follow = commands.spawn((
-            Name::new("Follow camera"),
-            FollowSettings::default(),
-            FollowState::default(),
-            FollowPlayer(player),
-            Camera { ..default() },
-            Camera3d::default(),
-            Projection::Perspective(PerspectiveProjection::default()),
-            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        )).id();
+    let follow = commands.spawn((
+        Name::new("Follow camera"),
+        FollowSettings::default(),
+        FollowState::default(),
+        FollowPlayer(player),
+        Camera { ..default() },
+        Camera3d::default(),
+        Projection::Perspective(PerspectiveProjection::default()),
+        Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+            .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    )).id();
 
-        let digsite = commands.spawn((
-            Name::new("Digsite camera"),
-            DigsiteSettings::default(),
-            DigsiteState::default(),
-            Camera { ..default() },
-            Camera3d::default(),
-            Projection::Perspective(PerspectiveProjection::default()),
-            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        )).id();
+    let digsite = commands.spawn((
+        Name::new("Digsite camera"),
+        DigsiteSettings::default(),
+        DigsiteState::default(),
+        Camera { ..default() },
+        Camera3d::default(),
+        Projection::Perspective(PerspectiveProjection::default()),
+        Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+            .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    )).id();
 
 
-        commands.spawn((
-            Name::new("Camera toggle"),
-            Actions::<CameraToggle>::default(),
-            CameraEntities {
-                flying: flying,
-                follow: follow,
-                digsite: digsite,
-                active: ActiveCamera::Flying,
-            }
-        ));
+    commands.spawn((
+        Name::new("Camera toggle"),
+        Actions::<CameraToggle>::default(),
+        CameraEntities {
+            flying: flying,
+            follow: follow,
+            digsite: digsite,
+            active: ActiveCamera::Digsite,
+        }
+    ));
 }

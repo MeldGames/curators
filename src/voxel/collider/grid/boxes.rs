@@ -8,9 +8,6 @@ use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
 pub struct VoxelBoxColliderPlugin;
 impl Plugin for VoxelBoxColliderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(PhysicsPlugins::default());
-        app.add_plugins(PhysicsDebugPlugin::default());
-
         app.add_systems(Update, spawn_box_colliders.before(VoxelGrid::clear_changed_system));
         // app.add_systems(Update, spawn_ball);
     }
