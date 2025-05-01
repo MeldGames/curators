@@ -18,7 +18,7 @@ pub(super) fn plugin(app: &mut App) {
         .register_type::<KCCSlope>();
 
     app.add_systems(
-        PostUpdate,
+        FixedUpdate,
         (
             movement::gravity_system,
             movement::collide_and_slide_system,

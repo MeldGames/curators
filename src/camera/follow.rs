@@ -9,7 +9,7 @@ pub fn plugin(app: &mut App) {
 
     app.add_input_context::<FollowCamera>();
 
-    app.add_systems(PreUpdate, follow_player);
+    app.add_systems(PostUpdate, follow_player.after(PhysicsSet::Sync));
 }
 
 #[derive(InputContext)]
