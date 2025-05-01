@@ -1,12 +1,9 @@
-
-pub mod grid;
 pub mod border;
-
-pub use grid::*;
+pub mod grid;
 
 use bevy::prelude::*;
+pub use grid::*;
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_plugins(grid::plugin)
-        .add_plugins(border::plugin);
+    app.add_plugins(grid::plugin).add_plugins(border::plugin);
 }

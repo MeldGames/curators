@@ -48,7 +48,8 @@ impl VoxelRay3Iterator {
         // Normalize direction vector
         let d = Vec3::from(ray.direction).normalize();
 
-        // How long we have traveled thus far (modified by initial 'jump to volume bounds').
+        // How long we have traveled thus far (modified by initial 'jump to volume
+        // bounds').
         let mut t = 0.0;
 
         // If the point it outside the chunk, AABB test to 'jump ahead'.
@@ -70,8 +71,8 @@ impl VoxelRay3Iterator {
             t += (p - aabb).length() - 2.0;
         }
 
-        // Max distance we can travel. This is either the ray length, or the current `t` plus the
-        // corner to corner length of the voxel volume.
+        // Max distance we can travel. This is either the ray length, or the current `t`
+        // plus the corner to corner length of the voxel volume.
         let max_d = f32::min(ray_length, t + IVec3::from(volume.size).as_vec3().length() + 2.0);
 
         // The starting voxel for the raycast.

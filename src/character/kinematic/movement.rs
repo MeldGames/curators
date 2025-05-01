@@ -15,7 +15,8 @@
 //! - `collide_and_slide_system`: Main movement and collision response system
 //! - `gravity_system`: Handles gravity application with terminal velocity
 
-use avian3d::{math::AdjustPrecision, prelude::*};
+use avian3d::math::AdjustPrecision;
+use avian3d::prelude::*;
 use bevy::prelude::*;
 use fast_surface_nets::ndshape::Shape;
 
@@ -98,7 +99,8 @@ pub fn collide_and_slide_system(
     }
 }
 
-/// Core movement processing function that handles collision detection and response
+/// Core movement processing function that handles collision detection and
+/// response
 ///
 /// Returns a `MovementResult` containing the actual movement performed and any
 /// remaining velocity that couldn't be applied due to collisions.

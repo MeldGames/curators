@@ -4,7 +4,8 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
-use super::{input::{Jump, Move, PlayerInput}, kinematic::{KCCGravity, KinematicCharacterController}};
+use super::input::{Jump, Move, PlayerInput};
+use super::kinematic::{KCCGravity, KinematicCharacterController};
 
 // Marker component for whether or not we're currently grounded.
 #[derive(Component, Reflect, Debug, Default)]
@@ -13,17 +14,15 @@ use super::{input::{Jump, Move, PlayerInput}, kinematic::{KCCGravity, KinematicC
 pub struct Grounded;
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_observer(apply_movement)
-        .add_observer(apply_jump);
+    app.add_observer(apply_movement).add_observer(apply_jump);
 
-    app.add_systems(
-        FixedUpdate,
-        (velocity_dampening, update_grounded)
-            .chain()
-    );
+    app.add_systems(FixedUpdate, (velocity_dampening, update_grounded).chain());
 }
 
-pub fn apply_movement(trigger: Trigger<Fired<Move>>, mut players: Query<&mut KinematicCharacterController>) {
+pub fn apply_movement(
+    trigger: Trigger<Fired<Move>>,
+    mut players: Query<&mut KinematicCharacterController>,
+) {
     let mut controller = players.get_mut(trigger.entity()).unwrap();
     let speed = 5.0;
     controller.velocity.x = trigger.value.x * speed;
@@ -34,7 +33,10 @@ pub fn apply_movement(trigger: Trigger<Fired<Move>>, mut players: Query<&mut Kin
     }
 }
 
-pub fn apply_jump(trigger: Trigger<Fired<Jump>>, mut players: Query<(&mut KCCGravity, Has<Grounded>)>) {
+pub fn apply_jump(
+    trigger: Trigger<Fired<Jump>>,
+    mut players: Query<(&mut KCCGravity, Has<Grounded>)>,
+) {
     let (mut gravity, grounded) = players.get_mut(trigger.entity()).unwrap();
     if grounded {
         gravity.current_velocity = Vec3::Y * 100.0;
@@ -52,7 +54,7 @@ pub fn update_grounded(
     mut commands: Commands,
     mut query: Query<(Entity, &ShapeHits, &Rotation), (With<KCCGravity>, With<RigidBody>)>,
 ) {
-    //let _ = 45.0f32.to_radians();
+    // let _ = 45.0f32.to_radians();
     for (entity, hits, _) in &mut query {
         let is_grounded = hits.iter().any(|hit| true && hit.entity != entity);
 

@@ -1,18 +1,13 @@
 //! Aceeri's XZ Stable Y Smoothing Voxel Meshing Algorithm
 //! ASS Meshing for short.
-//!
 
-use crate::voxel::{
-    grid::{Grid, Scalar},
-    voxel_grid::Voxel,
-    voxel_grid::VoxelGrid,
-};
-use bevy::{
-    asset::RenderAssetUsages,
-    pbr::wireframe::Wireframe,
-    prelude::*,
-    render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
-};
+use bevy::asset::RenderAssetUsages;
+use bevy::pbr::wireframe::Wireframe;
+use bevy::prelude::*;
+use bevy::render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues};
+
+use crate::voxel::grid::{Grid, Scalar};
+use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
 
 pub struct ASSMeshPlugin;
 impl Plugin for ASSMeshPlugin {
@@ -117,7 +112,7 @@ impl Vertices {
                 _ => 1.0,
             };
 
-            //let vertex_height = w1 + w2 + w3 + w4;
+            // let vertex_height = w1 + w2 + w3 + w4;
             let index = self.grid.linearize(p);
             self.vertices[index as usize] = vertex_height;
         }
@@ -160,8 +155,8 @@ impl Vertices {
             indices.extend([current, current + 2, current + 1]);
             indices.extend([current, current + 3, current + 2]);
             // sideways
-            //indices.extend([current, current + 3, current + 1]);
-            //indices.extend([current + 1, current + 3, current + 2]);
+            // indices.extend([current, current + 3, current + 1]);
+            // indices.extend([current + 1, current + 3, current + 2]);
         }
     }
 
@@ -369,16 +364,16 @@ impl Vertices {
             VertexAttributeValues::Float32x3(positions.clone()),
         );
         mesh.insert_indices(Indices::U32(indices.clone()));
-        //mesh.duplicate_vertices();
-        //mesh.compute_flat_normals();
-        /*mesh.insert_attribute(
-            Mesh::ATTRIBUTE_NORMAL,
-            VertexAttributeValues::Float32x3(buffer.normals.clone()),
-        );
-        mesh.insert_attribute(
-            Mesh::ATTRIBUTE_UV_0,
-            VertexAttributeValues::Float32x2(vec![[0.0; 2]; num_vertices]),
-        );*/
+        // mesh.duplicate_vertices();
+        // mesh.compute_flat_normals();
+        // mesh.insert_attribute(
+        // Mesh::ATTRIBUTE_NORMAL,
+        // VertexAttributeValues::Float32x3(buffer.normals.clone()),
+        // );
+        // mesh.insert_attribute(
+        // Mesh::ATTRIBUTE_UV_0,
+        // VertexAttributeValues::Float32x2(vec![[0.0; 2]; num_vertices]),
+        // );
 
         mesh
     }

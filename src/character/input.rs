@@ -1,6 +1,7 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
-use bevy_enhanced_input::{EnhancedInputPlugin, prelude::*};
+use bevy_enhanced_input::EnhancedInputPlugin;
+use bevy_enhanced_input::prelude::*;
 
 #[derive(Component)]
 pub struct Controlling;
@@ -24,9 +25,7 @@ pub fn player_binding(
     };
 
     info!("player binding");
-    actions.bind::<Move>()
-        .to(Cardinal::wasd_keys())
-        .to(Cardinal::arrow_keys());
+    actions.bind::<Move>().to(Cardinal::wasd_keys()).to(Cardinal::arrow_keys());
     actions.bind::<Jump>().to(KeyCode::Space);
 }
 

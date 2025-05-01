@@ -4,7 +4,11 @@ use bevy_enhanced_input::prelude::Actions;
 use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
 
-use crate::{camera::{ActiveCamera, CameraEntities, CameraToggle, FlyingCamera, FlyingSettings, FlyingState, FollowCamera, FollowSettings, FollowState}, character};
+use crate::camera::{
+    ActiveCamera, CameraEntities, CameraToggle, FlyingCamera, FlyingSettings, FlyingState,
+    FollowCamera, FollowSettings, FollowState,
+};
+use crate::character;
 
 pub mod collider;
 pub mod mesh;
@@ -29,8 +33,7 @@ impl Plugin for VoxelPlugin {
         app.add_plugins(mesh::meshem::BoxMeshPlugin);
 
         app.add_plugins(pick::VoxelPickPlugin);
-        app.add_plugins(collider::plugin)
-            .add_plugins(character::plugin);
+        app.add_plugins(collider::plugin).add_plugins(character::plugin);
 
         app.add_systems(Update, VoxelGrid::clear_changed_system).add_systems(Update, rename_grids);
 
@@ -42,49 +45,45 @@ impl Plugin for VoxelPlugin {
 }
 
 pub fn spawn_voxel_grid(mut commands: Commands) {
+    // Meshem is XZY
+    // Others are XYZ
+    let width = 16;
+    let length = 16;
+    let height = 30;
+    let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
 
-        // Meshem is XZY
-        // Others are XYZ
-        let width =  16;
-        let length = 16;
-        let height = 30;
-        let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
-
-        let ground_level = grid.ground_level();
-        for x in 0..width {
-            for z in 0..length {
-                for y in 0..ground_level {
-                    grid.set([x, y, z], Voxel::Dirt);
-                }
+    let ground_level = grid.ground_level();
+    for x in 0..width {
+        for z in 0..length {
+            for y in 0..ground_level {
+                grid.set([x, y, z], Voxel::Dirt);
             }
         }
+    }
 
-        for x in 0..width {
-            for z in 0..length {
-                for y in (ground_level - 2)..ground_level {
-                    grid.set([x, y, z], Voxel::Grass);
-                }
+    for x in 0..width {
+        for z in 0..length {
+            for y in (ground_level - 2)..ground_level {
+                grid.set([x, y, z], Voxel::Grass);
             }
         }
+    }
 
-        for x in 0..width {
-            for z in 0..length {
-                for y in 0..1 {
-                    grid.set([x, y, z], Voxel::Base);
-                }
+    for x in 0..width {
+        for z in 0..length {
+            for y in 0..1 {
+                grid.set([x, y, z], Voxel::Base);
             }
         }
+    }
 
-        commands.spawn((
-            grid,
-            // mesh::surface_net::SurfaceNet::default(),
-            // mesh::ass_mesh::ASSMesh,
-            mesh::meshem::Meshem,
-        ));
-
-
+    commands.spawn((
+        grid,
+        // mesh::surface_net::SurfaceNet::default(),
+        // mesh::ass_mesh::ASSMesh,
+        mesh::meshem::Meshem,
+    ));
 }
-
 
 pub fn spawn_directional_lights(mut commands: Commands) {
     commands.spawn((

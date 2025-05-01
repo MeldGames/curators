@@ -17,8 +17,13 @@ pub fn draw_cursor(
     input: Res<ButtonInput<MouseButton>>,
     mut gizmos: Gizmos,
 ) {
-    let Some((camera, camera_transform)) = camera_query.iter().find(|(camera, _)| camera.is_active) else { return; };
-    let Some(window) = windows.iter().find(|window| window.focused) else { return; }; 
+    let Some((camera, camera_transform)) = camera_query.iter().find(|(camera, _)| camera.is_active)
+    else {
+        return;
+    };
+    let Some(window) = windows.iter().find(|window| window.focused) else {
+        return;
+    };
     let Some(cursor_position) = window.cursor_position() else {
         return;
     };

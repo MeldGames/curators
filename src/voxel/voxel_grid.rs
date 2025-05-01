@@ -2,12 +2,9 @@ use bevy::prelude::*;
 use mem_dbg::MemSize;
 use serde::{Deserialize, Serialize};
 
+use super::grid::{Grid, Ordering, Scalar};
+use super::raycast::Hit;
 use crate::voxel::raycast::BoundingVolume3;
-
-use super::{
-    grid::{Grid, Ordering, Scalar},
-    raycast::Hit,
-};
 
 #[derive(
     MemSize,
@@ -140,9 +137,7 @@ impl VoxelGrid {
 
         if voxel.filling() {
             // if filling, check that neighbors are still in the surface.
-
         } else {
-
         }
 
         self.voxels[index as usize] = voxel;

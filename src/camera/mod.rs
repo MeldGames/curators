@@ -2,13 +2,13 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
+pub mod digsite;
 pub mod flying;
 pub mod follow;
-pub mod digsite;
 
+pub use digsite::{DigsiteCamera, DigsiteEntity, DigsiteSettings, DigsiteState};
 pub use flying::{FlyingCamera, FlyingSettings, FlyingState};
-pub use follow::{FollowCamera, FollowSettings, FollowState, FollowPlayer};
-pub use digsite::{DigsiteCamera, DigsiteSettings, DigsiteState, DigsiteEntity};
+pub use follow::{FollowCamera, FollowPlayer, FollowSettings, FollowState};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<ActiveCamera>();
@@ -43,7 +43,10 @@ pub struct CameraEntities {
     pub active: ActiveCamera,
 }
 
-pub fn toggle_binding(trigger: Trigger<Binding<CameraToggle>>, mut toggle: Query<&mut Actions<CameraToggle>>) {
+pub fn toggle_binding(
+    trigger: Trigger<Binding<CameraToggle>>,
+    mut toggle: Query<&mut Actions<CameraToggle>>,
+) {
     let Ok(mut actions) = toggle.get_mut(trigger.entity()) else {
         return;
     };
@@ -68,15 +71,15 @@ impl CameraEntities {
         match self.active {
             ActiveCamera::Flying => {
                 flying_camera.is_active = true;
-            }
+            },
             ActiveCamera::Follow => {
                 follow_camera.is_active = true;
-            }
+            },
             ActiveCamera::Digsite => {
                 digsite_camera.is_active = true;
-            }
+            },
         }
-        
+
         if follow_camera.is_active {
             commands.entity(self.follow).insert_if_new(Actions::<FollowCamera>::default());
         } else {
@@ -94,7 +97,6 @@ impl CameraEntities {
         } else {
             commands.entity(self.digsite).remove::<Actions<DigsiteCamera>>();
         }
-
     }
 }
 
@@ -109,7 +111,7 @@ pub fn changed_camera_toggle(
 }
 
 pub fn switch_cameras(
-    trigger: Trigger<Fired<Toggle>>, 
+    trigger: Trigger<Fired<Toggle>>,
     mut camera_entities: Query<&mut CameraEntities>,
 ) {
     let Ok(mut camera_entities) = camera_entities.get_mut(trigger.entity()) else {
@@ -119,12 +121,12 @@ pub fn switch_cameras(
     match camera_entities.active {
         ActiveCamera::Flying => {
             camera_entities.active = ActiveCamera::Follow;
-        }
+        },
         ActiveCamera::Follow => {
             camera_entities.active = ActiveCamera::Digsite;
-        }
+        },
         ActiveCamera::Digsite => {
             camera_entities.active = ActiveCamera::Flying;
-        }
+        },
     }
 }

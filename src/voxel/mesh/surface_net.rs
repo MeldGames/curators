@@ -90,7 +90,8 @@ impl VoxelGrid {
             let padded_linear = shape.linearize(padded_point);
             samples[padded_linear as usize] = sample;
         }
-        //info!("SIZES {:?} < {:?}", shape.linearize(padded_grid_array), shape.usize());
+        // info!("SIZES {:?} < {:?}", shape.linearize(padded_grid_array),
+        // shape.usize());
 
         surface_nets(
             &samples,

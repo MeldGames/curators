@@ -1,8 +1,9 @@
 //! A kinematic character controller framework inspired by the [bevy-tnua](https://github.com/idanarye/bevy-tnua/tree/main) project
 //! While also taking inspiration and ideas from the [Avian Physics](https://discord.com/channels/691052431525675048/1124043933886976171) channel in the official Bevy Discord server.\
 //!
-//! Please note that all components within this module are prefixed with `KCC` to make it clear that
-//! they are part of the Kinematic Character Controller framework.
+//! Please note that all components within this module are prefixed with `KCC`
+//! to make it clear that they are part of the Kinematic Character Controller
+//! framework.
 
 use avian3d::prelude::*;
 use bevy::prelude::*;
@@ -30,9 +31,9 @@ pub(super) fn plugin(app: &mut App) {
     );
 }
 
-/// A component that represents the core logic of a kinematic character controller.
-/// This component has a dedicated system that updates its internal state and calls the movement
-/// basis.
+/// A component that represents the core logic of a kinematic character
+/// controller. This component has a dedicated system that updates its internal
+/// state and calls the movement basis.
 #[derive(Component, Reflect, Debug)]
 #[require(RigidBody(|| RigidBody::Kinematic), KCCFloorDetection, KCCFloorSnap, KCCGravity, KCCGrounded, KCCSlope)]
 #[reflect(Component)]
@@ -65,7 +66,8 @@ impl Default for KinematicCharacterController {
 #[derive(Component, Reflect, Debug, Default)]
 #[reflect(Component)]
 /// A component that when added to the controller enables grounding management.
-/// This component requires the [`KCCFloorDetection`] component to be present on the same entity.
+/// This component requires the [`KCCFloorDetection`] component to be present on
+/// the same entity.
 pub struct KCCGrounded {
     /// Is this character currently grounded?
     pub grounded: bool,
@@ -73,16 +75,17 @@ pub struct KCCGrounded {
     pub prev_grounded: bool,
 }
 
-/// Component that represents the floor detection of a kinematic character controller.
-/// This component has a dedicated system that runs a shapecast to detect the floor.
+/// Component that represents the floor detection of a kinematic character
+/// controller. This component has a dedicated system that runs a shapecast to
+/// detect the floor.
 #[derive(Component, Reflect, Debug)]
 #[reflect(Component)]
 pub struct KCCFloorDetection {
     /// [`Vec3`] representing the normal of the floor we were on last tick.
     /// [`Vec3::ZERO`] if we are not grounded.
     pub prev_floor_normal: Vec3,
-    /// [`Vec3`] representing the normal of the floor we are currently standing on.
-    /// [`Vec3::ZERO`] if we are not grounded.
+    /// [`Vec3`] representing the normal of the floor we are currently standing
+    /// on. [`Vec3::ZERO`] if we are not grounded.
     pub floor_normal: Vec3,
     /// Direction that gravity is pulling this character in
     pub ground_direction: Vec3,
@@ -90,7 +93,8 @@ pub struct KCCFloorDetection {
     pub floor_collider: Collider,
     /// The distance from the floor that this character is currently at.
     pub floor_distance: f32,
-    /// How far from the floor this character can be before it is considered not grounded.
+    /// How far from the floor this character can be before it is considered not
+    /// grounded.
     pub max_floor_distance: f32,
 }
 
@@ -108,8 +112,8 @@ impl Default for KCCFloorDetection {
 }
 
 /// A component that when added to the controller enables snapping to the floor.
-/// This component requires the [`KCCFloorDetection`] and the [`KCCGrounded`] components to be
-/// present on the same entity.
+/// This component requires the [`KCCFloorDetection`] and the [`KCCGrounded`]
+/// components to be present on the same entity.
 #[derive(Component, Reflect, Debug, Default)]
 #[reflect(Component)]
 pub struct KCCFloorSnap;
@@ -155,14 +159,14 @@ impl Default for KCCSlope {
     }
 }
 
-/// Function that updates the kinematic character controller's internal state. Currently, this only
-/// updates the previous velocity.
+/// Function that updates the kinematic character controller's internal state.
+/// Currently, this only updates the previous velocity.
 pub fn update_kinematic_character_controller(
     mut query: Query<(&mut KinematicCharacterController, &mut LinearVelocity)>,
 ) {
     for (mut controller, _) in query.iter_mut() {
         controller.prev_velocity = controller.velocity;
-        //linear_velocity.0 = controller.velocity;
+        // linear_velocity.0 = controller.velocity;
     }
 }
 

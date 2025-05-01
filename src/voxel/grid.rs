@@ -113,21 +113,21 @@ impl Grid {
     #[inline]
     pub fn y(&self) -> Scalar {
         self.array[1]
-        /*match self.ordering {
-            Ordering::XYZ => self.array[1],
-            Ordering::XZY => self.array[2],
-            _ => todo!(),
-        }*/
+        // match self.ordering {
+        // Ordering::XYZ => self.array[1],
+        // Ordering::XZY => self.array[2],
+        // _ => todo!(),
+        // }
     }
 
     #[inline]
     pub fn z(&self) -> Scalar {
         self.array[2]
-        /*match self.ordering {
-            Ordering::XYZ => self.array[2],
-            Ordering::XZY => self.array[1],
-            _ => todo!(),
-        }*/
+        // match self.ordering {
+        // Ordering::XYZ => self.array[2],
+        // Ordering::XZY => self.array[1],
+        // _ => todo!(),
+        // }
     }
 
     #[inline]
