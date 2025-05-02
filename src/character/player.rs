@@ -1,5 +1,6 @@
 use avian3d::prelude::*;
 use bevy::color::palettes::css::GRAY;
+use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
@@ -44,9 +45,13 @@ pub fn spawn_player(
             Name::new("Flying camera"),
             FlyingSettings::default(),
             FlyingState::default(),
-            Camera { ..default() },
+            Camera { 
+                hdr: true,
+                ..default()
+            },
             Camera3d::default(),
             Projection::Perspective(PerspectiveProjection::default()),
+            Tonemapping::default(),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ))
@@ -58,8 +63,12 @@ pub fn spawn_player(
             FollowSettings::default(),
             FollowState::default(),
             FollowPlayer(player),
-            Camera { ..default() },
+            Camera { 
+                hdr: true,
+                ..default()
+            },
             Camera3d::default(),
+            Tonemapping::default(),
             Projection::Perspective(PerspectiveProjection::default()),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
@@ -71,8 +80,12 @@ pub fn spawn_player(
             Name::new("Digsite camera"),
             DigsiteSettings::default(),
             DigsiteState::default(),
-            Camera { ..default() },
+            Camera { 
+                hdr: true,
+                ..default()
+            },
             Camera3d::default(),
+            Tonemapping::default(),
             Projection::Perspective(PerspectiveProjection::default()),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),

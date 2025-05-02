@@ -235,29 +235,3 @@ fn depenetrate(
         transform.translation += hit.normal1 * push_out_distance;
     }
 }
-
-/// Optimized gravity system with terminal velocity handling
-pub fn gravity_system(
-    mut query: Query<(&KinematicCharacterController, &mut KCCGravity)>,
-    time: Res<Time>,
-) {
-    let dt = time.delta_secs();
-
-    for (_, mut gravity) in query.iter_mut() {
-        let current_speed = gravity.current_velocity.length();
-        if current_speed >= gravity.terminal_velocity {
-            // Decelerate to terminal velocity
-            gravity.current_velocity *= 0.99;
-            continue;
-        }
-
-        let delta_velocity = gravity.direction * gravity.acceleration_factor * dt;
-        let new_velocity = gravity.current_velocity + delta_velocity;
-
-        gravity.current_velocity = if new_velocity.length() > gravity.terminal_velocity {
-            new_velocity.normalize() * gravity.terminal_velocity
-        } else {
-            new_velocity
-        };
-    }
-}

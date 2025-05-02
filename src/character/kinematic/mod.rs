@@ -7,6 +7,9 @@
 
 use avian3d::prelude::*;
 use bevy::prelude::*;
+use bevy_enhanced_input::prelude::*;
+
+use crate::character::input::{Jump, Move, PlayerInput};
 
 mod movement;
 
@@ -16,12 +19,15 @@ pub(super) fn plugin(app: &mut App) {
         .register_type::<KCCFloorSnap>()
         .register_type::<KCCGravity>()
         .register_type::<KCCGrounded>()
+        .register_type::<KCCJump>()
         .register_type::<KCCSlope>();
 
     app.add_systems(
         FixedUpdate,
         (
-            movement::gravity_system,
+            velocity_dampening,
+            gravity_system,
+            handle_jump,
             movement::collide_and_slide_system,
             update_kinematic_character_controller,
             update_kinematic_floor,
@@ -35,7 +41,7 @@ pub(super) fn plugin(app: &mut App) {
 /// controller. This component has a dedicated system that updates its internal
 /// state and calls the movement basis.
 #[derive(Component, Reflect, Debug)]
-#[require(RigidBody(|| RigidBody::Kinematic), KCCFloorDetection, KCCFloorSnap, KCCGravity, KCCGrounded, KCCSlope)]
+#[require(RigidBody(|| RigidBody::Kinematic), KCCFloorDetection, KCCFloorSnap, KCCGravity, KCCGrounded, KCCSlope, KCCJump)]
 #[reflect(Component)]
 pub struct KinematicCharacterController {
     /// The velocity we had last tick.
@@ -180,23 +186,24 @@ pub fn update_kinematic_floor(
             grounded.prev_grounded = grounded.grounded;
         }
 
-        let Some(cast) = spatial_query.cast_shape(
+        if let Some(cast) = spatial_query.cast_shape(
             &floor_detection.floor_collider,
             transform.translation,
             Quat::IDENTITY,
             Dir3::new_unchecked(floor_detection.ground_direction.normalize()),
             &ShapeCastConfig { max_distance: floor_detection.max_floor_distance, ..default() },
             &SpatialQueryFilter::default().with_excluded_entities([entity]),
-        ) else {
-            // Nothing was hit, move on.
-            continue;
+        ) {
+            floor_detection.floor_normal = cast.normal1;
+            floor_detection.floor_distance = cast.distance;
+            if let Some(grounded) = grounded.as_mut() {
+                grounded.grounded = true;
+            }
+        } else {
+            if let Some(grounded) = grounded.as_mut() {
+                grounded.grounded = false;
+            }
         };
-
-        floor_detection.floor_normal = cast.normal1;
-        floor_detection.floor_distance = cast.distance;
-        if let Some(grounded) = grounded.as_mut() {
-            grounded.grounded = true;
-        }
     }
 }
 
@@ -215,6 +222,106 @@ pub fn floor_snap(
             && floor_detection.floor_distance < 0.01
         {
             transform.translation.y -= floor_detection.floor_distance - 0.001;
+        }
+    }
+}
+
+pub fn velocity_dampening(mut query: Query<&mut KinematicCharacterController>, _time: Res<Time>) {
+    for mut kcc in query.iter_mut() {
+        // don't dampen vertical velocity because we want to choreograph it more.
+        kcc.velocity.x *= 0.9;
+        kcc.velocity.z *= 0.9;
+    }
+}
+
+/// Optimized gravity system with terminal velocity handling
+pub fn gravity_system(
+    mut query: Query<(&KinematicCharacterController, &mut KCCGravity, &KCCGrounded)>,
+    time: Res<Time>,
+) {
+    let dt = time.delta_secs();
+
+    for (_, mut gravity, grounded) in query.iter_mut() {
+        if grounded.grounded {
+            gravity.current_velocity = Vec3::ZERO;
+        }
+
+        let current_speed = gravity.current_velocity.length();
+        if current_speed >= gravity.terminal_velocity {
+            // Decelerate to terminal velocity
+            gravity.current_velocity *= 0.99;
+            continue;
+        }
+
+        let delta_velocity = gravity.direction * gravity.acceleration_factor * dt;
+        let new_velocity = gravity.current_velocity + delta_velocity;
+
+        gravity.current_velocity = if new_velocity.length() > gravity.terminal_velocity {
+            new_velocity.normalize() * gravity.terminal_velocity
+        } else {
+            new_velocity
+        };
+    }
+}
+
+#[derive(Component, Debug, Reflect)]
+pub struct KCCJump {
+    pub initial_force: f32, // starting force applied each frame while holding jump
+    pub hold_falloff: f32, // falloff by this amount * delta each frame we hold jump
+    pub falloff: f32, // falloff by this amount * delta each frame
+
+    pub last_jump: bool,
+    pub current_force: Option<f32>,
+}
+
+impl Default for KCCJump {
+    fn default() -> Self {
+        Self {
+            initial_force: 15.0,
+            hold_falloff: 25.0,
+            falloff: 75.0,
+
+            last_jump: false,
+            current_force: None,
+        }
+    }
+}
+
+pub fn handle_jump(
+    mut players: Query<(&mut KinematicCharacterController, &KCCGrounded, &mut KCCJump, &Actions<PlayerInput>)>,
+    time: Res<Time>,
+) {
+    for (mut controller, grounded, mut jump, actions) in &mut players {
+        let mut falloff = 0.0;
+        match actions.action::<Jump>().state() {
+            ActionState::Fired => {
+                if grounded.grounded {
+                    if jump.current_force.is_none() && !jump.last_jump {
+                        jump.last_jump = true;
+                        jump.current_force = Some(jump.initial_force);
+                    } else if jump.current_force.is_some() {
+                        jump.current_force = None;
+                    }
+                } else {
+                    falloff = jump.hold_falloff;
+                }
+            }
+            _ => {
+                jump.last_jump = false;
+                falloff = jump.falloff;
+            },
+        }
+
+        if let Some(force) = &mut jump.current_force {
+            *force -= falloff * time.delta_secs();
+        }
+
+        if jump.current_force.is_some_and(|force| force < 0.0) {
+            jump.current_force = None;
+        }
+
+        if let Some(force) = jump.current_force {
+            controller.velocity += Vec3::Y * force;
         }
     }
 }
