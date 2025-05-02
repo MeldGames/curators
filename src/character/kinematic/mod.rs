@@ -267,8 +267,8 @@ pub fn gravity_system(
 #[derive(Component, Debug, Reflect)]
 pub struct KCCJump {
     pub initial_force: f32, // starting force applied each frame while holding jump
-    pub hold_falloff: f32, // falloff by this amount * delta each frame we hold jump
-    pub falloff: f32, // falloff by this amount * delta each frame
+    pub hold_falloff: f32,  // falloff by this amount * delta each frame we hold jump
+    pub falloff: f32,       // falloff by this amount * delta each frame
 
     pub last_jump: bool,
     pub current_force: Option<f32>,
@@ -288,7 +288,12 @@ impl Default for KCCJump {
 }
 
 pub fn handle_jump(
-    mut players: Query<(&mut KinematicCharacterController, &KCCGrounded, &mut KCCJump, &Actions<PlayerInput>)>,
+    mut players: Query<(
+        &mut KinematicCharacterController,
+        &KCCGrounded,
+        &mut KCCJump,
+        &Actions<PlayerInput>,
+    )>,
     time: Res<Time>,
 ) {
     for (mut controller, grounded, mut jump, actions) in &mut players {
@@ -305,7 +310,7 @@ pub fn handle_jump(
                 } else {
                     falloff = jump.hold_falloff;
                 }
-            }
+            },
             _ => {
                 jump.last_jump = false;
                 falloff = jump.falloff;

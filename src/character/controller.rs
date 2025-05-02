@@ -16,9 +16,9 @@ pub fn apply_movement(
     mut players: Query<(&mut KinematicCharacterController, &KCCGrounded)>,
 ) {
     let (mut controller, grounded) = players.get_mut(trigger.entity()).unwrap();
-    /*if !grounded.grounded {
-        return;
-    }*/
+    // if !grounded.grounded {
+    // return;
+    // }
 
     let speed = 5.0;
     if trigger.value.x != 0.0 {

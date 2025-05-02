@@ -45,10 +45,7 @@ pub fn spawn_player(
             Name::new("Flying camera"),
             FlyingSettings::default(),
             FlyingState::default(),
-            Camera { 
-                hdr: true,
-                ..default()
-            },
+            Camera { hdr: true, ..default() },
             Camera3d::default(),
             Projection::Perspective(PerspectiveProjection::default()),
             Tonemapping::default(),
@@ -63,10 +60,7 @@ pub fn spawn_player(
             FollowSettings::default(),
             FollowState::default(),
             FollowPlayer(player),
-            Camera { 
-                hdr: true,
-                ..default()
-            },
+            Camera { hdr: true, ..default() },
             Camera3d::default(),
             Tonemapping::default(),
             Projection::Perspective(PerspectiveProjection::default()),
@@ -80,10 +74,7 @@ pub fn spawn_player(
             Name::new("Digsite camera"),
             DigsiteSettings::default(),
             DigsiteState::default(),
-            Camera { 
-                hdr: true,
-                ..default()
-            },
+            Camera { hdr: true, ..default() },
             Camera3d::default(),
             Tonemapping::default(),
             Projection::Perspective(PerspectiveProjection::default()),
