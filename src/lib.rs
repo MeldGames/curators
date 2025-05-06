@@ -1,4 +1,5 @@
 use avian3d::prelude::*;
+use bevy::core_pipeline::auto_exposure::AutoExposurePlugin;
 use bevy::pbr::wireframe::WireframePlugin;
 use bevy::prelude::*;
 use iyes_perf_ui::prelude::*;
@@ -21,6 +22,7 @@ pub fn shared(app: &mut App) {
 
     app.add_plugins(voxel::VoxelPlugin::default())
         .add_plugins(WireframePlugin::default())
+        .add_plugins(AutoExposurePlugin)
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
         .add_plugins(bevy::diagnostic::EntityCountDiagnosticsPlugin)
         .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)

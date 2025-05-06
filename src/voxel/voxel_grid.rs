@@ -61,6 +61,9 @@ impl Voxel {
 
 /// Simple Voxel grid, zero optimizations done like octrees/chunking/etc.
 #[derive(MemSize, Debug, Component, Reflect)]
+#[require(
+    Name::new("Voxel Grid"),
+)]
 pub struct VoxelGrid {
     pub grid: Grid,
     pub voxels: Vec<Voxel>,

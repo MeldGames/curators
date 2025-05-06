@@ -1,5 +1,7 @@
+use bevy::pbr::light_consts::lux;
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
+use bevy::render::camera::Exposure;
 use bevy_enhanced_input::prelude::Actions;
 use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
@@ -27,6 +29,7 @@ pub struct VoxelPlugin;
 impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Voxel>();
+        app.register_type::<Exposure>();
 
         app.add_plugins(mesh::surface_net::SurfaceNetPlugin);
         app.add_plugins(mesh::ass_mesh::ASSMeshPlugin);
@@ -35,12 +38,13 @@ impl Plugin for VoxelPlugin {
         app.add_plugins(pick::VoxelPickPlugin);
         app.add_plugins(collider::plugin).add_plugins(character::plugin);
 
-        app.add_systems(Update, VoxelGrid::clear_changed_system).add_systems(Update, rename_grids);
+        app.add_systems(Update, VoxelGrid::clear_changed_system);
 
         app.insert_resource(WireframeConfig { global: false, ..default() });
 
         app.add_systems(Startup, spawn_voxel_grid);
         app.add_systems(Startup, spawn_directional_lights);
+        app.add_systems(Update, dynamic_scene);
     }
 }
 
@@ -85,17 +89,37 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     ));
 }
 
+fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
+    return;
+    suns.iter_mut()
+        .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * std::f32::consts::PI / 10.0));
+}
+
 pub fn spawn_directional_lights(mut commands: Commands) {
     commands.spawn((
         Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)).looking_at(Vec3::ZERO, Vec3::Y),
         DirectionalLight {
-            shadows_enabled: false,
-            illuminance: 25_000.0,
-            color: Color::WHITE,
+            shadows_enabled: true,
+            illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
     ));
 
+    commands.spawn(
+        (
+            Transform::from_xyz(5.0, 5.0, 5.0),
+            PointLight {
+                color: Color::srgb(1.0, 0.0, 0.0),
+                intensity: 900_000.0,
+                range: 100.0,
+                radius: 10.0,
+                shadows_enabled: true,
+                ..default()
+            }
+        )
+    );
+
+    /*
     let angled_lights =
         [Vec3::Y + Vec3::Z, Vec3::Y - Vec3::Z, Vec3::Y + Vec3::X, Vec3::Y - Vec3::X];
     for light in angled_lights {
@@ -109,13 +133,5 @@ pub fn spawn_directional_lights(mut commands: Commands) {
             },
         ));
     }
-}
-
-pub fn rename_grids(
-    mut commands: Commands,
-    grids: Query<Entity, (With<VoxelGrid>, Without<Name>)>,
-) {
-    for grid in &grids {
-        commands.entity(grid).insert(Name::new("Voxel Grid"));
-    }
+    */
 }

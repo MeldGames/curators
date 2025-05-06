@@ -1,7 +1,10 @@
 use avian3d::prelude::*;
 use bevy::color::palettes::css::GRAY;
+use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::pbr::Atmosphere;
 use bevy::prelude::*;
+use bevy::render::camera::Exposure;
 use bevy_enhanced_input::prelude::*;
 
 use crate::camera::*;
@@ -18,6 +21,7 @@ pub fn spawn_player(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     let collider = Collider::capsule(0.4, 0.8);
     let mesh = meshes.add(Mesh::from(Capsule3d::new(0.4, 0.8)));
@@ -40,15 +44,28 @@ pub fn spawn_player(
         ))
         .id();
 
+    let metering_mask = asset_server.load("basic_metering_mask.png");
+
+    let camera_components = (
+        Camera { hdr: true, ..default() }, 
+        Camera3d::default(),
+        Projection::Perspective(PerspectiveProjection::default()),
+        Tonemapping::default(),
+        Atmosphere::EARTH,
+        //Exposure::SUNLIGHT,
+        Bloom::NATURAL,
+        bevy::core_pipeline::auto_exposure::AutoExposure {
+            metering_mask: metering_mask.clone(),
+            ..default()
+        },
+    );
+
     let flying = commands
         .spawn((
             Name::new("Flying camera"),
             FlyingSettings::default(),
             FlyingState::default(),
-            Camera { hdr: true, ..default() },
-            Camera3d::default(),
-            Projection::Perspective(PerspectiveProjection::default()),
-            Tonemapping::default(),
+            camera_components.clone(),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ))
@@ -60,10 +77,7 @@ pub fn spawn_player(
             FollowSettings::default(),
             FollowState::default(),
             FollowPlayer(player),
-            Camera { hdr: true, ..default() },
-            Camera3d::default(),
-            Tonemapping::default(),
-            Projection::Perspective(PerspectiveProjection::default()),
+            camera_components.clone(),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ))
@@ -74,10 +88,7 @@ pub fn spawn_player(
             Name::new("Digsite camera"),
             DigsiteSettings::default(),
             DigsiteState::default(),
-            Camera { hdr: true, ..default() },
-            Camera3d::default(),
-            Tonemapping::default(),
-            Projection::Perspective(PerspectiveProjection::default()),
+            camera_components.clone(),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ))

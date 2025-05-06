@@ -52,7 +52,7 @@ pub fn rebuild_borders(
     let ground_material = MeshMaterial3d(materials.add(StandardMaterial {
         base_color: Srgba::new(0.0, 82.0 / 255.0, 0.0, 1.0).into(),
         perceptual_roughness: 1.0,
-        reflectance: 0.0,
+        //reflectance: 0.0,
         ..Default::default()
     }));
 
