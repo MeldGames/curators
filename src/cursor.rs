@@ -37,7 +37,7 @@ pub fn spawn_cursor_input(mut commands: Commands) {
 }
 
 pub fn cursor_binding(trigger: Trigger<Binding<Cursor>>, mut cursor: Query<&mut Actions<Cursor>>) {
-    let Ok(mut actions) = cursor.get_mut(trigger.entity()) else {
+    let Ok(mut actions) = cursor.get_mut(trigger.target()) else {
         return;
     };
 
@@ -58,7 +58,7 @@ pub fn cursor_grab(
     grabbers: Query<(), Or<(With<Actions<FlyingCamera>>, With<Actions<PlayerInput>>)>>,
     mut toggle: ResMut<CursorGrabToggle>,
 ) {
-    let cursor = cursor.single();
+    let cursor = cursor.single().unwrap();
     let grabbers = grabbers.iter().count();
 
     if cursor.action::<ToggleCursor>().state() == ActionState::Fired {

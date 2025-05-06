@@ -25,7 +25,7 @@ pub fn spawn_mesh_collider(
     meshes: Res<Assets<Mesh>>,
 ) {
     for (entity, global_transform, grid, children) in &grids {
-        let Some(mesh) = children.iter().find_map(|child| voxel_mesh.get(*child).ok()) else {
+        let Some(mesh) = children.iter().find_map(|child| voxel_mesh.get(child).ok()) else {
             continue;
         };
 
@@ -33,7 +33,7 @@ pub fn spawn_mesh_collider(
         let mut new_collider = Collider::trimesh_from_mesh(mesh).unwrap();
         new_collider.set_scale(crate::voxel::GRID_SCALE, 32);
 
-        if let Some(child) = children.iter().find_map(|child| collider_child.get(*child).ok()) {
+        if let Some(child) = children.iter().find_map(|child| collider_child.get(child).ok()) {
             let Ok(mut collider) = colliders.get_mut(child) else {
                 continue;
             };

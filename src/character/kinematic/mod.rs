@@ -41,7 +41,7 @@ pub(super) fn plugin(app: &mut App) {
 /// controller. This component has a dedicated system that updates its internal
 /// state and calls the movement basis.
 #[derive(Component, Reflect, Debug)]
-#[require(RigidBody(|| RigidBody::Kinematic), KCCFloorDetection, KCCFloorSnap, KCCGravity, KCCGrounded, KCCSlope, KCCJump)]
+#[require(RigidBody::Kinematic, KCCFloorDetection, KCCFloorSnap, KCCGravity, KCCGrounded, KCCSlope, KCCJump)]
 #[reflect(Component)]
 pub struct KinematicCharacterController {
     /// The velocity we had last tick.

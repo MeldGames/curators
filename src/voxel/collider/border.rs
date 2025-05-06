@@ -12,7 +12,7 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Component)]
-#[require(Name (|| Name::new("Border")))]
+#[require(Name::new("Border"))]
 pub struct Border;
 
 pub fn rebuild_borders(

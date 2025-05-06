@@ -1,8 +1,9 @@
 //! An example that showcases how to update the mesh.
 #[allow(unused_imports, dead_code)]
 use bevy::pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin};
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use bevy::utils::HashMap;
+//use bevy::utils::HashMap;
 use bevy_meshem::prelude::*;
 
 use crate::voxel::GRID_SCALE;

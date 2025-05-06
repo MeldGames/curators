@@ -87,7 +87,7 @@ pub fn camera_binding(
     trigger: Trigger<Binding<FlyingCamera>>,
     mut flying: Query<&mut Actions<FlyingCamera>>,
 ) {
-    let Ok(mut actions) = flying.get_mut(trigger.entity()) else {
+    let Ok(mut actions) = flying.get_mut(trigger.target()) else {
         return;
     };
 
@@ -175,7 +175,7 @@ pub fn started_flying(
                                                         * matter much */
     mut query: Query<(&Transform, &mut FlyingState)>,
 ) {
-    let Ok((transform, mut state)) = query.get_mut(trigger.entity()) else {
+    let Ok((transform, mut state)) = query.get_mut(trigger.target()) else {
         return;
     };
     let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);

@@ -20,7 +20,7 @@ pub fn player_binding(
     trigger: Trigger<Binding<PlayerInput>>,
     mut players: Query<&mut Actions<PlayerInput>>,
 ) {
-    let Ok(mut actions) = players.get_mut(trigger.entity()) else {
+    let Ok(mut actions) = players.get_mut(trigger.target()) else {
         return;
     };
 

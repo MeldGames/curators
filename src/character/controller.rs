@@ -15,7 +15,7 @@ pub fn apply_movement(
     trigger: Trigger<Fired<Move>>,
     mut players: Query<(&mut KinematicCharacterController, &KCCGrounded)>,
 ) {
-    let (mut controller, grounded) = players.get_mut(trigger.entity()).unwrap();
+    let (mut controller, grounded) = players.get_mut(trigger.target()).unwrap();
     // if !grounded.grounded {
     // return;
     // }

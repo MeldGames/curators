@@ -11,7 +11,7 @@ pub(super) fn plugin(app: &mut App) {
 }
 
 #[derive(Component)]
-#[require(Name(|| Name::new("Player")))]
+#[require(Name::new("Player"))]
 pub struct Player;
 
 pub fn spawn_player(

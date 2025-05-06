@@ -47,7 +47,7 @@ pub fn toggle_binding(
     trigger: Trigger<Binding<CameraToggle>>,
     mut toggle: Query<&mut Actions<CameraToggle>>,
 ) {
-    let Ok(mut actions) = toggle.get_mut(trigger.entity()) else {
+    let Ok(mut actions) = toggle.get_mut(trigger.target()) else {
         return;
     };
 
@@ -114,7 +114,7 @@ pub fn switch_cameras(
     trigger: Trigger<Fired<Toggle>>,
     mut camera_entities: Query<&mut CameraEntities>,
 ) {
-    let Ok(mut camera_entities) = camera_entities.get_mut(trigger.entity()) else {
+    let Ok(mut camera_entities) = camera_entities.get_mut(trigger.target()) else {
         return;
     };
 
