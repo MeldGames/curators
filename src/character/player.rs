@@ -55,6 +55,10 @@ pub fn spawn_player(
         //Exposure::SUNLIGHT,
         Bloom::NATURAL,
         bevy::core_pipeline::auto_exposure::AutoExposure {
+            range: -3.0..=3.0,
+            filter: 0.10..=0.90,
+            speed_brighten: 4.0, // 3.0 default
+            speed_darken: 4.0, // 1.0 default
             metering_mask: metering_mask.clone(),
             ..default()
         },

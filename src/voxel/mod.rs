@@ -90,7 +90,6 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
 }
 
 fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
-    return;
     suns.iter_mut()
         .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * std::f32::consts::PI / 10.0));
 }

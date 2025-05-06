@@ -13,8 +13,6 @@ impl Plugin for VoxelBoxColliderPlugin {
     }
 }
 
-pub fn spawn_mesh_collider() {}
-
 pub fn spawn_box_colliders(
     mut commands: Commands,
     grids: Query<(Entity, &GlobalTransform, &VoxelGrid), Changed<VoxelGrid>>,
