@@ -3,7 +3,9 @@ use bevy::prelude::*;
 use bevy_enhanced_input::EnhancedInputPlugin;
 use bevy_enhanced_input::prelude::*;
 
+use crate::voxel::voxel_grid::Voxel;
 use crate::voxel::voxel_grid::VoxelGrid;
+use crate::voxel::voxel_grid::VoxelState;
 use crate::voxel::GRID_SCALE;
 
 #[derive(Component)]
@@ -20,7 +22,7 @@ pub(super) fn plugin(app: &mut App) {
 
     app.add_observer(player_binding);
 
-    app.add_systems(Update, dig);
+    app.add_systems(Update, (dig_target, dig_block).chain());
 }
 
 pub fn player_binding(
@@ -70,12 +72,13 @@ impl Default for DigState {
     }
 }
 
-pub fn dig(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState)>, mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelGrid)>, mut gizmos: Gizmos) {
+pub fn dig_target(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState)>, mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelGrid)>, mut gizmos: Gizmos) {
     for (global_transform, actions, mut state) in &mut players {
         let interact = actions.action::<Dig>();
         match interact.state() {
             ActionState::Fired => {
                 if state.target_block.is_none() {
+
                 }
             }
             ActionState::None => {
@@ -106,6 +109,29 @@ pub fn dig(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut Dig
                     scale: GRID_SCALE * 1.01,
                     rotation: Quat::IDENTITY,
                 }, Color::srgb(1.0, 1.0, 1.0));
+            }
+        }
+    }
+}
+
+pub fn dig_block(players: Query<(&Actions<PlayerInput>, &DigState)>, mut digsites: Query<&mut VoxelGrid>) {
+    for (actions, dig_state) in &players {
+        if let ActionState::Fired = actions.action::<Dig>().state() {
+            if let Some((digsite_entity, voxel_pos)) = dig_state.target_block {
+                if let Ok(mut grid) = digsites.get_mut(digsite_entity) {
+                    if let Some(voxel_state) = grid.get_voxel_state(voxel_pos) {
+                        let dig_power = 1;
+                        let new_health = voxel_state.health.saturating_sub(dig_power);
+                        if new_health == 0 {
+                            grid.set(voxel_pos, Voxel::Air.into());
+                        } else {
+                            grid.set(voxel_pos, VoxelState {
+                                health: new_health,
+                                voxel: voxel_state.voxel,
+                            });
+                        }
+                    }
+                }
             }
         }
     }
