@@ -41,6 +41,24 @@ pub fn spawn_player(
                 materials.add(StandardMaterial { base_color: GRAY.into(), ..Default::default() }),
             ),
             Actions::<super::input::PlayerInput>::default(),
+            /*PointLight {
+                color: Color::srgb(0.0, 0.0, 1.0),
+                intensity: 1_000_000.0,
+                range: 10.0,
+                radius: 0.0,
+                shadows_enabled: false,
+                ..default()
+            }*/
+        ))
+        .with_child((
+            Name::new("Player Spotlight"),
+            Transform::from_xyz(0.0, 3.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            SpotLight {
+                color: Color::srgb(1.0, 1.0, 1.0),
+                intensity: 1_000_000.0,
+                shadows_enabled: false,
+                ..default()
+            }
         ))
         .id();
 
@@ -56,9 +74,10 @@ pub fn spawn_player(
         Bloom::NATURAL,
         bevy::core_pipeline::auto_exposure::AutoExposure {
             range: -3.0..=3.0,
+            //range: -9.0..=1.0,
             filter: 0.10..=0.90,
-            speed_brighten: 4.0, // 3.0 default
-            speed_darken: 4.0, // 1.0 default
+            speed_brighten: 3.0, // 3.0 default
+            speed_darken: 1.0, // 1.0 default
             metering_mask: metering_mask.clone(),
             ..default()
         },

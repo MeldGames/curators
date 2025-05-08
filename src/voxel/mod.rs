@@ -89,19 +89,23 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     ));
 }
 
-fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
+fn dynamic_scene(mut suns: Query<&mut Transform, With<Sun>>, time: Res<Time>) {
     suns.iter_mut()
-        .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * std::f32::consts::PI / 10.0));
+        .for_each(|mut tf| tf.rotate_z(-time.delta_secs() * std::f32::consts::PI / 10.0));
 }
+
+#[derive(Component)]
+pub struct Sun;
 
 pub fn spawn_directional_lights(mut commands: Commands) {
     commands.spawn((
-        Transform::from_translation(Vec3::new(0.0, 1.0, 0.0)).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_translation(Vec3::new(0.0, 1.0, 0.5)).looking_at(Vec3::ZERO, Vec3::Y),
         DirectionalLight {
             shadows_enabled: true,
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
+        Sun,
     ));
 
     commands.spawn(
@@ -118,14 +122,31 @@ pub fn spawn_directional_lights(mut commands: Commands) {
         )
     );
 
+    commands.spawn(
+        (
+            Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            SpotLight {
+                color: Color::srgb(0.0, 1.0, 1.0),
+                intensity: 100_000_000.0,
+                range: 100.0,
+                shadows_enabled: true,
+                ..default()
+            },
+        )
+    );
+
     /*
+    let steepness = 3.0;
+    //let height = Vec3::Y * steepness;
+    let height = 0.0;
+
     let angled_lights =
-        [Vec3::Y + Vec3::Z, Vec3::Y - Vec3::Z, Vec3::Y + Vec3::X, Vec3::Y - Vec3::X];
+        [height + Vec3::Z, height - Vec3::Z, height + Vec3::X, height - Vec3::X];
     for light in angled_lights {
         commands.spawn((
             Transform::from_translation(light).looking_at(Vec3::ZERO, Vec3::Y),
             DirectionalLight {
-                shadows_enabled: false,
+                shadows_enabled: true,
                 illuminance: 10_000.0,
                 color: Color::WHITE,
                 ..default()
