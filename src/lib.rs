@@ -8,6 +8,7 @@ pub mod camera;
 pub mod character;
 pub mod cursor;
 pub mod voxel;
+pub mod digsite;
 
 pub fn server(app: &mut App) {}
 

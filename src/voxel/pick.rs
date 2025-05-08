@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::voxel_grid::{Voxel, VoxelGrid};
+use super::voxel_grid::{Voxel, VoxelGrid, VoxelState};
 
 pub struct VoxelPickPlugin;
 impl Plugin for VoxelPickPlugin {
@@ -66,13 +66,13 @@ pub fn draw_cursor(
             // Place block
             let normal_block: [i32; 3] = (point_ivec + normal_ivec).into();
             if grid.in_bounds(normal_block.into()) {
-                grid.set(normal_block, Voxel::Dirt);
+                grid.set(normal_block, VoxelState::from(Voxel::Dirt));
             }
         } else if input.just_pressed(MouseButton::Left) {
             // Remove block
             if grid.in_bounds(point_ivec.into()) {
                 if grid.voxel(point_ivec.into()).breakable() {
-                    grid.set(point_ivec.into(), Voxel::Air);
+                    grid.set(point_ivec.into(), VoxelState::from(Voxel::Air));
                 }
             }
         }

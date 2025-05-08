@@ -60,7 +60,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     for x in 0..width {
         for z in 0..length {
             for y in 0..ground_level {
-                grid.set([x, y, z], Voxel::Dirt);
+                grid.set([x, y, z], Voxel::Dirt.into());
             }
         }
     }
@@ -68,7 +68,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     for x in 0..width {
         for z in 0..length {
             for y in (ground_level - 2)..ground_level {
-                grid.set([x, y, z], Voxel::Grass);
+                grid.set([x, y, z], Voxel::Grass.into());
             }
         }
     }
@@ -76,7 +76,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     for x in 0..width {
         for z in 0..length {
             for y in 0..1 {
-                grid.set([x, y, z], Voxel::Base);
+                grid.set([x, y, z], Voxel::Base.into());
             }
         }
     }
@@ -146,8 +146,8 @@ pub fn spawn_directional_lights(mut commands: Commands) {
         commands.spawn((
             Transform::from_translation(light).looking_at(Vec3::ZERO, Vec3::Y),
             DirectionalLight {
-                shadows_enabled: true,
-                illuminance: 10_000.0,
+                shadows_enabled: false,
+                illuminance: 50_000.0,
                 color: Color::WHITE,
                 ..default()
             },

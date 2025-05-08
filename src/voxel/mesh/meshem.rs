@@ -7,7 +7,7 @@ use bevy::prelude::*;
 use bevy_meshem::prelude::*;
 
 use crate::voxel::GRID_SCALE;
-use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
+use crate::voxel::voxel_grid::{Voxel, VoxelGrid, VoxelState};
 
 pub fn box_mesh(index: u32) -> Mesh {
     generate_voxel_mesh(
@@ -56,7 +56,7 @@ impl Plugin for BoxMeshPlugin {
 
 #[derive(Component)]
 pub struct MeshemData {
-    data: MeshMD<Voxel>,
+    data: MeshMD<VoxelState>,
 }
 
 #[derive(Component)]
@@ -94,13 +94,13 @@ impl VoxelRegistry for BlockRegistry {
     /// have a struct Block { Name: ..., etc ...}, and you'll define that as
     /// the type, but encoding the block data onto simple type like u16 or
     /// u64 is probably preferable.
-    type Voxel = Voxel;
+    type Voxel = VoxelState;
 
     /// The get_mesh function, probably the most important function in the
     /// [`VoxelRegistry`], it is what allows us to  quickly access the Mesh of
     /// each Voxel.
     fn get_mesh(&self, voxel: &Self::Voxel) -> VoxelMesh<&Mesh> {
-        match self.get(voxel) {
+        match self.get(&voxel.voxel) {
             Some(mesh) => VoxelMesh::NormalCube(mesh),
             None => VoxelMesh::Null,
         }
@@ -110,7 +110,7 @@ impl VoxelRegistry for BlockRegistry {
     /// example, the Air in minecraft is not "full", but it is still on the
     /// chunk data, to signal there is nothing.
     fn is_covering(&self, voxel: &Self::Voxel, _side: Face) -> bool {
-        match voxel {
+        match voxel.voxel {
             Voxel::Air => false,
             _ => true,
         }
@@ -160,7 +160,7 @@ pub fn setup_meshem(
         // let texture_mesh = asset_server.load("array_texture.png");
         let texture_mesh = asset_server.load("texture_map.png");
 
-        let (culled_mesh, metadata) = mesh_grid::<Voxel>(
+        let (culled_mesh, metadata) = mesh_grid::<VoxelState>(
             dims,
             &[],
             &grid.voxels,
@@ -218,13 +218,13 @@ pub fn meshem_update(
         for change in grid.changed() {
             let linear_index = grid.linearize(change.point);
 
-            let neighbors: [Option<Voxel>; 6] = {
+            let neighbors: [Option<VoxelState>; 6] = {
                 let mut r = [None; 6];
                 for i in 0..6 {
                     match get_neighbor(linear_index as usize, Face::from(i), meshem.data.dims) {
                         None => {},
-                        Some(j) => match grid.linear_voxel(j as i32) {
-                            Voxel::Air => {},
+                        Some(j) => match grid.linear_voxel_state(j as i32) {
+                            voxel if voxel.voxel == Voxel::Air => {},
                             voxel => r[i] = Some(voxel),
                         },
                     }
@@ -237,10 +237,10 @@ pub fn meshem_update(
             } else {
                 (change.new_voxel, VoxelChange::Added)
             };
-            meshem.data.log(meshem_change, linear_index as usize, voxel, neighbors);
+            meshem.data.log(meshem_change, linear_index as usize, voxel.into(), neighbors);
         }
 
-        update_mesh::<Voxel>(mesh, &mut meshem.data, &*block_registry);
+        update_mesh::<VoxelState>(mesh, &mut meshem.data, &*block_registry);
 
         let dims: Dimensions = {
             let array = grid.array();

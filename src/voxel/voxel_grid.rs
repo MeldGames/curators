@@ -6,6 +6,7 @@ use super::grid::{Grid, Ordering, Scalar};
 use super::raycast::Hit;
 use crate::voxel::raycast::BoundingVolume3;
 
+
 #[derive(
     MemSize,
     Reflect,
@@ -20,7 +21,34 @@ use crate::voxel::raycast::BoundingVolume3;
     Serialize,
     Deserialize,
 )]
+pub struct VoxelState {
+    pub health: i16,
+    pub voxel: Voxel,
+}
 
+impl From<Voxel> for VoxelState {
+    fn from(voxel: Voxel) -> Self {
+         Self {
+            health: voxel.starting_health(),
+            voxel: voxel,
+         }
+    }
+}
+
+#[derive(
+    MemSize,
+    Reflect,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Copy,
+    Clone,
+    Serialize,
+    Deserialize,
+)]
 pub enum Voxel {
     Air,
     Dirt,
@@ -28,6 +56,19 @@ pub enum Voxel {
     Stone,
     Water,
     Base,
+}
+
+impl Voxel {
+    pub fn starting_health(&self) -> i16 {
+        match self {
+            Voxel::Air => 0,
+            Voxel::Dirt => 1,
+            Voxel::Grass => 1,
+            Voxel::Stone => 50,
+            Voxel::Water => 0,
+            Voxel::Base => i16::MAX,
+        }
+    }
 }
 
 impl Voxel {
@@ -66,7 +107,7 @@ impl Voxel {
 )]
 pub struct VoxelGrid {
     pub grid: Grid,
-    pub voxels: Vec<Voxel>,
+    pub voxels: Vec<VoxelState>,
     pub surface: Vec<Scalar>,
 
     // Changed over the last frame.
@@ -86,7 +127,7 @@ impl VoxelGrid {
         let size = grid.size();
         Self {
             grid,
-            voxels: vec![Voxel::Air; size as usize],
+            voxels: vec![VoxelState::from(Voxel::Air); size as usize],
             surface: Vec::new(),
             changed: Vec::new(),
         }
@@ -107,6 +148,10 @@ impl VoxelGrid {
     }
 
     pub fn get_voxel(&self, point: [Scalar; 3]) -> Option<Voxel> {
+        self.get_voxel_state(point).map(|state| state.voxel)
+    }
+
+    pub fn get_voxel_state(&self, point: [Scalar; 3]) -> Option<VoxelState> {
         if !self.in_bounds(point) {
             return None;
         }
@@ -116,29 +161,35 @@ impl VoxelGrid {
     }
 
     pub fn voxel(&self, point: [Scalar; 3]) -> Voxel {
+        self.voxel_state(point).voxel
+    }
+
+    pub fn voxel_state(&self, point: [Scalar; 3]) -> VoxelState {
         if !self.in_bounds(point) {
             panic!("Point out of bounds: {:?}", point);
         }
 
         let index = self.linearize(point);
-        self.linear_voxel(index)
+        self.linear_voxel_state(index)
     }
 
     #[inline]
-    pub fn linear_voxel(&self, index: Scalar) -> Voxel {
+    pub fn linear_voxel_state(&self, index: Scalar) -> VoxelState {
         self.voxels[index as usize]
     }
 
-    pub fn set(&mut self, point: [Scalar; 3], voxel: Voxel) {
+    pub fn set(&mut self, point: [Scalar; 3], voxel: VoxelState) {
         if !self.in_bounds(point) {
             panic!("Point out of bounds: {:?}", point);
         }
 
         let index = self.linearize(point);
-        let last_voxel = self.linear_voxel(index);
-        self.changed.push(GridChange { point, last_voxel, new_voxel: voxel });
+        let last_voxel = self.linear_voxel_state(index);
+        if last_voxel.voxel != voxel.voxel {
+            self.changed.push(GridChange { point, last_voxel: last_voxel.voxel, new_voxel: voxel.voxel });
+        }
 
-        if voxel.filling() {
+        if voxel.voxel.filling() {
             // if filling, check that neighbors are still in the surface.
         } else {
         }
