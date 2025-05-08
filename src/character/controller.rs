@@ -4,32 +4,52 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
-use super::input::{Jump, Move, PlayerInput};
+use super::input::{Dig, Jump, Move, PlayerInput};
 use super::kinematic::{KCCGravity, KCCGrounded, KinematicCharacterController};
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_observer(apply_movement);
+    app.add_systems(Update, apply_movement);
 }
 
 pub fn apply_movement(
-    trigger: Trigger<Fired<Move>>,
-    mut players: Query<(&mut KinematicCharacterController, &KCCGrounded)>,
+    mut players: Query<(&mut KinematicCharacterController, &KCCGrounded, &Actions<PlayerInput>)>,
 ) {
-    let (mut controller, grounded) = players.get_mut(trigger.target()).unwrap();
-    // if !grounded.grounded {
-    // return;
-    // }
+    for (mut controller, grounded, actions) in &mut players {
+        let move_input = actions.action::<Move>().value().as_axis2d();
+        let dig = actions.action::<Dig>().value().as_bool();
 
-    let speed = 5.0;
-    if trigger.value.x != 0.0 {
-        controller.velocity.x = trigger.value.x * speed;
-    }
+        let speed = 5.0;
 
-    if trigger.value.y != 0.0 {
-        controller.velocity.z = -trigger.value.y * speed;
-    }
+        // TODO: Smooth out the change from normal speed to digging speed.
+        // Maybe slow more the further you are from the current target block?
+        let dig_max_speed = 2.0; // if digging this is the max speed.
+        let mut movement = move_input * speed;
+        if dig {
+            if movement.x > dig_max_speed {
+                movement.x = dig_max_speed;
+            }
+            if movement.x < -dig_max_speed {
+                movement.x = -dig_max_speed;
+            }
 
-    if controller.velocity.y.is_nan() {
-        controller.velocity.y = 0.0;
+            if movement.y > dig_max_speed {
+                movement.y = dig_max_speed;
+            }
+            if movement.y < -dig_max_speed {
+                movement.y = -dig_max_speed;
+            }
+        }
+
+        if movement.x != 0.0 {
+            controller.velocity.x = movement.x;
+        }
+
+        if movement.y != 0.0 {
+            controller.velocity.z = -movement.y;
+        }
+
+        if controller.velocity.y.is_nan() {
+            controller.velocity.y = 0.0;
+        }
     }
 }
