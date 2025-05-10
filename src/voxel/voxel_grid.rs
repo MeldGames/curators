@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::grid::{Grid, Ordering, Scalar};
 use super::raycast::Hit;
+use super::GRID_SCALE;
 use crate::voxel::raycast::BoundingVolume3;
 
 
@@ -254,7 +255,7 @@ impl VoxelGrid {
         None
     }
 
-    pub fn cast_ray(&self, grid_transform: &GlobalTransform, ray: Ray3d) -> Option<Hit> {
+    pub fn cast_ray(&self, grid_transform: &GlobalTransform, ray: Ray3d, length: f32, mut gizmos: Option<&mut Gizmos>) -> Option<Hit> {
         let inv_matrix = grid_transform.compute_matrix().inverse();
         let local_direction =
             Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3())).unwrap();
@@ -262,13 +263,40 @@ impl VoxelGrid {
 
         let local_ray = Ray3d { origin: local_origin, direction: local_direction };
 
-        self.cast_local_ray(local_ray)
+        let volume = BoundingVolume3 { size: self.array().into() };
+        for mut hit in volume.traverse_ray(local_ray, length) {
+            let local_distance = hit.distance;
+            let local_point = local_ray.origin + local_ray.direction * local_distance;
+            let world_point = grid_transform.transform_point(local_point);
+            let world_distance = world_point.distance(ray.origin);
+            hit.distance = world_distance;
+
+            if let Some(gizmos) = &mut gizmos {
+                //gizmos.sphere(world_point, 0.01, Color::srgb(1.0, 0.0, 0.0));
+
+                /*
+                let voxel_pos = Vec3::new(hit.voxel.0 as f32, hit.voxel.1 as f32, hit.voxel.2 as f32);
+                let world_pos = grid_transform.transform_point(voxel_pos + Vec3::splat(0.5) * GRID_SCALE);
+                gizmos.axes(Transform { translation: world_pos, ..default() }, 0.2);
+                */
+            }
+
+            let voxel = self.voxel(hit.voxel.into());
+            if voxel.pickable() {
+                if let Some(gizmos) = &mut gizmos {
+                    gizmos.sphere(world_point, 0.01, Color::srgb(1.0, 0.0, 0.0));
+                }
+                return Some(hit);
+            }
+        }
+
+        None
     }
 
     /// Cast a ray in the localspace of the voxel grid.
-    pub fn cast_local_ray(&self, ray: Ray3d) -> Option<Hit> {
+    pub fn cast_local_ray(&self, ray: Ray3d, length: f32, gizmos: Option<Gizmos>) -> Option<Hit> {
         let volume = BoundingVolume3 { size: self.array().into() };
-        for hit in volume.traverse_ray(ray, f32::INFINITY) {
+        for hit in volume.traverse_ray(ray, length) {
             let voxel = self.voxel(hit.voxel.into());
             if voxel.pickable() {
                 return Some(hit);

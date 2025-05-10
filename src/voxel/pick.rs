@@ -1,4 +1,8 @@
+use core::f32;
+
 use bevy::prelude::*;
+
+use crate::voxel::GRID_SCALE;
 
 use super::voxel_grid::{Voxel, VoxelGrid, VoxelState};
 
@@ -38,14 +42,19 @@ pub fn draw_cursor(
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
-    let Ok((grid_transform, mut grid)) = grids.get_single_mut() else {
+    let Ok((grid_transform, mut grid)) = grids.single_mut() else {
         return;
     };
-    let hit = grid.cast_ray(grid_transform, ray);
+    let hit = grid.cast_ray(grid_transform, ray, f32::INFINITY, Some(&mut gizmos));
 
     // Draw a circle just above the ground plane at that position.
 
     if let Some(hit) = hit {
+        //let direct_point = ray.origin + hit.distance_to_grid * GRID_SCALE;
+        info!("distance: {:?}", hit.distance);
+        info!("t_max: {:?}", hit.t_max);
+        //info!("direct: {:.3?}", direct_point);
+
         // info!("hit: {:?}", hit);
         let point_ivec: IVec3 = hit.voxel.into();
         let point: Vec3 = point_ivec.as_vec3() + Vec3::splat(0.5);
@@ -58,9 +67,17 @@ pub fn draw_cursor(
 
         gizmos.circle(
             Isometry3d::new(world_space_point, Quat::from_rotation_arc(Vec3::Z, normal)),
-            0.09,
+            0.05,
             Color::WHITE,
         );
+
+        /*
+        gizmos.circle(
+            Isometry3d::new(direct_point, Quat::from_rotation_arc(Vec3::Z, normal)),
+            0.05,
+            Color::srgb(1.0, 0.0, 0.0),
+        );
+        */
 
         if input.just_pressed(MouseButton::Right) {
             // Place block

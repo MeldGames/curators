@@ -72,8 +72,8 @@ impl Default for DigState {
     }
 }
 
-pub fn dig_target(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState)>, mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelGrid)>, mut gizmos: Gizmos) {
-    for (global_transform, actions, mut state) in &mut players {
+pub fn dig_target(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState, &Collider)>, mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelGrid)>, mut gizmos: Gizmos) {
+    for (global_transform, actions, mut state, collider) in &mut players {
         let interact = actions.action::<Dig>();
         match interact.state() {
             ActionState::Fired => {
@@ -92,8 +92,17 @@ pub fn dig_target(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &
             if let Some(hit) = grid.cast_ray(digsite_transform, Ray3d {
                 origin: global_transform.translation(),
                 direction: Dir3::NEG_Y,
-            }) {
-                if hit.distance < 5.0 {
+            }, f32::INFINITY, None) {
+                // TODO: Character height + X blocks
+                let collider_aabb = collider.aabb(Vec3::ZERO, Quat::IDENTITY);
+                let character_ground = collider_aabb.size().y / 2.0;
+                const BLOCKS_DOWN: f32 = 5.0;
+                let max_down_distance = character_ground + BLOCKS_DOWN * GRID_SCALE.y;
+                //info!("down_distance: {:?}", max_down_distance);
+                //info!("hit.distance: {:?}", hit.distance);
+
+                // TODO: Fix raycast hit.distance for scaling
+                if hit.distance < max_down_distance {
                     state.target_block = Some((digsite_entity, Into::<[i32; 3]>::into(hit.voxel)));
                     break;
                 }

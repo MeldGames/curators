@@ -24,6 +24,7 @@ pub struct Hit {
     pub distance: f32,
     pub voxel: (i32, i32, i32),
     pub normal: Option<(i32, i32, i32)>,
+    pub t_max: Vec3,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -122,6 +123,7 @@ impl Iterator for VoxelRay3Iterator {
                     distance: self.t,
                     voxel: self.i.into(),
                     normal: self.norm.map(|n| n.into()),
+                    t_max: self.t_max,
                 });
             }
 
@@ -151,6 +153,8 @@ impl Iterator for VoxelRay3Iterator {
                     self.norm = Some(IVec3::new(0, 0, -self.step.z));
                 }
             }
+
+            //info!("self.t_max: {:?}", self.t_max);
 
             if hit.is_some() {
                 return hit;
