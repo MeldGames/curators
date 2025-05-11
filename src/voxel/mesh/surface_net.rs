@@ -57,7 +57,7 @@ pub fn update_surface_net_mesh(
             let new_mesh_entity = commands
                 .spawn((
                     Transform {
-                        translation: Vec3::new(0.5, 0.5, 0.5),
+                        translation: -Vec3::new(0.5, 0.5, 0.5),
                         scale: GRID_SCALE,
                         ..default()
                     },

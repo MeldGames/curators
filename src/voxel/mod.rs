@@ -84,7 +84,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
 
     commands.spawn((
         grid,
-        Visibility::default(),
+        Transform::default(),
         mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
         // mesh::meshem::Meshem,
