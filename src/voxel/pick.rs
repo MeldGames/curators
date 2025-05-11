@@ -2,9 +2,8 @@ use core::f32;
 
 use bevy::prelude::*;
 
-use crate::voxel::GRID_SCALE;
-
 use super::voxel_grid::{Voxel, VoxelGrid, VoxelState};
+use crate::voxel::GRID_SCALE;
 
 pub struct VoxelPickPlugin;
 impl Plugin for VoxelPickPlugin {
@@ -50,10 +49,7 @@ pub fn draw_cursor(
     // Draw a circle just above the ground plane at that position.
 
     if let Some(hit) = hit {
-        //let direct_point = ray.origin + hit.distance_to_grid * GRID_SCALE;
-        info!("distance: {:?}", hit.distance);
-        info!("t_max: {:?}", hit.t_max);
-        //info!("direct: {:.3?}", direct_point);
+        // let direct_point = ray.origin + hit.distance_to_grid * GRID_SCALE;
 
         // info!("hit: {:?}", hit);
         let point_ivec: IVec3 = hit.voxel.into();
@@ -71,13 +67,11 @@ pub fn draw_cursor(
             Color::WHITE,
         );
 
-        /*
-        gizmos.circle(
-            Isometry3d::new(direct_point, Quat::from_rotation_arc(Vec3::Z, normal)),
-            0.05,
-            Color::srgb(1.0, 0.0, 0.0),
-        );
-        */
+        // gizmos.circle(
+        // Isometry3d::new(direct_point, Quat::from_rotation_arc(Vec3::Z, normal)),
+        // 0.05,
+        // Color::srgb(1.0, 0.0, 0.0),
+        // );
 
         if input.just_pressed(MouseButton::Right) {
             // Place block

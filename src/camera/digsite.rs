@@ -66,7 +66,9 @@ pub fn follow_digsite(
     grid: Query<&VoxelGrid>,
 ) {
     for (entity, digsite, settings) in &cameras {
-        let digsite_transform = transforms.get(digsite.0).unwrap().clone();
+        let Ok(digsite_transform) = transforms.get(digsite.0).cloned() else {
+            continue;
+        };
 
         let grid = grid.get(digsite.0).unwrap();
         let grid_bounds = Into::<IVec3>::into(grid.array()).as_vec3() * GRID_SCALE;

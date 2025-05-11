@@ -7,6 +7,7 @@ use fast_surface_nets::glam::{Vec2, Vec3A};
 use fast_surface_nets::ndshape::{ConstShape, ConstShape3u32, RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
+use crate::voxel::GRID_SCALE;
 use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
 
 pub struct SurfaceNetPlugin;
@@ -21,14 +22,21 @@ pub struct SurfaceNet {
     buffer: SurfaceNetsBuffer,
 }
 
+#[derive(Component, Default)]
+pub struct SurfaceNetMesh;
+
 pub fn update_surface_net_mesh(
     mut commands: Commands,
-    mut surface_nets: Query<(Entity, &VoxelGrid, &mut SurfaceNet), Changed<VoxelGrid>>,
+    mut surface_nets: Query<
+        (Entity, &VoxelGrid, &mut SurfaceNet, Option<&Children>),
+        Changed<VoxelGrid>,
+    >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    net_meshes: Query<(), With<SurfaceNetMesh>>,
 ) {
-    for (entity, grid, mut net) in &mut surface_nets {
-        info!("!!! Updating surface net mesh !!!");
+    for (entity, grid, mut net, children) in &mut surface_nets {
+        // info!("!!! Updating surface net mesh !!!");
         let mut material = StandardMaterial::from(Color::srgb(0.4, 0.4, 0.4));
         material.perceptual_roughness = 0.6;
 
@@ -38,9 +46,33 @@ pub fn update_surface_net_mesh(
         mesh.duplicate_vertices();
         mesh.compute_flat_normals();
 
+        let mut mesh_entity = None;
+        if let Some(children) = children {
+            mesh_entity = children.iter().find(|child_entity| net_meshes.contains(*child_entity));
+        }
+
+        let mesh_entity = if let Some(mesh_entity) = mesh_entity {
+            mesh_entity
+        } else {
+            commands
+                .entity(entity)
+                .with_child((
+                    Transform {
+                        translation: Vec3::new(0.5, 0.5, 0.5),
+                        scale: GRID_SCALE,
+                        ..default()
+                    },
+                    SurfaceNetMesh,
+                    Name::new("Surface nets mesh"),
+                ))
+                .id()
+        };
+
         commands
-            .entity(entity)
-            .insert((Mesh3d(meshes.add(mesh)), MeshMaterial3d(materials.add(material))));
+            .entity(mesh_entity)
+
+            .insert(Name::new("Adding to mesh entity"));
+            //.insert((Mesh3d(meshes.add(mesh)), MeshMaterial3d(materials.add(material))));
     }
 }
 
@@ -101,34 +133,4 @@ impl VoxelGrid {
             buffer,
         );
     }
-}
-
-fn spawn_pbr(
-    commands: &mut Commands,
-    materials: &mut Assets<StandardMaterial>,
-    mesh: Handle<Mesh>,
-    transform: Transform,
-) {
-    let mut material = StandardMaterial::from(Color::srgb(0.0, 0.0, 0.0));
-    material.perceptual_roughness = 0.9;
-
-    commands.spawn((Mesh3d(mesh), MeshMaterial3d(materials.add(material)), transform));
-}
-
-fn into_domain(array_dim: u32, [x, y, z]: [u32; 3]) -> Vec3A {
-    (2.0 / array_dim as f32) * Vec3A::new(x as f32, y as f32, z as f32) - 1.0
-}
-
-fn sphere(radius: f32, p: Vec3A) -> f32 {
-    p.length() - radius
-}
-
-fn cube(b: Vec3A, p: Vec3A) -> f32 {
-    let q = p.abs() - b;
-    q.max(Vec3A::ZERO).length() + q.max_element().min(0.0)
-}
-
-fn link(le: f32, r1: f32, r2: f32, p: Vec3A) -> f32 {
-    let q = Vec3A::new(p.x, (p.y.abs() - le).max(0.0), p.z);
-    Vec2::new(q.length() - r1, q.z).length() - r2
 }

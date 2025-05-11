@@ -1,9 +1,9 @@
 
 [unstable]
-codegen-backend = true
+#codegen-backend = true
 
 [profile.dev]
-codegen-backend = "cranelift"
+#codegen-backend = "cranelift"
 
 [profile.dev.package."*"]
-codegen-backend = "llvm"
+#codegen-backend = "llvm"

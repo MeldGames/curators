@@ -32,8 +32,8 @@ impl Plugin for VoxelPlugin {
         app.register_type::<Exposure>();
 
         app.add_plugins(mesh::surface_net::SurfaceNetPlugin);
-        app.add_plugins(mesh::ass_mesh::ASSMeshPlugin);
-        app.add_plugins(mesh::meshem::BoxMeshPlugin);
+        // app.add_plugins(mesh::ass_mesh::ASSMeshPlugin);
+        // app.add_plugins(mesh::meshem::BoxMeshPlugin);
 
         app.add_plugins(pick::VoxelPickPlugin);
         app.add_plugins(collider::plugin).add_plugins(character::plugin);
@@ -54,6 +54,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     let width = 16;
     let length = 16;
     let height = 30;
+    // let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
     let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
 
     let ground_level = grid.ground_level();
@@ -83,9 +84,10 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
 
     commands.spawn((
         grid,
-        // mesh::surface_net::SurfaceNet::default(),
+        Visibility::default(),
+        mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
-        mesh::meshem::Meshem,
+        // mesh::meshem::Meshem,
     ));
 }
 
@@ -100,58 +102,45 @@ pub struct Sun;
 pub fn spawn_directional_lights(mut commands: Commands) {
     commands.spawn((
         Transform::from_translation(Vec3::new(0.0, 1.0, 0.5)).looking_at(Vec3::ZERO, Vec3::Y),
-        DirectionalLight {
-            shadows_enabled: true,
-            illuminance: lux::RAW_SUNLIGHT,
-            ..default()
-        },
+        DirectionalLight { shadows_enabled: true, illuminance: lux::RAW_SUNLIGHT, ..default() },
         Sun,
     ));
 
-    commands.spawn(
-        (
-            Transform::from_xyz(5.0, 5.0, 5.0),
-            PointLight {
-                color: Color::srgb(1.0, 0.0, 0.0),
-                intensity: 900_000.0,
-                range: 100.0,
-                radius: 10.0,
-                shadows_enabled: true,
-                ..default()
-            }
-        )
-    );
+    commands.spawn((Transform::from_xyz(5.0, 5.0, 5.0), PointLight {
+        color: Color::srgb(1.0, 0.0, 0.0),
+        intensity: 900_000.0,
+        range: 100.0,
+        radius: 10.0,
+        shadows_enabled: true,
+        ..default()
+    }));
 
-    commands.spawn(
-        (
-            Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            SpotLight {
-                color: Color::srgb(0.0, 1.0, 1.0),
-                intensity: 100_000_000.0,
-                range: 100.0,
-                shadows_enabled: true,
-                ..default()
-            },
-        )
-    );
+    commands.spawn((
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        SpotLight {
+            color: Color::srgb(0.0, 1.0, 1.0),
+            intensity: 100_000_000.0,
+            range: 100.0,
+            shadows_enabled: true,
+            ..default()
+        },
+    ));
 
-    /*
-    let steepness = 3.0;
-    //let height = Vec3::Y * steepness;
-    let height = 0.0;
-
-    let angled_lights =
-        [height + Vec3::Z, height - Vec3::Z, height + Vec3::X, height - Vec3::X];
-    for light in angled_lights {
-        commands.spawn((
-            Transform::from_translation(light).looking_at(Vec3::ZERO, Vec3::Y),
-            DirectionalLight {
-                shadows_enabled: false,
-                illuminance: 50_000.0,
-                color: Color::WHITE,
-                ..default()
-            },
-        ));
-    }
-    */
+    // let steepness = 3.0;
+    // let height = Vec3::Y * steepness;
+    // let height = 0.0;
+    //
+    // let angled_lights =
+    // [height + Vec3::Z, height - Vec3::Z, height + Vec3::X, height - Vec3::X];
+    // for light in angled_lights {
+    // commands.spawn((
+    // Transform::from_translation(light).looking_at(Vec3::ZERO, Vec3::Y),
+    // DirectionalLight {
+    // shadows_enabled: false,
+    // illuminance: 50_000.0,
+    // color: Color::WHITE,
+    // ..default()
+    // },
+    // ));
+    // }
 }
