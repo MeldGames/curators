@@ -54,9 +54,8 @@ pub fn update_surface_net_mesh(
         let mesh_entity = if let Some(mesh_entity) = mesh_entity {
             mesh_entity
         } else {
-            commands
-                .entity(entity)
-                .with_child((
+            let new_mesh_entity = commands
+                .spawn((
                     Transform {
                         translation: Vec3::new(0.5, 0.5, 0.5),
                         scale: GRID_SCALE,
@@ -65,14 +64,16 @@ pub fn update_surface_net_mesh(
                     SurfaceNetMesh,
                     Name::new("Surface nets mesh"),
                 ))
-                .id()
+                .id();
+
+            commands.entity(entity).add_child(new_mesh_entity);
+
+            new_mesh_entity
         };
 
         commands
             .entity(mesh_entity)
-
-            .insert(Name::new("Adding to mesh entity"));
-            //.insert((Mesh3d(meshes.add(mesh)), MeshMaterial3d(materials.add(material))));
+            .insert((Mesh3d(meshes.add(mesh)), MeshMaterial3d(materials.add(material))));
     }
 }
 
