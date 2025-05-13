@@ -57,7 +57,7 @@ pub fn spawn_player(
         ))
         .id();
 
-    let metering_mask = asset_server.load("basic_metering_mask.png");
+    let metering_mask: Handle<Image> = asset_server.load("basic_metering_mask.png");
 
     let camera_components = (
         Camera { hdr: true, ..default() }, 
@@ -73,7 +73,7 @@ pub fn spawn_player(
             filter: 0.10..=0.90,
             speed_brighten: 3.0, // 3.0 default
             speed_darken: 1.0, // 1.0 default
-            metering_mask: metering_mask.clone(),
+            //metering_mask: metering_mask.clone(),
             ..default()
         },
     );

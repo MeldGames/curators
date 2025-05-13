@@ -62,27 +62,31 @@ pub struct Dig;
 pub struct DigState {
     // (Digsite entity, voxel position)
     pub target_block: Option<(Entity, [i32; 3])>,
+    /// How long it takes to trigger one dig.
+    pub dig_time: f32,
+    /// How long we've held down dig.
+    pub time_since_dig: f32,
 }
 
 impl Default for DigState {
     fn default() -> Self {
         Self {
             target_block: None,
+            dig_time: 0.1,
+            time_since_dig: 0.0,
         }
     }
 }
 
-pub fn dig_target(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState, &Collider)>, mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelGrid)>, mut gizmos: Gizmos) {
+pub fn dig_target(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState, &Collider)>, mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelGrid)>, time: Res<Time>, mut gizmos: Gizmos) {
     for (global_transform, actions, mut state, collider) in &mut players {
         let interact = actions.action::<Dig>();
         match interact.state() {
             ActionState::Fired => {
-                if state.target_block.is_none() {
-
-                }
+                state.time_since_dig += time.delta_secs(); 
             }
             ActionState::None => {
-                state.target_block = None;
+                state.time_since_dig = 0.0;
             }
             _ => {},
         }
@@ -123,21 +127,25 @@ pub fn dig_target(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &
     }
 }
 
-pub fn dig_block(players: Query<(&Actions<PlayerInput>, &DigState)>, mut digsites: Query<&mut VoxelGrid>) {
-    for (actions, dig_state) in &players {
+pub fn dig_block(mut players: Query<(&Actions<PlayerInput>, &mut DigState)>, mut digsites: Query<&mut VoxelGrid>) {
+    for (actions, mut dig_state) in &mut players {
         if let ActionState::Fired = actions.action::<Dig>().state() {
             if let Some((digsite_entity, voxel_pos)) = dig_state.target_block {
                 if let Ok(mut grid) = digsites.get_mut(digsite_entity) {
                     if let Some(voxel_state) = grid.get_voxel_state(voxel_pos) {
-                        let dig_power = 1;
-                        let new_health = voxel_state.health.saturating_sub(dig_power);
-                        if new_health == 0 {
-                            grid.set(voxel_pos, Voxel::Air.into());
-                        } else {
-                            grid.set(voxel_pos, VoxelState {
-                                health: new_health,
-                                voxel: voxel_state.voxel,
-                            });
+                        if dig_state.time_since_dig >= dig_state.dig_time {
+                            let dig_power = 1;
+                            let new_health = voxel_state.health.saturating_sub(dig_power);
+                            if new_health == 0 {
+                                grid.set(voxel_pos, Voxel::Air.into());
+                            } else {
+                                grid.set(voxel_pos, VoxelState {
+                                    health: new_health,
+                                    voxel: voxel_state.voxel,
+                                });
+                            }
+
+                            dig_state.time_since_dig -= dig_state.dig_time;
                         }
                     }
                 }

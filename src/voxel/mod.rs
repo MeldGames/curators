@@ -33,7 +33,7 @@ impl Plugin for VoxelPlugin {
 
         app.add_plugins(mesh::surface_net::SurfaceNetPlugin);
         // app.add_plugins(mesh::ass_mesh::ASSMeshPlugin);
-        // app.add_plugins(mesh::meshem::BoxMeshPlugin);
+        app.add_plugins(mesh::meshem::BoxMeshPlugin);
 
         app.add_plugins(pick::VoxelPickPlugin);
         app.add_plugins(collider::plugin).add_plugins(character::plugin);
@@ -54,8 +54,8 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     let width = 16;
     let length = 16;
     let height = 30;
-    // let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
     let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
+    ///let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
 
     let ground_level = grid.ground_level();
     for x in 0..width {
@@ -85,15 +85,15 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     commands.spawn((
         grid,
         Transform::default(),
-        mesh::surface_net::SurfaceNet::default(),
+        //mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
-        // mesh::meshem::Meshem,
+        mesh::meshem::Meshem,
     ));
 }
 
 fn dynamic_scene(mut suns: Query<&mut Transform, With<Sun>>, time: Res<Time>) {
     suns.iter_mut()
-        .for_each(|mut tf| tf.rotate_z(-time.delta_secs() * std::f32::consts::PI / 10.0));
+        .for_each(|mut tf| tf.rotate_z(-time.delta_secs() * std::f32::consts::PI / 1000.0));
 }
 
 #[derive(Component)]

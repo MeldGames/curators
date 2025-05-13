@@ -63,9 +63,9 @@ impl Voxel {
     pub fn starting_health(&self) -> i16 {
         match self {
             Voxel::Air => 0,
-            Voxel::Dirt => 1,
-            Voxel::Grass => 1,
-            Voxel::Stone => 50,
+            Voxel::Dirt => 10,
+            Voxel::Grass => 10,
+            Voxel::Stone => 100,
             Voxel::Water => 0,
             Voxel::Base => i16::MAX,
         }
