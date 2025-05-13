@@ -80,10 +80,22 @@ pub fn draw_cursor(
                 grid.set(normal_block, VoxelState::from(Voxel::Dirt));
             }
         } else if input.just_pressed(MouseButton::Left) {
+            let scaled = IVec3::new(point_ivec.x / 5 * 5, point_ivec.y, point_ivec.z / 5 * 5);
+
             // Remove block
-            if grid.in_bounds(point_ivec.into()) {
-                if grid.voxel(point_ivec.into()).breakable() {
-                    grid.set(point_ivec.into(), VoxelState::from(Voxel::Air));
+            for x in 0..5 {
+                for z in 0..5 {
+                    let offset = IVec3::new(x, 0, z);
+                    let break_point = scaled + offset;
+                    info!("break: {:?}", break_point);
+                    info!("break: {:?}", point_ivec);
+                    if grid.in_bounds(break_point.into()) {
+                        info!("in bounds");
+                        if grid.voxel(break_point.into()).breakable() {
+                            info!("breakable");
+                            grid.set(break_point.into(), VoxelState::from(Voxel::Air));
+                        }
+                    }
                 }
             }
         }

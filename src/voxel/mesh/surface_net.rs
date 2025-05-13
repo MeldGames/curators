@@ -37,14 +37,19 @@ pub fn update_surface_net_mesh(
 ) {
     for (entity, grid, mut net, children) in &mut surface_nets {
         // info!("!!! Updating surface net mesh !!!");
-        let mut material = StandardMaterial::from(Color::srgb(0.4, 0.4, 0.4));
-        material.perceptual_roughness = 0.6;
+        let material = MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0.4, 0.4, 0.4),
+            // base_color_texture: Some(texture_mesh),
+            perceptual_roughness: 1.0,
+            reflectance: 0.0,
+            ..default()
+        }));
 
         grid.update_surface_net(&mut net.buffer);
 
         let mut mesh = surface_net_to_mesh(&net.buffer);
-        mesh.duplicate_vertices();
-        mesh.compute_flat_normals();
+        // mesh.duplicate_vertices();
+        // mesh.compute_flat_normals();
 
         let mut mesh_entity = None;
         if let Some(children) = children {
@@ -58,7 +63,7 @@ pub fn update_surface_net_mesh(
                 .spawn((
                     Transform {
                         translation: -Vec3::new(0.5, 0.5, 0.5),
-                        scale: GRID_SCALE,
+                        // scale: GRID_SCALE,
                         ..default()
                     },
                     SurfaceNetMesh,
@@ -71,9 +76,7 @@ pub fn update_surface_net_mesh(
             new_mesh_entity
         };
 
-        commands
-            .entity(mesh_entity)
-            .insert((Mesh3d(meshes.add(mesh)), MeshMaterial3d(materials.add(material))));
+        commands.entity(mesh_entity).insert((Mesh3d(meshes.add(mesh)), material));
     }
 }
 

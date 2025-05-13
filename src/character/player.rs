@@ -1,15 +1,15 @@
 use avian3d::prelude::*;
 use bevy::color::palettes::css::GRAY;
 use bevy::core_pipeline::bloom::Bloom;
+use bevy::core_pipeline::experimental::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::pbr::Atmosphere;
+use bevy::pbr::{Atmosphere, ShadowFilteringMethod};
 use bevy::prelude::*;
 use bevy::render::camera::Exposure;
 use bevy_enhanced_input::prelude::*;
 
-use crate::camera::*;
-
 use super::input::DigState;
+use crate::camera::*;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(Startup, spawn_player);
@@ -53,29 +53,32 @@ pub fn spawn_player(
                 intensity: 5_000_000.0,
                 shadows_enabled: false,
                 ..default()
-            }
+            },
         ))
         .id();
 
     let metering_mask: Handle<Image> = asset_server.load("basic_metering_mask.png");
 
     let camera_components = (
-        Camera { hdr: true, ..default() }, 
+        Camera { hdr: true, ..default() },
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection::default()),
         Tonemapping::default(),
         Atmosphere::EARTH,
-        //Exposure::SUNLIGHT,
+        // Exposure::SUNLIGHT,
         Bloom::NATURAL,
         bevy::core_pipeline::auto_exposure::AutoExposure {
             range: -3.0..=3.0,
-            //range: -9.0..=1.0,
+            // range: -9.0..=1.0,
             filter: 0.10..=0.90,
             speed_brighten: 3.0, // 3.0 default
-            speed_darken: 1.0, // 1.0 default
-            //metering_mask: metering_mask.clone(),
+            speed_darken: 1.0,   // 1.0 default
+            // metering_mask: metering_mask.clone(),
             ..default()
         },
+        ShadowFilteringMethod::Temporal,
+        Msaa::Off,
+        TemporalAntiAliasing { reset: true },
     );
 
     let flying = commands

@@ -31,7 +31,7 @@ pub fn spawn_mesh_collider(
 
         let mesh = meshes.get(mesh).unwrap();
         let Some(mut new_collider) = Collider::trimesh_from_mesh(mesh) else {
-            // info!("cannot create trimesh from mesh");
+            info!("cannot create trimesh from mesh");
             continue;
         };
         new_collider.set_scale(crate::voxel::GRID_SCALE, 32);

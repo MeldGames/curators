@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 # Bevy
-bevy = { version = "0.16.0", features = ["dynamic_linking"] }
+bevy = { version = "0.16.0", features = ["dynamic_linking", "experimental_pbr_pcss"] }
 #bevy = { version = "0.16.0", features = ["dynamic_linking", "trace_tracy"] }
 # Set max log levels. This helps avoid unwanted low-severity log spam, which can affect performance.
 log = { version = "0.4", features = [

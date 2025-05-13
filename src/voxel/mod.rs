@@ -18,7 +18,8 @@ pub mod pick;
 pub mod raycast;
 pub mod voxel_grid;
 
-pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
+// pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
+pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
 
 /// Flat vec storage of 2d/3d grids.
 pub mod grid;
@@ -51,12 +52,11 @@ impl Plugin for VoxelPlugin {
 pub fn spawn_voxel_grid(mut commands: Commands) {
     // Meshem is XZY
     // Others are XYZ
-    let width = 16;
-    let length = 16;
+    let width = 16 * 5;
+    let length = 16 * 5;
     let height = 30;
+    // let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
     let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
-    ///let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
-
     let ground_level = grid.ground_level();
     for x in 0..width {
         for z in 0..length {
@@ -84,10 +84,10 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
 
     commands.spawn((
         grid,
-        Transform::default(),
-        //mesh::surface_net::SurfaceNet::default(),
+        Transform { scale: GRID_SCALE, ..default() },
+        mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
-        mesh::meshem::Meshem,
+        // mesh::meshem::Meshem,
     ));
 }
 
@@ -102,7 +102,12 @@ pub struct Sun;
 pub fn spawn_directional_lights(mut commands: Commands) {
     commands.spawn((
         Transform::from_translation(Vec3::new(0.0, 1.0, 0.5)).looking_at(Vec3::ZERO, Vec3::Y),
-        DirectionalLight { shadows_enabled: true, illuminance: lux::RAW_SUNLIGHT, ..default() },
+        DirectionalLight {
+            shadows_enabled: true,
+            soft_shadow_size: Some(1.0),
+            illuminance: lux::RAW_SUNLIGHT,
+            ..default()
+        },
         Sun,
     ));
 
