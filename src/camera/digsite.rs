@@ -1,7 +1,6 @@
 //! Game camera, floats far enough away from the digsite to show a view of the
 //! whole digsite.
 
-use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 

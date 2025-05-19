@@ -1,10 +1,8 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
-use bevy::render::render_resource::{PrimitiveTopology, WgpuFeatures};
-use bevy::render::settings::WgpuSettings;
-use fast_surface_nets::glam::{Vec2, Vec3A};
-use fast_surface_nets::ndshape::{ConstShape, ConstShape3u32, RuntimeShape, Shape};
+use bevy::render::render_resource::{PrimitiveTopology};
+use fast_surface_nets::ndshape::{RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
 use crate::voxel::GRID_SCALE;
@@ -36,7 +34,6 @@ pub fn update_surface_net_mesh(
     net_meshes: Query<(), With<SurfaceNetMesh>>,
 ) {
     for (entity, grid, mut net, children) in &mut surface_nets {
-        // info!("!!! Updating surface net mesh !!!");
         let material = MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgb(0.4, 0.4, 0.4),
             // base_color_texture: Some(texture_mesh),
@@ -63,7 +60,6 @@ pub fn update_surface_net_mesh(
                 .spawn((
                     Transform {
                         translation: -Vec3::new(0.5, 0.5, 0.5),
-                        // scale: GRID_SCALE,
                         ..default()
                     },
                     SurfaceNetMesh,

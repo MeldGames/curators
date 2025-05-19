@@ -18,7 +18,6 @@
 use avian3d::math::AdjustPrecision;
 use avian3d::prelude::*;
 use bevy::prelude::*;
-use fast_surface_nets::ndshape::Shape;
 
 use super::{KCCFloorDetection, KCCGravity, KCCSlope, KinematicCharacterController};
 

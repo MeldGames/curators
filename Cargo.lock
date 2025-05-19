@@ -242,6 +242,7 @@ dependencies = [
  "bevy_enhanced_input",
  "bevy_meshem",
  "bevy_replicon",
+ "binary-greedy-meshing",
  "fast-surface-nets",
  "iyes_perf_ui",
  "log",
@@ -1624,6 +1625,12 @@ dependencies = [
  "wgpu-types",
  "winit",
 ]
+
+[[package]]
+name = "binary-greedy-meshing"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a50f8b56926be49b1e1fa02dfbd5431b9b02d71e47e91a37a18bf54f2bfe9ca1"
 
 [[package]]
 name = "bindgen"

@@ -2,14 +2,9 @@ use bevy::pbr::light_consts::lux;
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
 use bevy::render::camera::Exposure;
-use bevy_enhanced_input::prelude::Actions;
 use grid::Ordering;
 use voxel_grid::{Voxel, VoxelGrid};
 
-use crate::camera::{
-    ActiveCamera, CameraEntities, CameraToggle, FlyingCamera, FlyingSettings, FlyingState,
-    FollowCamera, FollowSettings, FollowState,
-};
 use crate::character;
 
 pub mod collider;
@@ -20,6 +15,7 @@ pub mod voxel_grid;
 
 // pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
 pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
+pub const GRID_MULT: f32 = 5.0;
 
 /// Flat vec storage of 2d/3d grids.
 pub mod grid;
@@ -32,12 +28,10 @@ impl Plugin for VoxelPlugin {
         app.register_type::<Voxel>();
         app.register_type::<Exposure>();
 
-        app.add_plugins(mesh::surface_net::SurfaceNetPlugin);
-        // app.add_plugins(mesh::ass_mesh::ASSMeshPlugin);
-        app.add_plugins(mesh::meshem::BoxMeshPlugin);
-
         app.add_plugins(pick::VoxelPickPlugin);
-        app.add_plugins(collider::plugin).add_plugins(character::plugin);
+        app.add_plugins(collider::plugin)
+            .add_plugins(character::plugin)
+            .add_plugins(mesh::plugin);
 
         app.add_systems(Update, VoxelGrid::clear_changed_system);
 
@@ -85,9 +79,10 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     commands.spawn((
         grid,
         Transform { scale: GRID_SCALE, ..default() },
-        mesh::surface_net::SurfaceNet::default(),
+        // mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
         // mesh::meshem::Meshem,
+         mesh::binary_greedy::BinaryGreedy,
     ));
 }
 

@@ -1,7 +1,6 @@
 //! Create borders/ground around the voxel grid.
 
 use avian3d::prelude::*;
-use bevy::color::palettes::css::GREEN;
 use bevy::prelude::*;
 
 use crate::voxel::GRID_SCALE;
@@ -23,7 +22,7 @@ pub fn rebuild_borders(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let Ok((digsite_transform, digsite)) = digsite.get_single() else {
+    let Ok((digsite_transform, digsite)) = digsite.single() else {
         return;
     };
 
@@ -52,7 +51,7 @@ pub fn rebuild_borders(
     let ground_material = MeshMaterial3d(materials.add(StandardMaterial {
         base_color: Srgba::new(0.0, 82.0 / 255.0, 0.0, 1.0).into(),
         perceptual_roughness: 1.0,
-        //reflectance: 0.0,
+        // reflectance: 0.0,
         ..Default::default()
     }));
 

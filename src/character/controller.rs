@@ -1,11 +1,10 @@
 //! Use inputs to affect the kinematic controller's velocity/position
 
-use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
-use super::input::{Dig, Jump, Move, PlayerInput};
-use super::kinematic::{KCCGravity, KCCGrounded, KinematicCharacterController};
+use super::input::{Dig, Move, PlayerInput};
+use super::kinematic::{KCCGrounded, KinematicCharacterController};
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(Update, apply_movement);

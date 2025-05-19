@@ -2,11 +2,10 @@ use bevy::prelude::*;
 use mem_dbg::MemSize;
 use serde::{Deserialize, Serialize};
 
+use super::GRID_SCALE;
 use super::grid::{Grid, Ordering, Scalar};
 use super::raycast::Hit;
-use super::GRID_SCALE;
 use crate::voxel::raycast::BoundingVolume3;
-
 
 #[derive(
     MemSize,
@@ -29,10 +28,7 @@ pub struct VoxelState {
 
 impl From<Voxel> for VoxelState {
     fn from(voxel: Voxel) -> Self {
-         Self {
-            health: voxel.starting_health(),
-            voxel: voxel,
-         }
+        Self { health: voxel.starting_health(), voxel }
     }
 }
 
@@ -84,6 +80,14 @@ impl Voxel {
         }
     }
 
+    pub fn transparent(&self) -> bool {
+        match self {
+            Voxel::Air |
+            Voxel::Water => true,
+            _ => false,
+        }
+    }
+
     pub fn pickable(&self) -> bool {
         match self {
             Voxel::Air => false,
@@ -103,9 +107,7 @@ impl Voxel {
 
 /// Simple Voxel grid, zero optimizations done like octrees/chunking/etc.
 #[derive(MemSize, Debug, Component, Reflect)]
-#[require(
-    Name::new("Voxel Grid"),
-)]
+#[require(Name::new("Voxel Grid"))]
 pub struct VoxelGrid {
     pub grid: Grid,
     pub voxels: Vec<VoxelState>,
@@ -148,6 +150,14 @@ impl VoxelGrid {
         self.grid.point_iter()
     }
 
+    pub fn voxel_iter(&self) -> impl Iterator<Item = ([Scalar; 3], Voxel)> {
+        self.voxel_state_iter().map(|(i, state)| (i, state.voxel))
+    }
+
+    pub fn voxel_state_iter(&self) -> impl Iterator<Item = ([Scalar; 3], VoxelState)> {
+        (0..self.size()).map(|i| (self.delinearize(i), self.linear_voxel_state(i)))
+    }
+
     pub fn get_voxel(&self, point: [Scalar; 3]) -> Option<Voxel> {
         self.get_voxel_state(point).map(|state| state.voxel)
     }
@@ -187,7 +197,11 @@ impl VoxelGrid {
         let index = self.linearize(point);
         let last_voxel = self.linear_voxel_state(index);
         if last_voxel.voxel != voxel.voxel {
-            self.changed.push(GridChange { point, last_voxel: last_voxel.voxel, new_voxel: voxel.voxel });
+            self.changed.push(GridChange {
+                point,
+                last_voxel: last_voxel.voxel,
+                new_voxel: voxel.voxel,
+            });
         }
 
         if voxel.voxel.filling() {
@@ -255,7 +269,13 @@ impl VoxelGrid {
         None
     }
 
-    pub fn cast_ray(&self, grid_transform: &GlobalTransform, ray: Ray3d, length: f32, mut gizmos: Option<&mut Gizmos>) -> Option<Hit> {
+    pub fn cast_ray(
+        &self,
+        grid_transform: &GlobalTransform,
+        ray: Ray3d,
+        length: f32,
+        mut gizmos: Option<&mut Gizmos>,
+    ) -> Option<Hit> {
         let inv_matrix = grid_transform.compute_matrix().inverse();
         let local_direction =
             Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3())).unwrap();

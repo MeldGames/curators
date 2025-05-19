@@ -11,9 +11,7 @@
 use std::f32::consts::*;
 use std::fmt;
 
-use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit};
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
 use bevy_enhanced_input::prelude::*;
 
 use crate::cursor::CursorGrabOffset;
@@ -189,7 +187,7 @@ pub fn handle_rotation(
     windows: Query<&Window>,
     mut cursor_grab_offset: ResMut<CursorGrabOffset>,
 ) {
-    let Ok((mut transform, mut state, settings, actions)) = camera.get_single_mut() else {
+    let Ok((mut transform, mut state, settings, actions)) = camera.single_mut() else {
         return;
     };
 
@@ -231,7 +229,7 @@ pub fn handle_movement(
 ) {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, actions, settings, mut state)) = query.get_single_mut() else {
+    let Ok((mut transform, actions, settings, mut state)) = query.single_mut() else {
         return;
     };
     let movement = actions.action::<CameraMove>().value().as_axis3d();

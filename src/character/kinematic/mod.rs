@@ -9,7 +9,7 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
-use crate::character::input::{Jump, Move, PlayerInput};
+use crate::character::input::{Jump, PlayerInput};
 
 mod movement;
 
@@ -41,7 +41,15 @@ pub(super) fn plugin(app: &mut App) {
 /// controller. This component has a dedicated system that updates its internal
 /// state and calls the movement basis.
 #[derive(Component, Reflect, Debug)]
-#[require(RigidBody::Kinematic, KCCFloorDetection, KCCFloorSnap, KCCGravity, KCCGrounded, KCCSlope, KCCJump)]
+#[require(
+    RigidBody::Kinematic,
+    KCCFloorDetection,
+    KCCFloorSnap,
+    KCCGravity,
+    KCCGrounded,
+    KCCSlope,
+    KCCJump
+)]
 #[reflect(Component)]
 pub struct KinematicCharacterController {
     /// The velocity we had last tick.

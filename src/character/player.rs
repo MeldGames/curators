@@ -5,7 +5,6 @@ use bevy::core_pipeline::experimental::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::{Atmosphere, ShadowFilteringMethod};
 use bevy::prelude::*;
-use bevy::render::camera::Exposure;
 use bevy_enhanced_input::prelude::*;
 
 use super::input::DigState;

@@ -1,12 +1,9 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
-use bevy_enhanced_input::EnhancedInputPlugin;
 use bevy_enhanced_input::prelude::*;
 
-use crate::voxel::voxel_grid::Voxel;
-use crate::voxel::voxel_grid::VoxelGrid;
-use crate::voxel::voxel_grid::VoxelState;
 use crate::voxel::GRID_SCALE;
+use crate::voxel::voxel_grid::{Voxel, VoxelGrid, VoxelState};
 
 #[derive(Component)]
 pub struct Controlling;
@@ -35,9 +32,7 @@ pub fn player_binding(
 
     actions.bind::<Move>().to(Cardinal::wasd_keys()).to(Cardinal::arrow_keys());
     actions.bind::<Jump>().to(KeyCode::Space);
-    actions.bind::<Dig>()
-        .to(KeyCode::KeyE)
-        .to(MouseButton::Left);
+    actions.bind::<Dig>().to(KeyCode::KeyE).to(MouseButton::Left);
 }
 
 #[derive(Debug, InputAction)]
@@ -49,11 +44,11 @@ pub struct Move;
 pub struct Jump;
 
 /// Dig depends on the movement of the character.
-/// Moving north will have you mine the blocks north of you, moving east mines the blocks east of you.
-/// Standing still is how you can dig straight down.
-/// 
-/// We should probably have it "stick" so if you start mining while moving north, you stay digging north,
-/// rather than switch to digging down.
+/// Moving north will have you mine the blocks north of you, moving east mines
+/// the blocks east of you. Standing still is how you can dig straight down.
+///
+/// We should probably have it "stick" so if you start mining while moving
+/// north, you stay digging north, rather than switch to digging down.
 #[derive(Debug, InputAction)]
 #[input_action(output = bool)]
 pub struct Dig;
@@ -70,40 +65,43 @@ pub struct DigState {
 
 impl Default for DigState {
     fn default() -> Self {
-        Self {
-            target_block: None,
-            dig_time: 0.1,
-            time_since_dig: 0.0,
-        }
+        Self { target_block: None, dig_time: 0.1, time_since_dig: 0.0 }
     }
 }
 
-pub fn dig_target(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState, &Collider)>, mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelGrid)>, time: Res<Time>, mut gizmos: Gizmos) {
+pub fn dig_target(
+    mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState, &Collider)>,
+    mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelGrid)>,
+    time: Res<Time>,
+    mut gizmos: Gizmos,
+) {
     for (global_transform, actions, mut state, collider) in &mut players {
         let interact = actions.action::<Dig>();
         match interact.state() {
             ActionState::Fired => {
-                state.time_since_dig += time.delta_secs(); 
-            }
+                state.time_since_dig += time.delta_secs();
+            },
             ActionState::None => {
                 state.time_since_dig = 0.0;
-            }
+            },
             _ => {},
         }
 
         // Find a target digsite and block position
-        for (digsite_entity, digsite_transform, grid)  in &digsites {
-            if let Some(hit) = grid.cast_ray(digsite_transform, Ray3d {
-                origin: global_transform.translation(),
-                direction: Dir3::NEG_Y,
-            }, f32::INFINITY, None) {
+        for (digsite_entity, digsite_transform, grid) in &digsites {
+            if let Some(hit) = grid.cast_ray(
+                digsite_transform,
+                Ray3d { origin: global_transform.translation(), direction: Dir3::NEG_Y },
+                f32::INFINITY,
+                None,
+            ) {
                 // TODO: Character height + X blocks
                 let collider_aabb = collider.aabb(Vec3::ZERO, Quat::IDENTITY);
                 let character_ground = collider_aabb.size().y / 2.0;
                 const BLOCKS_DOWN: f32 = 5.0;
                 let max_down_distance = character_ground + BLOCKS_DOWN * GRID_SCALE.y;
-                //info!("down_distance: {:?}", max_down_distance);
-                //info!("hit.distance: {:?}", hit.distance);
+                // info!("down_distance: {:?}", max_down_distance);
+                // info!("hit.distance: {:?}", hit.distance);
 
                 // TODO: Fix raycast hit.distance for scaling
                 if hit.distance < max_down_distance {
@@ -117,17 +115,23 @@ pub fn dig_target(mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &
             if let Ok((_, digsite_transform, mut grid)) = digsites.get_mut(digsite_entity) {
                 let voxel: Vec3 = IVec3::from(voxel).as_vec3();
                 let voxel_point = digsite_transform.transform_point(voxel);
-                gizmos.cuboid(Transform {
-                    translation: voxel_point + (Vec3::ONE * GRID_SCALE) / 2.0,
-                    scale: GRID_SCALE * 1.01,
-                    rotation: Quat::IDENTITY,
-                }, Color::srgb(1.0, 1.0, 1.0));
+                gizmos.cuboid(
+                    Transform {
+                        translation: voxel_point + (Vec3::ONE * GRID_SCALE) / 2.0,
+                        scale: GRID_SCALE * 1.01,
+                        rotation: Quat::IDENTITY,
+                    },
+                    Color::srgb(1.0, 1.0, 1.0),
+                );
             }
         }
     }
 }
 
-pub fn dig_block(mut players: Query<(&Actions<PlayerInput>, &mut DigState)>, mut digsites: Query<&mut VoxelGrid>) {
+pub fn dig_block(
+    mut players: Query<(&Actions<PlayerInput>, &mut DigState)>,
+    mut digsites: Query<&mut VoxelGrid>,
+) {
     for (actions, mut dig_state) in &mut players {
         if let ActionState::Fired = actions.action::<Dig>().state() {
             if let Some((digsite_entity, voxel_pos)) = dig_state.target_block {

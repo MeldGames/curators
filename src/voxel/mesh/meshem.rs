@@ -3,7 +3,7 @@
 use bevy::pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-//use bevy::utils::HashMap;
+// use bevy::utils::HashMap;
 use bevy_meshem::prelude::*;
 
 use crate::voxel::GRID_SCALE;
@@ -41,8 +41,8 @@ impl Voxel {
     }
 }
 
-pub struct BoxMeshPlugin;
-impl Plugin for BoxMeshPlugin {
+pub struct MeshemPlugin;
+impl Plugin for MeshemPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(BlockRegistry::new());
         //.insert_resource(AmbientLight { brightness: 400.0, color: Color::WHITE });
@@ -269,10 +269,10 @@ pub fn meshem_update(
 // ) {
 // for _ in event_reader.read() {
 // let mesh = meshes
-// .get_mut(mesh_query.get_single().unwrap())
+// .get_mut(mesh_query.single().unwrap())
 // .expect("Couldn't get a mut ref to the mesh");
 //
-// let m = meshy.get_single_mut().unwrap().into_inner();
+// let m = meshy.single_mut().unwrap().into_inner();
 // let mut rng = rand::thread_rng();
 // let choice = m.grid.iter().enumerate().choose(&mut rng).unwrap();
 // let neighbors: [Option<u16>; 6] = {

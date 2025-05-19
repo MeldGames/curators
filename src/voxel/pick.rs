@@ -3,7 +3,6 @@ use core::f32;
 use bevy::prelude::*;
 
 use super::voxel_grid::{Voxel, VoxelGrid, VoxelState};
-use crate::voxel::GRID_SCALE;
 
 pub struct VoxelPickPlugin;
 impl Plugin for VoxelPickPlugin {
@@ -47,7 +46,6 @@ pub fn draw_cursor(
     let hit = grid.cast_ray(grid_transform, ray, f32::INFINITY, Some(&mut gizmos));
 
     // Draw a circle just above the ground plane at that position.
-
     if let Some(hit) = hit {
         // let direct_point = ray.origin + hit.distance_to_grid * GRID_SCALE;
 
@@ -87,12 +85,8 @@ pub fn draw_cursor(
                 for z in 0..5 {
                     let offset = IVec3::new(x, 0, z);
                     let break_point = scaled + offset;
-                    info!("break: {:?}", break_point);
-                    info!("break: {:?}", point_ivec);
                     if grid.in_bounds(break_point.into()) {
-                        info!("in bounds");
                         if grid.voxel(break_point.into()).breakable() {
-                            info!("breakable");
                             grid.set(break_point.into(), VoxelState::from(Voxel::Air));
                         }
                     }

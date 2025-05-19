@@ -154,7 +154,7 @@ impl Iterator for VoxelRay3Iterator {
                 }
             }
 
-            //info!("self.t_max: {:?}", self.t_max);
+            // info!("self.t_max: {:?}", self.t_max);
 
             if hit.is_some() {
                 return hit;
