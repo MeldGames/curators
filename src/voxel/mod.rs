@@ -2,8 +2,9 @@ use bevy::pbr::light_consts::lux;
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
 use bevy::render::camera::Exposure;
-use grid::Ordering;
-use voxel_grid::{Voxel, VoxelGrid};
+
+pub use chunk::VoxelChunk;
+pub use voxel::Voxel;
 
 use crate::character;
 
@@ -11,14 +12,11 @@ pub mod collider;
 pub mod mesh;
 pub mod pick;
 pub mod raycast;
-pub mod voxel_grid;
+pub mod chunk;
+pub mod voxel;
 
 // pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
 pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
-pub const GRID_MULT: f32 = 5.0;
-
-/// Flat vec storage of 2d/3d grids.
-pub mod grid;
 
 #[derive(Default)]
 pub struct VoxelPlugin;
@@ -33,7 +31,7 @@ impl Plugin for VoxelPlugin {
             .add_plugins(character::plugin)
             .add_plugins(mesh::plugin);
 
-        app.add_systems(Update, VoxelGrid::clear_changed_system);
+        app.add_systems(Update, VoxelChunk::clear_changed_system);
 
         app.insert_resource(WireframeConfig { global: false, ..default() });
 
@@ -44,13 +42,10 @@ impl Plugin for VoxelPlugin {
 }
 
 pub fn spawn_voxel_grid(mut commands: Commands) {
-    // Meshem is XZY
-    // Others are XYZ
-    let width = 16 * 5;
-    let length = 16 * 5;
-    let height = 30;
-    // let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
-    let mut grid = VoxelGrid::new([width, height, length], Ordering::XZY);
+    let width = 62;
+    let length = 62;
+    let height = 62;
+    let mut grid = VoxelChunk::new();
     let ground_level = grid.ground_level();
     for x in 0..width {
         for z in 0..length {

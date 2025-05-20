@@ -3,25 +3,25 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
+use crate::voxel::{Voxel, VoxelChunk};
 
 pub struct VoxelBoxColliderPlugin;
 impl Plugin for VoxelBoxColliderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, spawn_box_colliders.before(VoxelGrid::clear_changed_system));
+        app.add_systems(Update, spawn_box_colliders.before(VoxelChunk::clear_changed_system));
         // app.add_systems(Update, spawn_ball);
     }
 }
 
 pub fn spawn_box_colliders(
     mut commands: Commands,
-    grids: Query<(Entity, &GlobalTransform, &VoxelGrid), Changed<VoxelGrid>>,
+    grids: Query<(Entity, &GlobalTransform, &VoxelChunk), Changed<VoxelChunk>>,
 ) {
     for (entity, global_transform, grid) in &grids {
         let mut colliders: Vec<(Vec3, Quat, Collider)> = Vec::new();
         for point in grid.point_iter() {
             let point_ivec3: IVec3 = point.into();
-            if !grid.in_bounds(point) {
+            if !grid.in_chunk_bounds(point) {
                 continue;
             }
 

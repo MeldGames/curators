@@ -2,7 +2,7 @@ use core::f32;
 
 use bevy::prelude::*;
 
-use super::voxel_grid::{Voxel, VoxelGrid, VoxelState};
+use crate::voxel::{Voxel, VoxelChunk};
 
 pub struct VoxelPickPlugin;
 impl Plugin for VoxelPickPlugin {
@@ -15,7 +15,7 @@ pub fn draw_cursor(
     camera_query: Query<(&Camera, &GlobalTransform)>,
     windows: Query<&Window>,
 
-    mut grids: Query<(&GlobalTransform, &mut VoxelGrid)>,
+    mut chunks: Query<(&GlobalTransform, &mut VoxelChunk)>,
     input: Res<ButtonInput<MouseButton>>,
     mut gizmos: Gizmos,
 ) {
@@ -40,14 +40,14 @@ pub fn draw_cursor(
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
-    let Ok((grid_transform, mut grid)) = grids.single_mut() else {
+    let Ok((chunk_transform, mut chunk)) = chunks.single_mut() else {
         return;
     };
-    let hit = grid.cast_ray(grid_transform, ray, f32::INFINITY, Some(&mut gizmos));
+    let hit = chunk.cast_ray(chunk_transform, ray, f32::INFINITY, Some(&mut gizmos));
 
     // Draw a circle just above the ground plane at that position.
     if let Some(hit) = hit {
-        // let direct_point = ray.origin + hit.distance_to_grid * GRID_SCALE;
+        // let direct_point = ray.origin + hit.distance_to_chunk * chunk_SCALE;
 
         // info!("hit: {:?}", hit);
         let point_ivec: IVec3 = hit.voxel.into();
@@ -57,7 +57,7 @@ pub fn draw_cursor(
         let normal: Vec3 = normal_ivec.as_vec3();
 
         let point_with_normal = point + normal * 0.501;
-        let world_space_point = grid_transform.transform_point(point_with_normal);
+        let world_space_point = chunk_transform.transform_point(point_with_normal);
 
         gizmos.circle(
             Isometry3d::new(world_space_point, Quat::from_rotation_arc(Vec3::Z, normal)),
@@ -74,22 +74,15 @@ pub fn draw_cursor(
         if input.just_pressed(MouseButton::Right) {
             // Place block
             let normal_block: [i32; 3] = (point_ivec + normal_ivec).into();
-            if grid.in_bounds(normal_block.into()) {
-                grid.set(normal_block, VoxelState::from(Voxel::Dirt));
+            if chunk.in_chunk_bounds(normal_block.into()) {
+                chunk.set(normal_block, Voxel::Dirt);
             }
         } else if input.just_pressed(MouseButton::Left) {
-            let scaled = IVec3::new(point_ivec.x / 5 * 5, point_ivec.y, point_ivec.z / 5 * 5);
-
             // Remove block
-            for x in 0..5 {
-                for z in 0..5 {
-                    let offset = IVec3::new(x, 0, z);
-                    let break_point = scaled + offset;
-                    if grid.in_bounds(break_point.into()) {
-                        if grid.voxel(break_point.into()).breakable() {
-                            grid.set(break_point.into(), VoxelState::from(Voxel::Air));
-                        }
-                    }
+            let break_point = point_ivec;
+            if chunk.in_chunk_bounds(break_point.into()) {
+                if chunk.voxel(break_point.into()).breakable() {
+                    chunk.set(break_point.into(), Voxel::Air);
                 }
             }
         }

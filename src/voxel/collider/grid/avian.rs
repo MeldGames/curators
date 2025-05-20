@@ -1,6 +1,6 @@
 //! Avian3D AnyCollider impl
 
-use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
+use crate::voxel::voxel_grid::{Voxel, VoxelChunk};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
@@ -9,7 +9,7 @@ impl Plugin for VoxelBoxColliderPlugin {
     fn build(&self, app: &mut App) {}
 }
 
-impl AnyCollider for VoxelGrid {
+impl AnyCollider for VoxelChunk {
     fn aabb(&self, position: avian3d::math::Vector, rotation: impl Into<Rotation>) -> ColliderAabb {
         let rotation = rotation.into();
 

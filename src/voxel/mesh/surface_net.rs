@@ -5,8 +5,7 @@ use bevy::render::render_resource::{PrimitiveTopology};
 use fast_surface_nets::ndshape::{RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
-use crate::voxel::GRID_SCALE;
-use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
+use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
 
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
@@ -26,8 +25,8 @@ pub struct SurfaceNetMesh;
 pub fn update_surface_net_mesh(
     mut commands: Commands,
     mut surface_nets: Query<
-        (Entity, &VoxelGrid, &mut SurfaceNet, Option<&Children>),
-        Changed<VoxelGrid>,
+        (Entity, &VoxelChunk, &mut SurfaceNet, Option<&Children>),
+        Changed<VoxelChunk>,
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -99,7 +98,7 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
     mesh
 }
 
-impl VoxelGrid {
+impl VoxelChunk {
     pub fn update_surface_net(&self, buffer: &mut SurfaceNetsBuffer) {
         let grid_array = self.array();
         let padded_grid_array =

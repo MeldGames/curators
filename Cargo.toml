@@ -22,15 +22,17 @@ tracing = { version = "0.1", features = [
 iyes_perf_ui = { git = "https://github.com/olekspickle/iyes_perf_ui", branch = "main" }
 bevy-inspector-egui = "0.31.0"
 bevy_enhanced_input = "0.11.0"
-bevy_meshem = { git = "https://github.com/aceeri/Meshem", branch = "bevy-0.16" }
-#bevy_meshem = { path = "../Meshem" }
 #avian3d = "0.2.1"
 avian3d = { git = "https://github.com/Jondolf/avian", rev = "8a6953298" }
 bevy_replicon = "0.33"
 
-# Other
+# Meshing
 fast-surface-nets = "0.2.1"
 binary-greedy-meshing = "0.3.6"
+bevy_meshem = { git = "https://github.com/aceeri/Meshem", branch = "bevy-0.16" }
+#bevy_meshem = { path = "../Meshem" }
+
+# Other
 rand = "0.9.1"
 serde = "1.0.219"
 mem_dbg = "0.3"

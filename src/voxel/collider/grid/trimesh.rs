@@ -3,12 +3,12 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
+use crate::voxel::{Voxel, VoxelChunk};
 
 pub struct VoxelTrimeshColliderPlugin;
 impl Plugin for VoxelTrimeshColliderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, spawn_mesh_collider.before(VoxelGrid::clear_changed_system));
+        app.add_systems(Update, spawn_mesh_collider.before(VoxelChunk::clear_changed_system));
         // app.add_systems(Update, spawn_ball);
     }
 }
@@ -18,7 +18,7 @@ pub struct VoxelTrimeshCollider;
 
 pub fn spawn_mesh_collider(
     mut commands: Commands,
-    grids: Query<(Entity, &GlobalTransform, &VoxelGrid, &Children), Changed<VoxelGrid>>,
+    grids: Query<(Entity, &GlobalTransform, &VoxelChunk, &Children), Changed<VoxelChunk>>,
     voxel_mesh: Query<&Mesh3d>,
     collider_child: Query<Entity, With<VoxelTrimeshCollider>>,
     mut colliders: Query<&mut Collider>,

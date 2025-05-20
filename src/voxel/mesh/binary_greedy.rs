@@ -5,8 +5,7 @@ use bevy::render::render_resource::PrimitiveTopology;
 
 use binary_greedy_meshing as bgm;
 
-use crate::voxel::GRID_SCALE;
-use crate::voxel::voxel_grid::{Voxel, VoxelGrid};
+use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
@@ -46,7 +45,7 @@ pub fn add_buffers(trigger: Trigger<OnAdd, BinaryGreedy>, mut commands: Commands
         ));
 }
 
-pub fn update_binary_mesh(mut grids: Query<(&VoxelGrid, &mut BinaryBuffer, &mut BinaryMeshData)>) {
+pub fn update_binary_mesh(mut grids: Query<(&VoxelChunk, &mut BinaryBuffer, &mut BinaryMeshData)>) {
     for (grid, mut buffer, mut mesh_data) in &mut grids {
         grid_to_buffer(&*grid, &mut buffer.voxels);
         bgm::mesh(&buffer.voxels, &mut **mesh_data, std::collections::BTreeSet::default());
@@ -55,7 +54,7 @@ pub fn update_binary_mesh(mut grids: Query<(&VoxelGrid, &mut BinaryBuffer, &mut 
 
 // Full grid to buffer copying
 // TODO: Convert only changes to the grid to the buffer to save some copying.
-pub fn grid_to_buffer(grid: &VoxelGrid, buffer: &mut [u16; bgm::CS_P3]) {
+pub fn grid_to_buffer(grid: &VoxelChunk, buffer: &mut [u16; bgm::CS_P3]) {
     // TODO: Clear buffer?
 
     for (point, voxel) in grid.voxel_iter() {

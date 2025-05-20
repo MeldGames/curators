@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
 use crate::voxel::GRID_SCALE;
-use crate::voxel::voxel_grid::VoxelGrid;
+use crate::voxel::chunk::VoxelChunk;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<DigsiteEntity>();
@@ -45,7 +45,7 @@ pub struct DigsiteState;
 pub fn attach_digsite(
     mut commands: Commands,
     cameras: Query<(Entity, &DigsiteSettings), Without<DigsiteEntity>>,
-    grid: Query<Entity, With<VoxelGrid>>,
+    grid: Query<Entity, With<VoxelChunk>>,
 ) {
     let Some(grid) = grid.iter().next() else {
         return;
@@ -62,17 +62,16 @@ pub fn follow_digsite(
         Or<(Changed<DigsiteSettings>, Changed<DigsiteEntity>)>,
     >,
     mut transforms: Query<&mut Transform>,
-    grid: Query<&VoxelGrid>,
+    chunks: Query<&VoxelChunk>,
 ) {
     for (entity, digsite, settings) in &cameras {
         let Ok(digsite_transform) = transforms.get(digsite.0).cloned() else {
             continue;
         };
 
-        let grid = grid.get(digsite.0).unwrap();
-        let grid_bounds = Into::<IVec3>::into(grid.array()).as_vec3() * GRID_SCALE;
+        let chunk = chunks.get(digsite.0).unwrap();
         let shift_up = Vec3::Z * 3.0;
-        let center = digsite_transform.translation + grid_bounds / 2.0;
+        let center = digsite_transform.translation + chunk.world_bounds() / 2.0;
         let target_point = center + shift_up;
 
         let mut camera_transform = transforms.get_mut(entity).unwrap();

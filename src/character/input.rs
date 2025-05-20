@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
 use crate::voxel::GRID_SCALE;
-use crate::voxel::voxel_grid::{Voxel, VoxelGrid, VoxelState};
+use crate::voxel::{Voxel, VoxelChunk};
 
 #[derive(Component)]
 pub struct Controlling;
@@ -71,7 +71,7 @@ impl Default for DigState {
 
 pub fn dig_target(
     mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState, &Collider)>,
-    mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelGrid)>,
+    mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelChunk)>,
     time: Res<Time>,
     mut gizmos: Gizmos,
 ) {
@@ -130,23 +130,21 @@ pub fn dig_target(
 
 pub fn dig_block(
     mut players: Query<(&Actions<PlayerInput>, &mut DigState)>,
-    mut digsites: Query<&mut VoxelGrid>,
+    mut digsites: Query<&mut VoxelChunk>,
 ) {
     for (actions, mut dig_state) in &mut players {
         if let ActionState::Fired = actions.action::<Dig>().state() {
             if let Some((digsite_entity, voxel_pos)) = dig_state.target_block {
-                if let Ok(mut grid) = digsites.get_mut(digsite_entity) {
-                    if let Some(voxel_state) = grid.get_voxel_state(voxel_pos) {
+                if let Ok(mut chunk) = digsites.get_mut(digsite_entity) {
+                    if let Some(voxel_state) = chunk.get_voxel(voxel_pos) {
                         if dig_state.time_since_dig >= dig_state.dig_time {
                             let dig_power = 1;
-                            let new_health = voxel_state.health.saturating_sub(dig_power);
+
+                            let new_health = chunk.health(voxel_pos).saturating_sub(dig_power);
                             if new_health == 0 {
-                                grid.set(voxel_pos, Voxel::Air.into());
+                                chunk.set(voxel_pos, Voxel::Air.into());
                             } else {
-                                grid.set(voxel_pos, VoxelState {
-                                    health: new_health,
-                                    voxel: voxel_state.voxel,
-                                });
+                                chunk.set_health(voxel_pos, new_health);
                             }
 
                             dig_state.time_since_dig -= dig_state.dig_time;
