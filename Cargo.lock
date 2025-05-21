@@ -247,6 +247,8 @@ dependencies = [
  "iyes_perf_ui",
  "log",
  "mem_dbg",
+ "num-derive",
+ "num-traits",
  "rand 0.9.1",
  "serde",
  "tracing",

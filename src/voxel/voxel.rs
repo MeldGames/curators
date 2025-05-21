@@ -1,8 +1,10 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use num_derive::*;
+use num_traits::{ToPrimitive, FromPrimitive};
 
 #[derive(
-    Reflect, Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Serialize, Deserialize,
+    Reflect, Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Serialize, Deserialize, FromPrimitive, ToPrimitive,
 )]
 pub enum Voxel {
     Air,
@@ -31,28 +33,36 @@ impl Voxel {
         [Voxel::Air, Voxel::Dirt, Voxel::Grass, Voxel::Stone, Voxel::Water, Voxel::Base].into_iter()
     }
 
-    pub fn filling(&self) -> bool {
+    pub fn id(self) -> u16 {
+        self.to_u16().unwrap()
+    }
+
+    pub fn from_id(id: u16) -> Option<Self> {
+        Self::from_u16(id)
+    }
+
+    pub fn filling(self) -> bool {
         match self {
             Voxel::Air => false,
             _ => true,
         }
     }
 
-    pub fn transparent(&self) -> bool {
+    pub fn transparent(self) -> bool {
         match self {
             Voxel::Air | Voxel::Water => true,
             _ => false,
         }
     }
 
-    pub fn pickable(&self) -> bool {
+    pub fn pickable(self) -> bool {
         match self {
             Voxel::Air => false,
             _ => true,
         }
     }
 
-    pub fn breakable(&self) -> bool {
+    pub fn breakable(self) -> bool {
         match self {
             Voxel::Air | Voxel::Base => false,
             _ => true,

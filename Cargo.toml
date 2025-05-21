@@ -36,6 +36,8 @@ bevy_meshem = { git = "https://github.com/aceeri/Meshem", branch = "bevy-0.16" }
 rand = "0.9.1"
 serde = "1.0.219"
 mem_dbg = "0.3"
+num-traits = "0.2"
+num-derive = "0.4"
 
 [patch.crates-io]
 #bevy_enhanced_input = { git = "https://github.com/projectharmonia/bevy_enhanced_input", rev = "21ddc08755" }
