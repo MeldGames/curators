@@ -72,8 +72,7 @@ impl VoxelChunk {
                 let voxel_i = (quad >> 32) as usize;
                 let voxel = Voxel::from_id(voxel_i as u16).expect("Voxel id to be valid");
 
-                // let layer = texture_map.get_texture_index(voxel, face) as u32;
-                let layer = 0u32;
+                let layer = texture_map.get_texture_index(voxel, face) as u32;
                 let color = match (voxel, face) {
                     (Voxel::Grass, bgm::Face::Up) => 0b011_111_001,
                     (Voxel::Grass, _) => 0b110_011_001,
