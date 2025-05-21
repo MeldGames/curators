@@ -7,8 +7,8 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{PrimitiveTopology, VertexFormat};
 use binary_greedy_meshing as bgm;
 
-// use super::texture_array::TextureMapTrait;
 use crate::voxel::{Voxel, VoxelChunk};
+use super::material::{TextureMapTrait, TextureMap};
 
 const MASK_6: u64 = 0b111111;
 const MASK_XYZ: u64 = 0b111111_111111_111111;
@@ -46,7 +46,7 @@ impl VoxelChunk {
     /// necessary (by truncating quads)
     pub fn create_face_meshes(
         &self,
-        // texture_map: impl TextureMapTrait,
+        texture_map: impl TextureMapTrait,
         lod: usize,
     ) -> [Option<Mesh>; 6] {
         // Gathering binary greedy meshing input data

@@ -13,11 +13,12 @@ use bevy::render::render_resource::{
 };
 use bevy::render::storage::ShaderStorageBuffer;
 use dashmap::DashMap;
+use binary_greedy_meshing as bgm;
+use bgm::Face;
 
 use super::mesh_chunks::ATTRIBUTE_VOXEL_DATA;
 use super::{BlockTexState, BlockTextureFolder};
-use crate::Block;
-use crate::block::{Face, FaceSpecifier};
+use crate::voxel::Voxel;
 use crate::render::parse_block_tex_name;
 
 pub struct TextureArrayPlugin;
@@ -29,23 +30,54 @@ impl Plugin for TextureArrayPlugin {
                 MaterialPlugin::<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>::default(
                 ),
             )
-            .add_systems(OnEnter(BlockTexState::Loaded), build_tex_array);
+            .add_systems(Startup, build_tex_array);
+    }
+}
+
+const UP_SPECIFIER: [FaceSpecifier; 2] = [FaceSpecifier::Specific(Face::Up), FaceSpecifier::All];
+const DOWN_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Down), FaceSpecifier::Specific(Face::Up), FaceSpecifier::All];
+const LEFT_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Left), FaceSpecifier::Side, FaceSpecifier::All];
+const RIGHT_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Right), FaceSpecifier::Side, FaceSpecifier::All];
+const FRONT_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Front), FaceSpecifier::Side, FaceSpecifier::All];
+const BACK_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Back), FaceSpecifier::Side, FaceSpecifier::All];
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum FaceSpecifier {
+    Specific(Face),
+    Side,
+    All
+}
+
+pub trait Specifiers {
+    fn specifiers(&self) -> &[FaceSpecifier];
+}
+
+impl Specifiers for Face {
+    fn specifiers(&self) -> &[FaceSpecifier] {
+        match self {
+            Face::Up => &UP_SPECIFIER,
+            Face::Down => &DOWN_SPECIFIER,
+            Face::Left => &LEFT_SPECIFIER,
+            Face::Right => &RIGHT_SPECIFIER,
+            Face::Front => &FRONT_SPECIFIER,
+            Face::Back => &BACK_SPECIFIER,
+        }
     }
 }
 
 #[derive(Resource)]
-pub struct TextureMap(pub Arc<DashMap<(Block, FaceSpecifier), usize>>);
+pub struct TextureMap(pub Arc<DashMap<(Voxel, FaceSpecifier), usize>>);
 
 pub trait TextureMapTrait {
-    fn get_texture_index(&self, block: Block, face: Face) -> usize;
+    fn get_texture_index(&self, block: Voxel, face: Face) -> usize;
 }
 
-impl TextureMapTrait for &DashMap<(Block, FaceSpecifier), usize> {
+impl TextureMapTrait for &DashMap<(Voxel, FaceSpecifier), usize> {
     // TODO: need to allow the user to create a json with "texture files links" such
     // as: grass_block_bottom.png -> dirt.png
     // furnace_bottom.png -> stone.png
     // etc ...
-    fn get_texture_index(&self, block: Block, face: Face) -> usize {
+    fn get_texture_index(&self, block: Voxel, face: Face) -> usize {
         for specifier in face.specifiers() {
             if let Some(i) = self.get(&(block, *specifier)) {
                 return *i;

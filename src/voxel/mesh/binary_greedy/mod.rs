@@ -8,8 +8,10 @@ use bevy::render::render_resource::PrimitiveTopology;
 use binary_greedy_meshing as bgm;
 
 use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
+use material::TextureMap;
 
 pub mod mesh_chunks;
+pub mod material;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
@@ -54,11 +56,13 @@ pub fn update_binary_mesh(
     mut commands: Commands,
     mut grids: Query<(&VoxelChunk, &mut ChunkMeshes, &mut BinaryBuffer, &mut BinaryMeshData)>,
 
+    texture_map: Res<TextureMap>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (chunk, mut chunk_meshes, mut buffer, mut mesh_data) in &mut grids {
-        let face_meshes = chunk.create_face_meshes(1);
+        let face_meshes = chunk.create_face_meshes(&*texture_map.0, 1);
+
         for (index, face_mesh) in face_meshes.into_iter().enumerate() {
             let face = bgm::Face::from(index as u8);
             let Some(face_mesh) = face_mesh else {

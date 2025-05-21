@@ -35,7 +35,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0bf66a7bf0b7ea4fd7742d50b64782a88f99217cf246b3f93b4162528dde520"
 dependencies = [
  "accesskit",
- "hashbrown",
+ "hashbrown 0.15.3",
  "immutable-chunkmap",
 ]
 
@@ -47,7 +47,7 @@ checksum = "09e230718177753b4e4ad9e1d9f6cfc2f4921212d4c1c480b253f526babb258d"
 dependencies = [
  "accesskit",
  "accesskit_consumer",
- "hashbrown",
+ "hashbrown 0.15.3",
  "objc2 0.5.2",
  "objc2-app-kit 0.2.2",
  "objc2-foundation 0.2.2",
@@ -61,7 +61,7 @@ checksum = "65178f3df98a51e4238e584fcb255cb1a4f9111820848eeddd37663be40a625f"
 dependencies = [
  "accesskit",
  "accesskit_consumer",
- "hashbrown",
+ "hashbrown 0.15.3",
  "paste",
  "static_assertions",
  "windows 0.58.0",
@@ -243,6 +243,7 @@ dependencies = [
  "bevy_meshem",
  "bevy_replicon",
  "binary-greedy-meshing",
+ "dashmap",
  "fast-surface-nets",
  "iyes_perf_ui",
  "log",
@@ -1219,7 +1220,7 @@ dependencies = [
  "critical-section",
  "foldhash",
  "getrandom 0.2.16",
- "hashbrown",
+ "hashbrown 0.15.3",
  "portable-atomic",
  "portable-atomic-util",
  "serde",
@@ -2228,6 +2229,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core",
+]
+
+[[package]]
 name = "dasp_sample"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2868,7 +2883,7 @@ checksum = "dcf29e94d6d243368b7a56caa16bc213e4f9f8ed38c4d9557069527b5d5281ca"
 dependencies = [
  "bitflags 2.9.0",
  "gpu-descriptor-types",
- "hashbrown",
+ "hashbrown 0.15.3",
 ]
 
 [[package]]
@@ -2914,6 +2929,12 @@ checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
 dependencies = [
  "byteorder",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.14.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 
 [[package]]
 name = "hashbrown"
@@ -3052,7 +3073,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
- "hashbrown",
+ "hashbrown 0.15.3",
  "serde",
 ]
 
@@ -4200,7 +4221,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a98c6720655620a521dcc722d0ad66cd8afd5d86e34a89ef691c50b7b24de06"
 dependencies = [
  "fixedbitset",
- "hashbrown",
+ "hashbrown 0.15.3",
  "indexmap",
  "serde",
 ]
@@ -5028,7 +5049,7 @@ version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ece03ff43cd2a9b57ebf776ea5e78bd30b3b4185a619f041079f4109f385034"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.15.3",
  "num-traits",
  "robust",
  "smallvec",
