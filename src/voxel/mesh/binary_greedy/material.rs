@@ -12,40 +12,93 @@ use bevy::render::render_resource::{
     AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat,
 };
 use bevy::render::storage::ShaderStorageBuffer;
-use dashmap::DashMap;
-use binary_greedy_meshing as bgm;
 use bgm::Face;
+use binary_greedy_meshing as bgm;
+use dashmap::DashMap;
 
 use super::mesh_chunks::ATTRIBUTE_VOXEL_DATA;
-use super::{BlockTexState, BlockTextureFolder};
+// use super::{BlockTexState, BlockTextureFolder};
 use crate::voxel::Voxel;
-use crate::render::parse_block_tex_name;
+// use crate::render::parse_block_tex_name;
+
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+pub enum BlockTexState {
+    #[default]
+    Setup,
+    Loaded,
+    Mapped,
+}
+
+#[derive(Resource, Default)]
+pub struct BlockTextureFolder(pub Handle<LoadedFolder>);
 
 pub struct TextureArrayPlugin;
 
+fn load_block_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // load multiple, individual sprites from a folder
+    commands.insert_resource(BlockTextureFolder(asset_server.load_folder("textures/blocks")));
+}
+
+fn check_block_textures(
+    mut next_state: ResMut<NextState<BlockTexState>>,
+    texture_folder: ResMut<BlockTextureFolder>,
+    mut events: EventReader<AssetEvent<LoadedFolder>>,
+) {
+    // Advance the `AppState` once all sprite handles have been loaded by the
+    // `AssetServer`
+    for event in events.read() {
+        if event.is_loaded_with_dependencies(&texture_folder.0) {
+            next_state.set(BlockTexState::Loaded);
+        }
+    }
+}
+
+const DIGITS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+pub fn parse_block_tex_name(filename: &OsStr) -> Option<(Block, FaceSpecifier)> {
+    let filename = filename.to_str()?.trim_end_matches(DIGITS);
+    let (block, face) = match filename.rsplit_once("_") {
+        Some((block, "side")) => (block, FaceSpecifier::Side),
+        Some((block, "bottom")) => (block, FaceSpecifier::Specific(Face::Down)),
+        Some((block, "top")) => (block, FaceSpecifier::Specific(Face::Up)),
+        Some((block, "front")) => (block, FaceSpecifier::Specific(Face::Front)),
+        Some((block, "back")) => (block, FaceSpecifier::Specific(Face::Back)),
+        _ => (filename, FaceSpecifier::All),
+    };
+    Some((from_filename(block)?, face))
+}
+
 impl Plugin for TextureArrayPlugin {
     fn build(&self, app: &mut App) {
+        app.init_state::<BlockTexState>();
+
         app.insert_resource(TextureMap(Arc::new(DashMap::new())))
             .add_plugins(
                 MaterialPlugin::<ExtendedMaterial<StandardMaterial, ArrayTextureMaterial>>::default(
                 ),
             )
-            .add_systems(Startup, build_tex_array);
+            .add_systems(OnEnter(BlockTexState::Setup), load_block_textures)
+            .add_systems(Update, check_block_textures.run_if(in_state(BlockTexState::Setup)))
+            .add_systems(OnEnter(BlockTexState::Loaded), build_tex_array);
     }
 }
 
 const UP_SPECIFIER: [FaceSpecifier; 2] = [FaceSpecifier::Specific(Face::Up), FaceSpecifier::All];
-const DOWN_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Down), FaceSpecifier::Specific(Face::Up), FaceSpecifier::All];
-const LEFT_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Left), FaceSpecifier::Side, FaceSpecifier::All];
-const RIGHT_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Right), FaceSpecifier::Side, FaceSpecifier::All];
-const FRONT_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Front), FaceSpecifier::Side, FaceSpecifier::All];
-const BACK_SPECIFIER: [FaceSpecifier; 3] = [FaceSpecifier::Specific(Face::Back), FaceSpecifier::Side, FaceSpecifier::All];
+const DOWN_SPECIFIER: [FaceSpecifier; 3] =
+    [FaceSpecifier::Specific(Face::Down), FaceSpecifier::Specific(Face::Up), FaceSpecifier::All];
+const LEFT_SPECIFIER: [FaceSpecifier; 3] =
+    [FaceSpecifier::Specific(Face::Left), FaceSpecifier::Side, FaceSpecifier::All];
+const RIGHT_SPECIFIER: [FaceSpecifier; 3] =
+    [FaceSpecifier::Specific(Face::Right), FaceSpecifier::Side, FaceSpecifier::All];
+const FRONT_SPECIFIER: [FaceSpecifier; 3] =
+    [FaceSpecifier::Specific(Face::Front), FaceSpecifier::Side, FaceSpecifier::All];
+const BACK_SPECIFIER: [FaceSpecifier; 3] =
+    [FaceSpecifier::Specific(Face::Back), FaceSpecifier::Side, FaceSpecifier::All];
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum FaceSpecifier {
     Specific(Face),
     Side,
-    All
+    All,
 }
 
 pub trait Specifiers {

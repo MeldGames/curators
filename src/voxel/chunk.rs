@@ -318,7 +318,7 @@ pub mod tests {
 
     #[test]
     pub fn linearize() {
-        sanity = |point| unpadded::delinearize(unpadded::linearize(point));
+        let sanity = |point| unpadded::delinearize(unpadded::linearize(point));
         assert_eq!(sanity([1, 1, 1]), [1, 1, 1]);
         assert_eq!(sanity([61, 5, 38]), [61, 5, 38]);
         assert_eq!(sanity([0, 0, 0]), [0, 0, 0]);
@@ -326,7 +326,7 @@ pub mod tests {
 
     #[test]
     pub fn pad_linearize() {
-        sanity = |point| padded::delinearize(padded::linearize(point));
+        let sanity = |point| padded::delinearize(padded::linearize(point));
         assert_eq!(sanity([1, 1, 1]), [1, 1, 1]);
         assert_eq!(sanity([63, 5, 38]), [63, 5, 38]);
         assert_eq!(sanity([0, 0, 0]), [0, 0, 0]);
