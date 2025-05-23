@@ -6,14 +6,16 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
 use binary_greedy_meshing as bgm;
-
-use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
 use material::TextureMap;
 
-pub mod mesh_chunks;
+use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
+
 pub mod material;
+pub mod mesh_chunks;
 
 pub(super) fn plugin(app: &mut App) {
+    app.add_plugins(material::TextureArrayPlugin);
+
     app.add_observer(add_buffers);
     app.add_systems(PostUpdate, update_binary_mesh);
 }

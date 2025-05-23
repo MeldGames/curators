@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::sync::Arc;
 
 use bevy::asset::LoadedFolder;
@@ -54,9 +55,9 @@ fn check_block_textures(
 }
 
 const DIGITS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-pub fn parse_block_tex_name(filename: &OsStr) -> Option<(Block, FaceSpecifier)> {
+pub fn parse_block_tex_name(filename: &OsStr) -> Option<(Voxel, FaceSpecifier)> {
     let filename = filename.to_str()?.trim_end_matches(DIGITS);
-    let (block, face) = match filename.rsplit_once("_") {
+    let (block_name, face) = match filename.rsplit_once("_") {
         Some((block, "side")) => (block, FaceSpecifier::Side),
         Some((block, "bottom")) => (block, FaceSpecifier::Specific(Face::Down)),
         Some((block, "top")) => (block, FaceSpecifier::Specific(Face::Up)),
@@ -64,7 +65,7 @@ pub fn parse_block_tex_name(filename: &OsStr) -> Option<(Block, FaceSpecifier)> 
         Some((block, "back")) => (block, FaceSpecifier::Specific(Face::Back)),
         _ => (filename, FaceSpecifier::All),
     };
-    Some((from_filename(block)?, face))
+    Some((Voxel::from_name(block_name)?, face))
 }
 
 impl Plugin for TextureArrayPlugin {

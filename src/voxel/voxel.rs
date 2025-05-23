@@ -1,10 +1,22 @@
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use num_derive::*;
-use num_traits::{ToPrimitive, FromPrimitive};
+use num_traits::{FromPrimitive, ToPrimitive};
+use serde::{Deserialize, Serialize};
 
 #[derive(
-    Reflect, Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Serialize, Deserialize, FromPrimitive, ToPrimitive,
+    Reflect,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Copy,
+    Clone,
+    Serialize,
+    Deserialize,
+    FromPrimitive,
+    ToPrimitive,
 )]
 pub enum Voxel {
     Air,
@@ -39,6 +51,18 @@ impl Voxel {
 
     pub fn from_id(id: u16) -> Option<Self> {
         Self::from_u16(id)
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name.to_ascii_lowercase().trim() {
+            "air" => Some(Voxel::Air),
+            "dirt" => Some(Voxel::Dirt),
+            "grass" => Some(Voxel::Grass),
+            "water" => Some(Voxel::Water),
+            "stone" => Some(Voxel::Stone),
+            "base" => Some(Voxel::Base),
+            _ => None,
+        }
     }
 
     pub fn filling(self) -> bool {
