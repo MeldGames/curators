@@ -63,7 +63,7 @@ pub fn update_binary_mesh(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (chunk, mut chunk_meshes, mut buffer, mut mesh_data) in &mut grids {
-        let face_meshes = chunk.create_face_meshes(&*texture_map.0, 1);
+        let face_meshes = chunk.create_face_meshes(&*texture_map.0);
 
         for (index, face_mesh) in face_meshes.into_iter().enumerate() {
             let face = bgm::Face::from(index as u8);

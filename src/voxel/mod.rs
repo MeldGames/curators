@@ -42,10 +42,11 @@ impl Plugin for VoxelPlugin {
 }
 
 pub fn spawn_voxel_grid(mut commands: Commands) {
-    let width = 62;
-    let length = 62;
-    let height = 62;
     let mut grid = VoxelChunk::new();
+    
+    let width = grid.x_size();
+    let length = grid.z_size();
+    let height = grid.y_size();
     let ground_level = grid.ground_level();
     for x in 0..width {
         for z in 0..length {

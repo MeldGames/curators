@@ -7,7 +7,7 @@ use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{PrimitiveTopology, VertexFormat};
 use binary_greedy_meshing as bgm;
 
-use super::material::{TextureMap, TextureMapTrait};
+use super::material::TextureMapTrait;
 use crate::voxel::{Voxel, VoxelChunk};
 
 const MASK_6: u64 = 0b111111;
@@ -41,13 +41,9 @@ impl VoxelChunk {
         buffer
     }
 
-    /// Doesn't work with lod > 2, because chunks are of size 62 (to get to 64
-    /// with padding) and 62 = 2*31 TODO: make it work with lod > 2 if
-    /// necessary (by truncating quads)
     pub fn create_face_meshes(
         &self,
         texture_map: impl TextureMapTrait,
-        lod: usize,
     ) -> [Option<Mesh>; 6] {
         // Gathering binary greedy meshing input data
         let mesh_data_span = info_span!("mesh voxel data", name = "mesh voxel data").entered();
