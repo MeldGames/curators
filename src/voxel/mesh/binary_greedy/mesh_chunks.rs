@@ -1,14 +1,14 @@
 use std::collections::BTreeSet;
 
 use bevy::log::info_span;
-use bevy::prelude::Mesh;
+use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshVertexAttribute};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{PrimitiveTopology, VertexFormat};
 use binary_greedy_meshing as bgm;
 
+use super::material::{TextureMap, TextureMapTrait};
 use crate::voxel::{Voxel, VoxelChunk};
-use super::material::{TextureMapTrait, TextureMap};
 
 const MASK_6: u64 = 0b111111;
 const MASK_XYZ: u64 = 0b111111_111111_111111;
@@ -61,6 +61,7 @@ impl VoxelChunk {
 
         bgm::mesh(&voxels, &mut mesh_data, transparents);
 
+        info!("mark 1");
         let mut meshes = std::array::from_fn(|_| None);
         for (face_n, quads) in mesh_data.quads.iter().enumerate() {
             let mut voxel_data: Vec<[u32; 2]> = Vec::with_capacity(quads.len() * 4);

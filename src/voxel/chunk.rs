@@ -61,10 +61,10 @@ pub mod padded {
 }
 
 /// Single voxel chunk, 64^3 (1 padding on the edges for meshing)
-#[derive(Debug, Component, Reflect)]
+#[derive(Debug, Component)]
 #[require(Name::new("Voxel Chunk"))]
 pub struct VoxelChunk {
-    pub voxels: [Voxel; unpadded::ARR_STRIDE],
+    pub voxels: Vec<Voxel>, // unpadded::ARR_STRIDE length
 
     // Voxel health
     health: HashMap<[Scalar; 3], i16>,
@@ -83,7 +83,7 @@ pub struct GridChange {
 impl VoxelChunk {
     pub fn new() -> Self {
         Self {
-            voxels: [Voxel::Air; unpadded::ARR_STRIDE],
+            voxels: vec![Voxel::Air; unpadded::ARR_STRIDE],
             health: HashMap::default(),
             changed: Vec::new(),
         }
@@ -315,6 +315,12 @@ pub fn memory_human_readable(bytes: usize) -> String {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+
+    #[test]
+    pub fn create_chunk() {
+        // if this fails, probably allocated too much to stack
+        let chunk = VoxelChunk::new();
+    }
 
     #[test]
     pub fn linearize() {
