@@ -70,7 +70,7 @@ pub fn update_binary_mesh(
             if let Some(entity) = chunk_meshes.get(&voxel) {
                 commands.entity(*entity).insert(Mesh3d(mesh));
             } else {
-                let material = materials.add(StandardMaterial { ..default() });
+                let material = materials.add(voxel.material());
                 let id = commands.spawn((
                     Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
                     Mesh3d(mesh),
