@@ -108,6 +108,13 @@ impl Voxel {
         }
     }
 
+    pub fn collidable(self) -> bool {
+        match self {
+            Voxel::Air | Voxel::Water => false,
+            _ => true,
+        }
+    }
+
     pub fn material(self) -> StandardMaterial {
         let default_material = 
                 StandardMaterial {

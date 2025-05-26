@@ -8,7 +8,7 @@ use crate::voxel::{UpdateVoxelMeshSet, Voxel, VoxelChunk};
 pub struct VoxelTrimeshColliderPlugin;
 impl Plugin for VoxelTrimeshColliderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, spawn_mesh_collider.after(UpdateVoxelMeshSet));
+        //app.add_systems(PostUpdate, spawn_mesh_collider.after(UpdateVoxelMeshSet));
         // app.add_systems(Update, spawn_ball);
     }
 }
@@ -38,7 +38,13 @@ pub fn spawn_mesh_collider(
             continue;
         };
 
-        let Some(mut new_collider) = Collider::trimesh_from_mesh(mesh) else {
+        let flags = TrimeshFlags::MERGE_DUPLICATE_VERTICES
+            | TrimeshFlags::FIX_INTERNAL_EDGES
+            | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
+            | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES
+            ;
+
+        let Some(mut new_collider) = Collider::trimesh_from_mesh_with_config(mesh, flags) else {
             info!("cannot create trimesh from mesh");
             continue;
         };
