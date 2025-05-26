@@ -26,7 +26,7 @@ pub fn spawn_mesh_collider(
 ) {
     for (entity, global_transform, grid, children) in &grids {
         if grid.changed().count() == 0 {
-            continue;
+            //continue;
         }
 
         let Some(mesh) = children.iter().find_map(|child| voxel_mesh.get(child).ok()) else {
@@ -56,7 +56,7 @@ pub fn spawn_mesh_collider(
                     new_collider,
                     RigidBody::Static,
                     CollisionMargin(0.05),
-                    Transform::from_translation(Vec3::splat(0.5)),
+                    Transform::from_translation(Vec3::splat(0.0)),
                     VoxelTrimeshCollider,
                 ))
                 .id();

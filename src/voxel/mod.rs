@@ -45,12 +45,13 @@ impl Plugin for VoxelPlugin {
 pub fn spawn_voxel_grid(mut commands: Commands) {
     let mut grid = VoxelChunk::new();
     
-    /*let width = grid.x_size();
+    let width = grid.x_size();
     let length = grid.z_size();
-    let height = grid.y_size();*/
-    let width = 16;
-    let length = 16;
-    let height = 31;
+    let height = grid.y_size();
+
+    // let width = 16;
+    // let length = 16;
+    // let height = 31;
     let ground_level = grid.ground_level();
     for x in 0..width {
         for z in 0..length {
@@ -60,7 +61,6 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         }
     }
 
-    /*
     for x in 0..width {
         for z in 0..length {
             for y in (ground_level - 2)..ground_level {
@@ -76,7 +76,6 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
             }
         }
     }
-    */
 
     commands.spawn((
         grid,

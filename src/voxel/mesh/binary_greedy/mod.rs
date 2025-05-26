@@ -132,11 +132,12 @@ impl BinaryGreedyMeshing for VoxelChunk {
                     let z = (*vertex_packed >> 12) & MASK_6;
                     positions[voxel_i].push([x as f32, y as f32, z as f32]);
                     normals[voxel_i].push(n.clone());
+
                 }
             }
         }
         for i in 0..positions.len() {
-            indices[i] = bgm::indices(positions[i].len());
+            indices[i] = bgm::indices(positions[i].len() / 4);
         }
 
         let mut meshes = vec![None; max_id + 1];
@@ -161,6 +162,7 @@ impl BinaryGreedyMeshing for VoxelChunk {
                     VertexAttributeValues::Float32x2(vec![[0.0; 2]; positions[i].len()]),
                 );
                 mesh.insert_indices(Indices::U32(indices[i].clone()));
+
                 meshes[i] = Some(mesh);
             }
         }
