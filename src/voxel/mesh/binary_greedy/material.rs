@@ -22,17 +22,6 @@ use super::mesh_chunks::ATTRIBUTE_VOXEL_DATA;
 use crate::voxel::Voxel;
 // use crate::render::parse_block_tex_name;
 
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-pub enum BlockTexState {
-    #[default]
-    Setup,
-    Loaded,
-    Mapped,
-}
-
-#[derive(Resource, Default)]
-pub struct BlockTextureFolder(pub Handle<LoadedFolder>);
-
 pub struct TextureArrayPlugin;
 
 fn load_block_textures(mut commands: Commands, asset_server: Res<AssetServer>) {

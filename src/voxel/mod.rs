@@ -78,7 +78,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         // mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
         // mesh::meshem::Meshem,
-        // mesh::binary_greedy::BinaryGreedy,
+        mesh::binary_greedy::BinaryGreedy,
     ));
 }
 
