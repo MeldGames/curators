@@ -5,6 +5,7 @@ use bevy::render::camera::Exposure;
 
 pub use chunk::VoxelChunk;
 pub use voxel::Voxel;
+pub use mesh::UpdateVoxelMeshSet;
 
 use crate::character;
 
@@ -15,8 +16,8 @@ pub mod raycast;
 pub mod chunk;
 pub mod voxel;
 
-// pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
-pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
+pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
+//pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
 
 #[derive(Default)]
 pub struct VoxelPlugin;
@@ -44,9 +45,12 @@ impl Plugin for VoxelPlugin {
 pub fn spawn_voxel_grid(mut commands: Commands) {
     let mut grid = VoxelChunk::new();
     
-    let width = grid.x_size();
+    /*let width = grid.x_size();
     let length = grid.z_size();
-    let height = grid.y_size();
+    let height = grid.y_size();*/
+    let width = 16;
+    let length = 16;
+    let height = 31;
     let ground_level = grid.ground_level();
     for x in 0..width {
         for z in 0..length {
@@ -56,6 +60,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         }
     }
 
+    /*
     for x in 0..width {
         for z in 0..length {
             for y in (ground_level - 2)..ground_level {
@@ -71,6 +76,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
             }
         }
     }
+    */
 
     commands.spawn((
         grid,

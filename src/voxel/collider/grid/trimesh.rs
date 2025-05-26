@@ -3,12 +3,12 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::voxel::{Voxel, VoxelChunk};
+use crate::voxel::{UpdateVoxelMeshSet, Voxel, VoxelChunk};
 
 pub struct VoxelTrimeshColliderPlugin;
 impl Plugin for VoxelTrimeshColliderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, spawn_mesh_collider.before(VoxelChunk::clear_changed_system));
+        app.add_systems(PostUpdate, spawn_mesh_collider.after(UpdateVoxelMeshSet));
         // app.add_systems(Update, spawn_ball);
     }
 }
@@ -18,18 +18,26 @@ pub struct VoxelTrimeshCollider;
 
 pub fn spawn_mesh_collider(
     mut commands: Commands,
-    grids: Query<(Entity, &GlobalTransform, &VoxelChunk, &Children), Changed<VoxelChunk>>,
+    grids: Query<(Entity, &GlobalTransform, &VoxelChunk, &Children)>,
     voxel_mesh: Query<&Mesh3d>,
     collider_child: Query<Entity, With<VoxelTrimeshCollider>>,
     mut colliders: Query<&mut Collider>,
     meshes: Res<Assets<Mesh>>,
 ) {
     for (entity, global_transform, grid, children) in &grids {
+        if grid.changed().count() == 0 {
+            continue;
+        }
+
         let Some(mesh) = children.iter().find_map(|child| voxel_mesh.get(child).ok()) else {
             continue;
         };
 
-        let mesh = meshes.get(mesh).unwrap();
+        let Some(mesh) = meshes.get(mesh) else {
+            warn!("no mesh found in assets");
+            continue;
+        };
+
         let Some(mut new_collider) = Collider::trimesh_from_mesh(mesh) else {
             info!("cannot create trimesh from mesh");
             continue;

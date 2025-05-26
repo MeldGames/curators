@@ -9,14 +9,13 @@ use binary_greedy_meshing as bgm;
 
 use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
 
-pub mod mesh_chunks;
+use super::UpdateVoxelMeshSet;
 
 const MASK_6: u32 = 0b111111;
-const MASK_XYZ: u32 = 0b111111_111111_111111;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
-    app.add_systems(PostUpdate, update_binary_mesh);
+    app.add_systems(PostUpdate, update_binary_mesh.in_set(UpdateVoxelMeshSet));
 }
 
 #[derive(Component)]
@@ -55,15 +54,13 @@ pub struct ChunkMeshes(HashMap<Voxel, Entity>);
 
 pub fn update_binary_mesh(
     mut commands: Commands,
-    mut grids: Query<(&VoxelChunk, &mut ChunkMeshes, &mut BinaryBuffer, &mut BinaryMeshData)>,
+    mut grids: Query<(Entity, &VoxelChunk, &mut ChunkMeshes, &mut BinaryBuffer, &mut BinaryMeshData), Changed<VoxelChunk>>,
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-        info!("updating binary mesh 1");
-    for (chunk, mut chunk_meshes, mut buffer, mut mesh_data) in &mut grids {
-        info!("updating binary mesh 2");
-        let binary_meshes = chunk.generate_meshes();
+    for (chunk_entity, chunk, mut chunk_meshes, mut buffer, mut mesh_data) in &mut grids {
+        let binary_meshes = chunk.generate_meshes(&mut buffer.voxels);
 
         for (voxel_id, binary_mesh) in binary_meshes.into_iter().enumerate() {
             let voxel = Voxel::from_id(voxel_id as u16).unwrap();
@@ -74,29 +71,51 @@ pub fn update_binary_mesh(
                 commands.entity(*entity).insert(Mesh3d(mesh));
             } else {
                 let material = materials.add(StandardMaterial { ..default() });
-                let id = commands.spawn((Mesh3d(mesh), MeshMaterial3d(material))).id();
+                let id = commands.spawn((
+                    Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
+                    Mesh3d(mesh),
+                    MeshMaterial3d(material),
+                    ChildOf(chunk_entity),
+                )).id();
+                
                 chunk_meshes.insert(voxel, id);
             }
         }
     }
 }
 
+
 /// Generate 1 mesh per block type for simplicity, in practice we would use a texture array and a custom shader instead
 pub trait BinaryGreedyMeshing {
-    fn generate_meshes(&self) -> Vec<Option<Mesh>>;
+    fn as_binary_voxels(&self, buffer: &mut Vec<u16>);
+    fn generate_meshes(&self, buffer: &mut Vec<u16>) -> Vec<Option<Mesh>>;
 }
+
 impl BinaryGreedyMeshing for VoxelChunk {
-    fn generate_meshes(&self) -> Vec<Option<Mesh>> {
-        let voxels = self.as_binary_voxels();
+    fn as_binary_voxels(&self, buffer: &mut Vec<u16>) {
+        for value in buffer.iter_mut() {
+            *value = 0;
+        }
+
+        for (point, voxel) in self.voxel_iter() {
+            let [x, y, z] = point;
+            let voxel_id = if voxel.filling() { voxel.id() } else { 0 };
+
+            buffer[bgm::pad_linearize(x as usize, y as usize, z as usize)] = voxel_id;
+        }
+    }
+
+    fn generate_meshes(&self, buffer: &mut Vec<u16>) -> Vec<Option<Mesh>> {
+        self.as_binary_voxels(buffer);
         let mut mesh_data = bgm::MeshData::new();
 
         let transparents =
             Voxel::iter().filter(|v| v.transparent()).map(|v| v.id()).collect::<BTreeSet<_>>();
-        bgm::mesh(&voxels, &mut mesh_data, transparents);
+        let transparents = BTreeSet::new();
+        bgm::mesh(&buffer, &mut mesh_data, transparents);
 
         let max_id = Voxel::iter().max_by(|v1, v2| v1.id().cmp(&v2.id())).map(|v| v.id() as usize).expect("Some voxel to exist");
 
-        let voxel_types = Voxel::iter().count();
         let mut positions = vec![Vec::new(); max_id + 1];
         let mut normals = vec![Vec::new(); max_id + 1];
         let mut indices = vec![Vec::new(); max_id + 1];
@@ -104,7 +123,7 @@ impl BinaryGreedyMeshing for VoxelChunk {
             let face: bgm::Face = (face_n as u8).into();
             let n = face.n();
             for quad in quads {
-                let voxel_i = (quad >> 32) as usize - 1;
+                let voxel_i = (quad >> 32) as usize;
 
                 let vertices_packed = face.vertices_packed(*quad);
                 for vertex_packed in vertices_packed.iter() {
@@ -123,10 +142,11 @@ impl BinaryGreedyMeshing for VoxelChunk {
         let mut meshes = vec![None; max_id + 1];
         for voxel in Voxel::iter() {
             let i = voxel.id() as usize;
-            if voxel.filling() {
+            if voxel.filling() && positions[i].len() > 0 {
                 let mut mesh = Mesh::new(
                     PrimitiveTopology::TriangleList,
-                    RenderAssetUsages::RENDER_WORLD,
+                    //RenderAssetUsages::RENDER_WORLD,
+                    RenderAssetUsages::default(),
                 );
                 mesh.insert_attribute(
                     Mesh::ATTRIBUTE_POSITION,
