@@ -44,17 +44,12 @@ impl Default for BinaryMeshData {
 pub fn add_buffers(trigger: Trigger<OnAdd, BinaryGreedy>, mut commands: Commands) {
     info!("adding binary greedy meshing buffers");
     commands.entity(trigger.target()).insert_if_new((
-        ColliderMesh(None),
         BinaryBuffer::default(),
         BinaryMeshData::default(),
         ChunkMeshes::default(),
         ChunkCollider(None),
     ));
 }
-
-// Mesh generated to be used for collision
-#[derive(Component, Debug, Default, Deref, DerefMut)]
-pub struct ColliderMesh(pub Option<Mesh>);
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct ChunkCollider(pub Option<Entity>);
@@ -64,7 +59,7 @@ pub struct ChunkMeshes(HashMap<Voxel, Entity>);
 
 pub fn update_binary_mesh(
     mut commands: Commands,
-    mut grids: Query<(Entity, &VoxelChunk, &mut ChunkMeshes, &mut ChunkCollider, &mut BinaryBuffer, &mut BinaryMeshData), Changed<VoxelChunk>>,
+    mut grids: Query<(Entity, &VoxelChunk, &mut ChunkMeshes, &mut ChunkCollider, &mut BinaryBuffer, &mut BinaryMeshData)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,

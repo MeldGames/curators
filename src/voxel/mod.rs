@@ -16,8 +16,8 @@ pub mod raycast;
 pub mod chunk;
 pub mod voxel;
 
-pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
-//pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
+//pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
+pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
 
 #[derive(Default)]
 pub struct VoxelPlugin;
