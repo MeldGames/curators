@@ -163,6 +163,12 @@ impl BinaryGreedyMeshing for VoxelChunk {
     ) -> (Vec<Option<Mesh>>, Mesh) {
         self.as_binary_voxels(buffer);
 
+        use std::collections::BTreeSet;
+        let transparents =
+            Voxel::iter().filter(|v| v.transparent()).map(|v| v.id()).collect::<BTreeSet<_>>();
+        let opaque_mask = bgm::compute_opaque_mask(&buffer, &transparents);
+        let transparent_mask = bgm::compute_transparent_mask(&buffer, &transparents);
+
         mesher.clear();
         mesher.fast_mesh(&buffer, &self.opaque_mask, &self.transparent_mask);
 

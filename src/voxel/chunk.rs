@@ -12,15 +12,15 @@ pub mod unpadded {
     use super::Scalar;
 
     pub const SIZE: usize = 62;
-    pub const X_STRIDE: usize = 1;
-    pub const Z_STRIDE: usize = SIZE;
+    pub const Z_STRIDE: usize = 1;
+    pub const X_STRIDE: usize = SIZE;
     pub const Y_STRIDE: usize = SIZE * SIZE;
     pub const ARR_STRIDE: usize = SIZE * SIZE * SIZE;
 
     // Padded linearize point into a 62^3 XZY array
     #[inline]
     pub fn linearize([x, y, z]: [Scalar; 3]) -> usize {
-        x as usize + z as usize * Z_STRIDE + y as usize * Y_STRIDE
+        z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
     }
 
     // Delinearize point into a 62^3 array
@@ -28,8 +28,8 @@ pub mod unpadded {
     pub fn delinearize(mut index: usize) -> [Scalar; 3] {
         let y = index / Y_STRIDE;
         index -= y * Y_STRIDE;
-        let z = index / Z_STRIDE;
-        let x = index % Z_STRIDE;
+        let x = index / X_STRIDE;
+        let z = index % X_STRIDE;
         [x as Scalar, y as Scalar, z as Scalar]
     }
 }
@@ -38,15 +38,15 @@ pub mod padded {
     use super::Scalar;
 
     pub const SIZE: usize = super::unpadded::SIZE + 2;
-    pub const X_STRIDE: usize = 1;
-    pub const Z_STRIDE: usize = SIZE;
+    pub const Z_STRIDE: usize = 1;
+    pub const X_STRIDE: usize = SIZE;
     pub const Y_STRIDE: usize = SIZE * SIZE;
     pub const ARR_STRIDE: usize = SIZE * SIZE * SIZE;
 
     // Padded linearize point into a 64^3 XZY array
     #[inline]
     pub fn linearize([x, y, z]: [Scalar; 3]) -> usize {
-        x as usize + z as usize * Z_STRIDE + y as usize * Y_STRIDE
+        z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
     }
 
     // Delinearize point into a 64^3 array
@@ -54,8 +54,8 @@ pub mod padded {
     pub fn delinearize(mut index: usize) -> [Scalar; 3] {
         let y = index / Y_STRIDE;
         index -= y * Y_STRIDE;
-        let z = index / Z_STRIDE;
-        let x = index % Z_STRIDE;
+        let x = index / X_STRIDE;
+        let z = index % X_STRIDE;
         [x as Scalar, y as Scalar, z as Scalar]
     }
 }
@@ -339,7 +339,10 @@ pub fn memory_human_readable(bytes: usize) -> String {
 
 #[cfg(test)]
 pub mod tests {
+    use binary_greedy_meshing as bgm;
+
     use super::*;
+    use crate::voxel::mesh::binary_greedy::BinaryGreedyMeshing;
 
     #[test]
     pub fn create_chunk() {
@@ -421,6 +424,18 @@ pub mod tests {
             );
             assert_eq!(chunk.opaque_mask[mask_index] & (1 << mask_bit), 1 << mask_bit);
             assert_eq!(chunk.transparent_mask[mask_index] & (1 << mask_bit), 0);
+        }
+
+        assert_eq!(chunk.transparent_mask.iter().sum::<u64>(), 0);
+
+        use std::collections::BTreeSet;
+        let mut buffer = vec![0u16; bgm::CS_P3];
+        let transparents =
+            Voxel::iter().filter(|v| v.transparent()).map(|v| v.id()).collect::<BTreeSet<_>>();
+        chunk.as_binary_voxels(&mut buffer);
+        let mask = bgm::compute_opaque_mask(&buffer, &transparents);
+        for index in 0..bgm::CS_P2 {
+            assert_eq!(chunk.opaque_mask[index], mask[index]);
         }
     }
 }
