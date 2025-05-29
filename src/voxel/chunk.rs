@@ -64,7 +64,10 @@ pub mod padded {
 #[derive(Debug, Component)]
 #[require(Name::new("Voxel Chunk"))]
 pub struct VoxelChunk {
-    pub voxels: Vec<Voxel>, // unpadded::ARR_STRIDE length
+    pub voxels: Vec<u16>, // unpadded::ARR_STRIDE length
+
+    pub opaque_mask: Vec<u64>,      // 64*64 length
+    pub transparent_mask: Vec<u64>, // 64*64 length
 
     // Voxel health
     health: HashMap<[Scalar; 3], i16>,
@@ -83,7 +86,11 @@ pub struct GridChange {
 impl VoxelChunk {
     pub fn new() -> Self {
         Self {
-            voxels: vec![Voxel::Air; unpadded::ARR_STRIDE],
+            voxels: vec![Voxel::Air.id(); unpadded::ARR_STRIDE],
+
+            opaque_mask: vec![0u64; padded::SIZE * padded::SIZE],
+            transparent_mask: vec![0u64; padded::SIZE * padded::SIZE],
+
             health: HashMap::default(),
             changed: Vec::new(),
         }
@@ -123,7 +130,7 @@ impl VoxelChunk {
 
     #[inline]
     pub fn linear_voxel(&self, index: usize) -> Voxel {
-        self.voxels[index]
+        Voxel::from_id(self.voxels[index]).unwrap()
     }
 
     pub fn set(&mut self, point: [Scalar; 3], voxel: Voxel) {
@@ -138,7 +145,25 @@ impl VoxelChunk {
         }
 
         self.clear_health(point);
-        self.voxels[index as usize] = voxel;
+        self.voxels[index as usize] = voxel.id();
+
+        self.set_masks(point.map(|p| p + 1), voxel.transparent())
+    }
+
+    pub fn set_masks(&mut self, padded_point: [Scalar; 3], transparent: bool) {
+        let padded_index = padded::linearize(padded_point);
+
+        let mask_index = padded_index / padded::SIZE;
+        let mask_bit = padded_index % padded::SIZE;
+        let mask = 1 << mask_bit;
+
+        if transparent {
+            self.transparent_mask[mask_index] |= mask;
+            self.opaque_mask[mask_index] &= !mask;
+        } else {
+            self.transparent_mask[mask_index] &= !mask;
+            self.opaque_mask[mask_index] |= mask;
+        }
     }
 
     pub fn changed(&self) -> impl Iterator<Item = &GridChange> {
@@ -353,5 +378,49 @@ pub mod tests {
         assert!(!chunk.in_chunk_bounds([-1, 0, 0]));
         assert!(!chunk.in_chunk_bounds([0, -1, 0]));
         assert!(!chunk.in_chunk_bounds([0, 0, -1]));
+    }
+
+    #[test]
+    pub fn masks() {
+        let mut chunk = VoxelChunk::new();
+        let points = [[0, 0, 0], [1, 0, 0], [5, 2, 1], [9, 60, 3]];
+        for point in points {
+            let padded_point = point.map(|p| p + 1);
+            let mask_index = padded::linearize(padded_point) / padded::SIZE;
+            let mask_bit = padded::linearize(padded_point) % padded::SIZE;
+
+            chunk.set(point, Voxel::Dirt);
+            println!(
+                "{:?}:{:?} = [{:?}] [{:?}]",
+                mask_index,
+                mask_bit,
+                chunk.opaque_mask[mask_index],
+                1 << mask_bit
+            );
+            assert_eq!(chunk.opaque_mask[mask_index] & (1 << mask_bit), 1 << mask_bit);
+            assert_eq!(chunk.transparent_mask[mask_index] & (1 << mask_bit), 0);
+
+            chunk.set(point, Voxel::Water);
+            println!(
+                "{:?}:{:?} = arr {:?} mask {:?}",
+                mask_index,
+                mask_bit,
+                chunk.opaque_mask[mask_index],
+                1 << mask_bit
+            );
+            assert_eq!(chunk.opaque_mask[mask_index] & (1 << mask_bit), 0);
+            assert_eq!(chunk.transparent_mask[mask_index] & (1 << mask_bit), 1 << mask_bit);
+
+            chunk.set(point, Voxel::Dirt);
+            println!(
+                "{:?}:{:?} = [{:?}] [{:?}]",
+                mask_index,
+                mask_bit,
+                chunk.opaque_mask[mask_index],
+                1 << mask_bit
+            );
+            assert_eq!(chunk.opaque_mask[mask_index] & (1 << mask_bit), 1 << mask_bit);
+            assert_eq!(chunk.transparent_mask[mask_index] & (1 << mask_bit), 0);
+        }
     }
 }

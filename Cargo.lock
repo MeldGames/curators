@@ -1621,9 +1621,9 @@ dependencies = [
 
 [[package]]
 name = "binary-greedy-meshing"
-version = "0.3.6"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a50f8b56926be49b1e1fa02dfbd5431b9b02d71e47e91a37a18bf54f2bfe9ca1"
+checksum = "17f73b45cc178ef2c2c1246231451ba67412ded43f0d21f7df3f2bc0559d802c"
 
 [[package]]
 name = "bindgen"
