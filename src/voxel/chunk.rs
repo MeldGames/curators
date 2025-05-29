@@ -83,11 +83,11 @@ impl Voxels {
 
     /// Given a voxel position, find the chunk it is in.
     pub fn find_chunk(point: IVec3) -> IVec3 {
-        point / IVec3::splat(unpadded::SIZE as Scalar)
+        point.div_euclid(IVec3::splat(unpadded::SIZE as Scalar))
     }
 
     pub fn relative_point(point: IVec3) -> IVec3 {
-        point % IVec3::splat(unpadded::SIZE as Scalar)
+        point.rem_euclid(IVec3::splat(unpadded::SIZE as Scalar))
     }
 
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
@@ -553,5 +553,11 @@ pub mod tests {
         for index in 0..bgm::CS_P2 {
             assert_eq!(chunk.opaque_mask[index], mask[index]);
         }
+    }
+
+    #[test]
+    fn find_chunk() {
+        let voxels = Voxels::new();
+        println!("{:?}", Voxels::find_chunk(IVec3::new(62, 0, 0)));
     }
 }
