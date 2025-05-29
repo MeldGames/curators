@@ -2,7 +2,7 @@ use core::f32;
 
 use bevy::prelude::*;
 
-use crate::voxel::{Voxel, VoxelChunk};
+use crate::voxel::{Voxel, Voxels};
 
 pub struct VoxelPickPlugin;
 impl Plugin for VoxelPickPlugin {
@@ -15,7 +15,7 @@ pub fn draw_cursor(
     camera_query: Query<(&Camera, &GlobalTransform)>,
     windows: Query<&Window>,
 
-    mut chunks: Query<(&GlobalTransform, &mut VoxelChunk)>,
+    mut chunks: Query<(&GlobalTransform, &mut Voxels)>,
     input: Res<ButtonInput<MouseButton>>,
     mut gizmos: Gizmos,
 ) {
@@ -66,25 +66,25 @@ pub fn draw_cursor(
         );
 
         // gizmos.circle(
-        // Isometry3d::new(direct_point, Quat::from_rotation_arc(Vec3::Z, normal)),
-        // 0.05,
+        // Isometry3d::new(direct_point, Quat::from_rotation_arc(Vec3::Z,
+        // normal)), 0.05,
         // Color::srgb(1.0, 0.0, 0.0),
         // );
 
-        if input.just_pressed(MouseButton::Right) {
-            // Place block
-            let normal_block: [i32; 3] = (point_ivec + normal_ivec).into();
-            if chunk.in_chunk_bounds(normal_block.into()) {
-                chunk.set(normal_block, Voxel::Dirt);
-            }
-        } else if input.just_pressed(MouseButton::Left) {
-            // Remove block
-            let break_point = point_ivec;
-            if chunk.in_chunk_bounds(break_point.into()) {
-                if chunk.voxel(break_point.into()).breakable() {
-                    chunk.set(break_point.into(), Voxel::Air);
-                }
-            }
-        }
+        // if input.just_pressed(MouseButton::Right) {
+        //     // Place block
+        //     let normal_block: [i32; 3] = (point_ivec + normal_ivec).into();
+        //     if chunk.in_chunk_bounds(normal_block.into()) {
+        //         chunk.set(normal_block, Voxel::Dirt);
+        //     }
+        // } else if input.just_pressed(MouseButton::Left) {
+        //     // Remove block
+        //     let break_point = point_ivec;
+        //     if chunk.in_chunk_bounds(break_point.into()) {
+        //         if chunk.voxel(break_point.into()).breakable() {
+        //             chunk.set(break_point.into(), Voxel::Air);
+        //         }
+        //     }
+        // }
     }
 }

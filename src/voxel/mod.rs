@@ -2,7 +2,7 @@ use bevy::pbr::light_consts::lux;
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
 use bevy::render::camera::Exposure;
-pub use chunk::VoxelChunk;
+pub use chunk::{VoxelChunk, Voxels};
 pub use mesh::UpdateVoxelMeshSet;
 pub use voxel::Voxel;
 
@@ -38,20 +38,17 @@ impl Plugin for VoxelPlugin {
 }
 
 pub fn spawn_voxel_grid(mut commands: Commands) {
-    let mut grid = VoxelChunk::new();
+    let mut grid = Voxels::new();
 
-    let width = grid.x_size();
-    let length = grid.z_size();
-    let height = grid.y_size();
-
-    // let width = 16;
-    // let length = 16;
-    // let height = 31;
-    let ground_level = grid.ground_level();
+    let width = 64;
+    let length = 64;
+    let height = 31;
+    let ground_level = 31;
+    // let ground_level = grid.ground_level();
     for x in 0..width {
         for z in 0..length {
             for y in 0..ground_level {
-                grid.set([x, y, z], Voxel::Dirt.into());
+                grid.set_voxel([x, y, z].into(), Voxel::Dirt);
             }
         }
     }
@@ -59,7 +56,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     for x in 0..width {
         for z in 0..length {
             for y in (ground_level - 2)..ground_level {
-                grid.set([x, y, z], Voxel::Grass.into());
+                grid.set_voxel([x, y, z].into(), Voxel::Grass);
             }
         }
     }
@@ -67,7 +64,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     for x in 0..width {
         for z in 0..length {
             for y in 0..1 {
-                grid.set([x, y, z], Voxel::Base.into());
+                grid.set_voxel([x, y, z].into(), Voxel::Base);
             }
         }
     }

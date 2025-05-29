@@ -2,7 +2,7 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
-use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
+use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk, Voxels};
 
 #[derive(Component)]
 pub struct Controlling;
@@ -70,7 +70,7 @@ impl Default for DigState {
 
 pub fn dig_target(
     mut players: Query<(&GlobalTransform, &Actions<PlayerInput>, &mut DigState, &Collider)>,
-    mut digsites: Query<(Entity, &GlobalTransform, &mut VoxelChunk)>,
+    mut voxels: Query<(Entity, &GlobalTransform, &mut Voxels)>,
     time: Res<Time>,
     mut gizmos: Gizmos,
 ) {
@@ -87,7 +87,7 @@ pub fn dig_target(
         }
 
         // Find a target digsite and block position
-        for (digsite_entity, digsite_transform, grid) in &digsites {
+        for (digsite_entity, digsite_transform, grid) in &voxels {
             if let Some(hit) = grid.cast_ray(
                 digsite_transform,
                 Ray3d { origin: global_transform.translation(), direction: Dir3::NEG_Y },
@@ -111,7 +111,7 @@ pub fn dig_target(
         }
 
         if let Some((digsite_entity, voxel)) = state.target_block {
-            if let Ok((_, digsite_transform, mut grid)) = digsites.get_mut(digsite_entity) {
+            if let Ok((_, digsite_transform, mut grid)) = voxels.get_mut(digsite_entity) {
                 let voxel: Vec3 = IVec3::from(voxel).as_vec3();
                 let voxel_point = digsite_transform.transform_point(voxel);
                 gizmos.cuboid(
@@ -129,19 +129,19 @@ pub fn dig_target(
 
 pub fn dig_block(
     mut players: Query<(&Actions<PlayerInput>, &mut DigState)>,
-    mut digsites: Query<&mut VoxelChunk>,
+    mut voxels: Query<&mut Voxels>,
 ) {
     for (actions, mut dig_state) in &mut players {
         if let ActionState::Fired = actions.action::<Dig>().state() {
             if let Some((digsite_entity, voxel_pos)) = dig_state.target_block {
-                if let Ok(mut chunk) = digsites.get_mut(digsite_entity) {
-                    if let Some(voxel_state) = chunk.get_voxel(voxel_pos) {
+                if let Ok(mut chunk) = voxels.get_mut(digsite_entity) {
+                    if let Some(voxel_state) = chunk.get_voxel(voxel_pos.into()) {
                         if dig_state.time_since_dig >= dig_state.dig_time {
                             let dig_power = 1;
 
                             let new_health = chunk.health(voxel_pos).saturating_sub(dig_power);
                             if new_health == 0 {
-                                chunk.set(voxel_pos, Voxel::Air.into());
+                                chunk.set(voxel_pos, Voxel::Air);
                             } else {
                                 chunk.set_health(voxel_pos, new_health);
                             }

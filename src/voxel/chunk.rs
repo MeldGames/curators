@@ -73,22 +73,107 @@ pub mod padded {
 #[derive(Debug, Component)]
 #[require(Name::new("Voxels"))]
 pub struct Voxels {
-    chunks: HashMap<[Scalar; 3], VoxelChunk>, // spatially hashed chunks because its easy
+    chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
 }
 
 impl Voxels {
+    pub fn new() -> Self {
+        Self { chunks: HashMap::new() }
+    }
+
     /// Given a voxel position, find the chunk it is in.
-    pub fn find_chunk([x, y, z]: [Scalar; 3]) -> [Scalar; 3] {
-        [x / unpadded::SIZE as Scalar, y / unpadded::SIZE as Scalar, z / unpadded::SIZE as Scalar]
+    pub fn find_chunk(point: IVec3) -> IVec3 {
+        point / IVec3::splat(unpadded::SIZE as Scalar)
     }
 
-    pub fn relative_point([x, y, z]: [Scalar; 3]) -> [Scalar; 3] {
-        [x % unpadded::SIZE as Scalar, y % unpadded::SIZE as Scalar, z % unpadded::SIZE as Scalar]
+    pub fn relative_point(point: IVec3) -> IVec3 {
+        point % IVec3::splat(unpadded::SIZE as Scalar)
     }
 
-    pub fn set(&mut self, point: [Scalar; 3], voxel: Voxel) {
+    pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
         let chunk = self.chunks.entry(Self::find_chunk(point)).or_default();
-        chunk.set(Self::relative_point(point), voxel);
+        let relative_point = Self::relative_point(point);
+        chunk.set(relative_point.into(), voxel);
+    }
+
+    pub fn get_voxel(&self, point: IVec3) -> Option<Voxel> {
+        if let Some(chunk) = self.chunks.get(&Self::find_chunk(point)) {
+            chunk.get_voxel(Self::relative_point(point).into())
+        } else {
+            None
+        }
+    }
+
+    // [min, max]
+    pub fn chunk_bounds(&self) -> (IVec3, IVec3) {
+        let mut min = IVec3::MIN;
+        let mut max = IVec3::MAX;
+
+        if self.chunks.len() == 0 {
+            return (IVec3::ZERO, IVec3::ZERO);
+        }
+
+        for chunk_point in self.chunks.keys().copied() {
+            min = min.min(chunk_point);
+            max = max.max(chunk_point);
+        }
+
+        (min, max)
+    }
+
+    pub fn chunk_size(&self) -> IVec3 {
+        let (min, max) = self.chunk_bounds();
+        let size = min.abs().max(max.abs());
+        size
+    }
+
+    pub fn voxel_size(&self) -> IVec3 {
+        self.chunk_size() * unpadded::SIZE as i32
+    }
+
+    pub fn cast_ray(
+        &self,
+        grid_transform: &GlobalTransform,
+        ray: Ray3d,
+        length: f32,
+        mut gizmos: Option<&mut Gizmos>,
+    ) -> Option<Hit> {
+        let inv_matrix = grid_transform.compute_matrix().inverse();
+        let local_direction =
+            Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3())).unwrap();
+        let local_origin = inv_matrix.transform_vector3(ray.origin);
+
+        let local_ray = Ray3d { origin: local_origin, direction: local_direction };
+
+        let volume = BoundingVolume3 { size: self.voxel_size() };
+        for mut hit in volume.traverse_ray(local_ray, length) {
+            let local_distance = hit.distance;
+            let local_point = local_ray.origin + local_ray.direction * local_distance;
+            let world_point = grid_transform.transform_point(local_point);
+            let world_distance = world_point.distance(ray.origin);
+            hit.distance = world_distance;
+
+            if let Some(gizmos) = &mut gizmos {
+                //gizmos.sphere(world_point, 0.01, Color::srgb(1.0, 0.0, 0.0));
+
+                /*
+                let voxel_pos = Vec3::new(hit.voxel.0 as f32, hit.voxel.1 as f32, hit.voxel.2 as f32);
+                let world_pos = grid_transform.transform_point(voxel_pos + Vec3::splat(0.5) * GRID_SCALE);
+                gizmos.axes(Transform { translation: world_pos, ..default() }, 0.2);
+                */
+            }
+
+            if let Some(voxel) = self.get_voxel(hit.voxel.into()) {
+                if voxel.pickable() {
+                    if let Some(gizmos) = &mut gizmos {
+                        gizmos.sphere(world_point, 0.01, Color::srgb(1.0, 0.0, 0.0));
+                    }
+                    return Some(hit);
+                }
+            }
+        }
+
+        None
     }
 }
 
@@ -289,51 +374,6 @@ impl VoxelChunk {
             let voxel = self.voxel([x, y, z]);
             if voxel != Voxel::Air {
                 return Some((voxel, y));
-            }
-        }
-
-        None
-    }
-
-    pub fn cast_ray(
-        &self,
-        grid_transform: &GlobalTransform,
-        ray: Ray3d,
-        length: f32,
-        mut gizmos: Option<&mut Gizmos>,
-    ) -> Option<Hit> {
-        let inv_matrix = grid_transform.compute_matrix().inverse();
-        let local_direction =
-            Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3())).unwrap();
-        let local_origin = inv_matrix.transform_vector3(ray.origin);
-
-        let local_ray = Ray3d { origin: local_origin, direction: local_direction };
-
-        let volume =
-            BoundingVolume3 { size: IVec3::new(self.x_size(), self.y_size(), self.z_size()) };
-        for mut hit in volume.traverse_ray(local_ray, length) {
-            let local_distance = hit.distance;
-            let local_point = local_ray.origin + local_ray.direction * local_distance;
-            let world_point = grid_transform.transform_point(local_point);
-            let world_distance = world_point.distance(ray.origin);
-            hit.distance = world_distance;
-
-            if let Some(gizmos) = &mut gizmos {
-                //gizmos.sphere(world_point, 0.01, Color::srgb(1.0, 0.0, 0.0));
-
-                /*
-                let voxel_pos = Vec3::new(hit.voxel.0 as f32, hit.voxel.1 as f32, hit.voxel.2 as f32);
-                let world_pos = grid_transform.transform_point(voxel_pos + Vec3::splat(0.5) * GRID_SCALE);
-                gizmos.axes(Transform { translation: world_pos, ..default() }, 0.2);
-                */
-            }
-
-            let voxel = self.voxel(hit.voxel.into());
-            if voxel.pickable() {
-                if let Some(gizmos) = &mut gizmos {
-                    gizmos.sphere(world_point, 0.01, Color::srgb(1.0, 0.0, 0.0));
-                }
-                return Some(hit);
             }
         }
 
