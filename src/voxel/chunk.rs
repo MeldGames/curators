@@ -104,10 +104,24 @@ impl Voxels {
         }
     }
 
+    pub fn set_health(&mut self, point: IVec3, health: i16) {
+        if let Some(chunk) = self.chunks.get_mut(&Self::find_chunk(point)) {
+            chunk.set_health(point.into(), health);
+        }
+    }
+
+    pub fn health(&self, point: IVec3) -> Option<i16> {
+        if let Some(chunk) = self.chunks.get(&Self::find_chunk(point)) {
+            Some(chunk.health(Self::relative_point(point).into()))
+        } else {
+            None
+        }
+    }
+
     // [min, max]
     pub fn chunk_bounds(&self) -> (IVec3, IVec3) {
-        let mut min = IVec3::MIN;
-        let mut max = IVec3::MAX;
+        let mut min = IVec3::MAX;
+        let mut max = IVec3::MIN;
 
         if self.chunks.len() == 0 {
             return (IVec3::ZERO, IVec3::ZERO);
@@ -139,8 +153,10 @@ impl Voxels {
         mut gizmos: Option<&mut Gizmos>,
     ) -> Option<Hit> {
         let inv_matrix = grid_transform.compute_matrix().inverse();
-        let local_direction =
-            Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3())).unwrap();
+        let Ok(local_direction) = Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3()))
+        else {
+            return None;
+        };
         let local_origin = inv_matrix.transform_vector3(ray.origin);
 
         let local_ray = Ray3d { origin: local_origin, direction: local_direction };
@@ -174,6 +190,10 @@ impl Voxels {
         }
 
         None
+    }
+
+    pub fn chunk_iter(&self) -> impl Iterator<Item = (IVec3, &VoxelChunk)> {
+        self.chunks.iter().map(|(p, c)| (*p, c))
     }
 }
 

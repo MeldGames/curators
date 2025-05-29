@@ -15,7 +15,7 @@ pub fn draw_cursor(
     camera_query: Query<(&Camera, &GlobalTransform)>,
     windows: Query<&Window>,
 
-    mut chunks: Query<(&GlobalTransform, &mut Voxels)>,
+    mut voxels: Query<(&GlobalTransform, &mut Voxels)>,
     input: Res<ButtonInput<MouseButton>>,
     mut gizmos: Gizmos,
 ) {
@@ -40,10 +40,10 @@ pub fn draw_cursor(
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
-    let Ok((chunk_transform, mut chunk)) = chunks.single_mut() else {
+    let Ok((chunk_transform, mut voxels)) = voxels.single_mut() else {
         return;
     };
-    let hit = chunk.cast_ray(chunk_transform, ray, f32::INFINITY, Some(&mut gizmos));
+    let hit = voxels.cast_ray(chunk_transform, ray, f32::INFINITY, Some(&mut gizmos));
 
     // Draw a circle just above the ground plane at that position.
     if let Some(hit) = hit {
@@ -71,20 +71,18 @@ pub fn draw_cursor(
         // Color::srgb(1.0, 0.0, 0.0),
         // );
 
-        // if input.just_pressed(MouseButton::Right) {
-        //     // Place block
-        //     let normal_block: [i32; 3] = (point_ivec + normal_ivec).into();
-        //     if chunk.in_chunk_bounds(normal_block.into()) {
-        //         chunk.set(normal_block, Voxel::Dirt);
-        //     }
-        // } else if input.just_pressed(MouseButton::Left) {
-        //     // Remove block
-        //     let break_point = point_ivec;
-        //     if chunk.in_chunk_bounds(break_point.into()) {
-        //         if chunk.voxel(break_point.into()).breakable() {
-        //             chunk.set(break_point.into(), Voxel::Air);
-        //         }
-        //     }
-        // }
+        if input.just_pressed(MouseButton::Right) {
+            // Place block
+            let normal_block: [i32; 3] = (point_ivec + normal_ivec).into();
+            voxels.set_voxel(normal_block.into(), Voxel::Dirt);
+        } else if input.just_pressed(MouseButton::Left) {
+            // Remove block
+            let break_point = point_ivec;
+            if let Some(voxel) = voxels.get_voxel(break_point.into()) {
+                if voxel.breakable() {
+                    voxels.set_voxel(break_point.into(), Voxel::Air);
+                }
+            }
+        }
     }
 }

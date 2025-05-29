@@ -9,13 +9,16 @@ use bevy::render::render_resource::PrimitiveTopology;
 use binary_greedy_meshing as bgm;
 
 use super::UpdateVoxelMeshSet;
-use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
+use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk, Voxels};
 
 const MASK_6: u32 = 0b111111;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
-    app.add_systems(PostUpdate, update_binary_mesh.in_set(UpdateVoxelMeshSet));
+    app.add_systems(
+        PostUpdate,
+        (spawn_chunk_entities, update_binary_mesh).chain().in_set(UpdateVoxelMeshSet),
+    );
 }
 
 #[derive(Component)]
@@ -23,8 +26,11 @@ pub struct BinaryGreedy;
 
 pub fn add_buffers(trigger: Trigger<OnAdd, BinaryGreedy>, mut commands: Commands) {
     info!("adding binary greedy meshing buffers");
-    commands.entity(trigger.target()).insert_if_new((ChunkMeshes::default(), ChunkCollider(None)));
+    commands.entity(trigger.target()).insert_if_new((Chunks::default(), ChunkCollider(None)));
 }
+
+#[derive(Component, Debug, Default, Deref, DerefMut)]
+pub struct Chunks(HashMap<IVec3, Entity>);
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct ChunkCollider(pub Option<Entity>);
@@ -39,73 +45,108 @@ impl Default for BgmMesher {
     }
 }
 
+pub fn spawn_chunk_entities(
+    mut commands: Commands,
+    mut grids: Query<(Entity, &Voxels, &mut Chunks), Changed<Voxels>>,
+) {
+    for (voxels_entity, voxels, mut voxel_chunks) in &mut grids {
+        for (chunk_pos, _) in voxels.chunk_iter() {
+            if !voxel_chunks.contains_key(&chunk_pos) {
+                let new_chunk = commands
+                    .spawn((
+                        Name::new(format!("Chunk [{:?}]", chunk_pos)),
+                        ChunkMeshes::default(),
+                        ChildOf(voxels_entity),
+                        Transform::default(),
+                        Visibility::Inherited,
+                    ))
+                    .id();
+
+                voxel_chunks.insert(chunk_pos, new_chunk);
+            }
+        }
+    }
+}
+
 pub fn update_binary_mesh(
     mut commands: Commands,
-    mut grids: Query<
-        (Entity, &VoxelChunk, &mut ChunkMeshes, &mut ChunkCollider),
-        Changed<VoxelChunk>,
-    >,
+    mut grids: Query<(Entity, &Voxels, &mut Chunks), Changed<Voxels>>,
+    mut chunk_mesh_entities: Query<&mut ChunkMeshes>,
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 
     mut mesher: Local<BgmMesher>,
 ) {
-    for (chunk_entity, chunk, mut chunk_meshes, mut chunk_collider) in &mut grids {
-        let (render_meshes, collider_mesh) = chunk.generate_meshes(&mut mesher.0);
+    for (voxels_entity, voxels, mut voxel_chunks) in &mut grids {
+        let mut collider_meshes = Vec::new();
 
-        let flags = TrimeshFlags::MERGE_DUPLICATE_VERTICES
-            | TrimeshFlags::FIX_INTERNAL_EDGES
-            | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
-            | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
+        for (chunk_pos, chunk) in voxels.chunk_iter() {
+            let (render_meshes, collider_mesh) = chunk.generate_meshes(&mut mesher.0);
+            collider_meshes.push(collider_mesh);
 
-        let Some(mut new_collider) = Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
-        else {
-            info!("cannot create trimesh from mesh");
-            continue;
-        };
-        new_collider.set_scale(crate::voxel::GRID_SCALE, 32);
-
-        if let Some(entity) = chunk_collider.0.clone() {
-            commands.entity(entity).insert(new_collider);
-        } else {
-            chunk_collider.0 = Some(
-                commands
-                    .spawn((
-                        Name::new("Voxel Collider"),
-                        new_collider,
-                        RigidBody::Static,
-                        CollisionMargin(0.05),
-                        Transform::from_translation(Vec3::splat(0.0)),
-                        ChildOf(chunk_entity),
-                    ))
-                    .id(),
-            );
-        }
-
-        for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
-            let voxel = Voxel::from_id(voxel_id as u16).unwrap();
-            let Some(mesh) = render_mesh else {
+            let Some(chunk_entity) = voxel_chunks.get(&chunk_pos) else {
                 continue;
             };
-            let mesh = meshes.add(mesh);
 
-            if let Some(entity) = chunk_meshes.get(&voxel) {
-                commands.entity(*entity).insert(Mesh3d(mesh));
-            } else {
-                let material = materials.add(voxel.material());
-                let id = commands
-                    .spawn((
-                        Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
-                        Mesh3d(mesh),
-                        MeshMaterial3d(material),
-                        ChildOf(chunk_entity),
-                    ))
-                    .id();
+            let Ok(mut chunk_meshes) = chunk_mesh_entities.get_mut(*chunk_entity) else {
+                continue;
+            };
 
-                chunk_meshes.insert(voxel, id);
+            for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
+                let voxel = Voxel::from_id(voxel_id as u16).unwrap();
+                let Some(mesh) = render_mesh else {
+                    continue;
+                };
+                let mesh = meshes.add(mesh);
+
+                if let Some(entity) = chunk_meshes.get(&voxel) {
+                    commands.entity(*entity).insert(Mesh3d(mesh));
+                } else {
+                    let material = materials.add(voxel.material());
+                    let id = commands
+                        .spawn((
+                            Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
+                            Mesh3d(mesh),
+                            MeshMaterial3d(material),
+                            ChildOf(*chunk_entity),
+                        ))
+                        .id();
+
+                    chunk_meshes.insert(voxel, id);
+                }
             }
         }
+
+        // let flags = TrimeshFlags::MERGE_DUPLICATE_VERTICES
+        //     | TrimeshFlags::FIX_INTERNAL_EDGES
+        //     | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
+        //     | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
+
+        // let Some(mut new_collider) =
+        // Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
+        // else {
+        //     info!("cannot create trimesh from mesh");
+        //     continue;
+        // };
+        // new_collider.set_scale(crate::voxel::GRID_SCALE, 32);
+
+        // if let Some(entity) = chunk_collider.0.clone() {
+        //     commands.entity(entity).insert(new_collider);
+        // } else {
+        //     chunk_collider.0 = Some(
+        //         commands
+        //             .spawn((
+        //                 Name::new("Voxel Collider"),
+        //                 new_collider,
+        //                 RigidBody::Static,
+        //                 CollisionMargin(0.05),
+        //                 Transform::from_translation(Vec3::splat(0.0)),
+        //                 ChildOf(chunk_entity),
+        //             ))
+        //             .id(),
+        //     );
+        // }
     }
 }
 

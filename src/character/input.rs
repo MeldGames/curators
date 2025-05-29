@@ -134,19 +134,21 @@ pub fn dig_block(
     for (actions, mut dig_state) in &mut players {
         if let ActionState::Fired = actions.action::<Dig>().state() {
             if let Some((digsite_entity, voxel_pos)) = dig_state.target_block {
-                if let Ok(mut chunk) = voxels.get_mut(digsite_entity) {
-                    if let Some(voxel_state) = chunk.get_voxel(voxel_pos.into()) {
+                if let Ok(mut voxels) = voxels.get_mut(digsite_entity) {
+                    if let Some(voxel_state) = voxels.get_voxel(voxel_pos.into()) {
                         if dig_state.time_since_dig >= dig_state.dig_time {
                             let dig_power = 1;
 
-                            let new_health = chunk.health(voxel_pos).saturating_sub(dig_power);
-                            if new_health == 0 {
-                                chunk.set(voxel_pos, Voxel::Air);
-                            } else {
-                                chunk.set_health(voxel_pos, new_health);
-                            }
+                            if let Some(health) = voxels.health(voxel_pos.into()) {
+                                let new_health = health.saturating_sub(dig_power);
+                                if new_health == 0 {
+                                    voxels.set_voxel(voxel_pos.into(), Voxel::Air);
+                                } else {
+                                    voxels.set_health(voxel_pos.into(), new_health);
+                                }
 
-                            dig_state.time_since_dig -= dig_state.dig_time;
+                                dig_state.time_since_dig -= dig_state.dig_time;
+                            }
                         }
                     }
                 }
