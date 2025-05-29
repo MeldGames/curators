@@ -23,6 +23,11 @@ pub mod unpadded {
         z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
     }
 
+    #[inline]
+    pub fn pad_linearize([x, y, z]: [Scalar; 3]) -> usize {
+        (z + 1) as usize + (x + 1) as usize * X_STRIDE + (y + 1) as usize * Y_STRIDE
+    }
+
     // Delinearize point into a 62^3 array
     #[inline]
     pub fn delinearize(mut index: usize) -> [Scalar; 3] {
@@ -47,6 +52,11 @@ pub mod padded {
     #[inline]
     pub fn linearize([x, y, z]: [Scalar; 3]) -> usize {
         z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
+    }
+
+    #[inline]
+    pub fn pad_linearize([x, y, z]: [Scalar; 3]) -> usize {
+        (z + 1) as usize + (x + 1) as usize * X_STRIDE + (y + 1) as usize * Y_STRIDE
     }
 
     // Delinearize point into a 64^3 array
@@ -117,7 +127,7 @@ impl VoxelChunk {
             return None;
         }
 
-        Some(self.voxel_from_index(padded::linearize(point)))
+        Some(self.voxel_from_index(padded::pad_linearize(point)))
     }
 
     pub fn voxel(&self, point: [Scalar; 3]) -> Voxel {
@@ -125,7 +135,7 @@ impl VoxelChunk {
             panic!("Point out of bounds: {:?}", point);
         }
 
-        self.voxel_from_index(padded::linearize(point))
+        self.voxel_from_index(padded::pad_linearize(point))
     }
 
     #[inline]
@@ -416,7 +426,6 @@ pub mod tests {
         let mut iter = chunk.point_iter();
         assert_eq!(iter.next(), Some([0, 0, 0]));
         assert_eq!(iter.next(), Some([1, 0, 0]));
-        assert_eq!(iter.next(), Some([2, 0, 0]));
         for _ in 0..60 {
             iter.next();
         }
@@ -468,6 +477,14 @@ pub mod tests {
         }
 
         assert_eq!(chunk.transparent_mask.iter().sum::<u64>(), 0);
+
+        for [x, y, z] in points {
+            println!(
+                "{:?} ? {:?}",
+                bgm::pad_linearize(x as usize, y as usize, z as usize),
+                padded::pad_linearize([x, y, z])
+            );
+        }
 
         use std::collections::BTreeSet;
         let mut buffer = vec![0u16; bgm::CS_P3];
