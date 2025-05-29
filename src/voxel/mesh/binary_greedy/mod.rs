@@ -57,7 +57,11 @@ pub fn spawn_chunk_entities(
                         Name::new(format!("Chunk [{:?}]", chunk_pos)),
                         ChunkMeshes::default(),
                         ChildOf(voxels_entity),
-                        Transform::default(),
+                        Transform {
+                            translation: chunk_pos.as_vec3()
+                                * crate::voxel::chunk::unpadded::SIZE as f32,
+                            ..default()
+                        },
                         Visibility::Inherited,
                     ))
                     .id();

@@ -41,9 +41,10 @@ pub fn draw_cursor(
 
     // Calculate if and where the ray is hitting a voxel.
     let Ok((chunk_transform, mut voxels)) = voxels.single_mut() else {
+        info!("No voxels found");
         return;
     };
-    let hit = voxels.cast_ray(chunk_transform, ray, f32::INFINITY, Some(&mut gizmos));
+    let hit = voxels.cast_ray(chunk_transform, ray, 1_000.0, Some(&mut gizmos));
 
     // Draw a circle just above the ground plane at that position.
     if let Some(hit) = hit {

@@ -129,7 +129,7 @@ impl Voxels {
 
         for chunk_point in self.chunks.keys().copied() {
             min = min.min(chunk_point);
-            max = max.max(chunk_point);
+            max = max.max(chunk_point + IVec3::splat(unpadded::SIZE as Scalar));
         }
 
         (min, max)
