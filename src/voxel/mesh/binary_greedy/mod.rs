@@ -21,24 +21,9 @@ pub(super) fn plugin(app: &mut App) {
 #[derive(Component)]
 pub struct BinaryGreedy;
 
-#[derive(Component)]
-pub struct BinaryBuffer {
-    pub voxels: Vec<u16>, // 64^3 chunk, XZY ordering
-}
-
-impl Default for BinaryBuffer {
-    fn default() -> Self {
-        Self { voxels: vec![0; bgm::CS_P3] }
-    }
-}
-
 pub fn add_buffers(trigger: Trigger<OnAdd, BinaryGreedy>, mut commands: Commands) {
     info!("adding binary greedy meshing buffers");
-    commands.entity(trigger.target()).insert_if_new((
-        BinaryBuffer::default(),
-        ChunkMeshes::default(),
-        ChunkCollider(None),
-    ));
+    commands.entity(trigger.target()).insert_if_new((ChunkMeshes::default(), ChunkCollider(None)));
 }
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
@@ -57,7 +42,7 @@ impl Default for BgmMesher {
 pub fn update_binary_mesh(
     mut commands: Commands,
     mut grids: Query<
-        (Entity, &VoxelChunk, &mut ChunkMeshes, &mut ChunkCollider, &mut BinaryBuffer),
+        (Entity, &VoxelChunk, &mut ChunkMeshes, &mut ChunkCollider),
         Changed<VoxelChunk>,
     >,
 
@@ -66,9 +51,8 @@ pub fn update_binary_mesh(
 
     mut mesher: Local<BgmMesher>,
 ) {
-    for (chunk_entity, chunk, mut chunk_meshes, mut chunk_collider, mut buffer) in &mut grids {
-        let (render_meshes, collider_mesh) =
-            chunk.generate_meshes(&mut buffer.voxels, &mut mesher.0);
+    for (chunk_entity, chunk, mut chunk_meshes, mut chunk_collider) in &mut grids {
+        let (render_meshes, collider_mesh) = chunk.generate_meshes(&mut mesher.0);
 
         let flags = TrimeshFlags::MERGE_DUPLICATE_VERTICES
             | TrimeshFlags::FIX_INTERNAL_EDGES
@@ -128,49 +112,15 @@ pub fn update_binary_mesh(
 /// Generate 1 mesh per block type for simplicity, in practice we would use a
 /// texture array and a custom shader instead
 pub trait BinaryGreedyMeshing {
-    /// Creates a binary buffer from the chunk's buffer.
-    ///
-    /// TODO: Store this buffer in the chunk and update it when voxels are set.
-    ///       This would reduce copying significantly.
-    fn as_binary_voxels(&self, buffer: &mut Vec<u16>);
     /// Generates 1 mesh per voxel type (voxel id is the index) and 1 collider
     /// mesh with all collidable voxels combined.
-    fn generate_meshes(
-        &self,
-        buffer: &mut Vec<u16>,
-        mesher: &mut bgm::Mesher,
-    ) -> (Vec<Option<Mesh>>, Mesh);
+    fn generate_meshes(&self, mesher: &mut bgm::Mesher) -> (Vec<Option<Mesh>>, Mesh);
 }
 
 impl BinaryGreedyMeshing for VoxelChunk {
-    fn as_binary_voxels(&self, buffer: &mut Vec<u16>) {
-        for value in buffer.iter_mut() {
-            *value = 0;
-        }
-
-        for (point, voxel) in self.voxel_iter() {
-            let [x, y, z] = point;
-            let voxel_id = if voxel.filling() { voxel.id() } else { 0 };
-
-            buffer[bgm::pad_linearize(x as usize, y as usize, z as usize)] = voxel_id;
-        }
-    }
-
-    fn generate_meshes(
-        &self,
-        buffer: &mut Vec<u16>,
-        mesher: &mut bgm::Mesher,
-    ) -> (Vec<Option<Mesh>>, Mesh) {
-        self.as_binary_voxels(buffer);
-
-        use std::collections::BTreeSet;
-        let transparents =
-            Voxel::iter().filter(|v| v.transparent()).map(|v| v.id()).collect::<BTreeSet<_>>();
-        let opaque_mask = bgm::compute_opaque_mask(&buffer, &transparents);
-        let transparent_mask = bgm::compute_transparent_mask(&buffer, &transparents);
-
+    fn generate_meshes(&self, mesher: &mut bgm::Mesher) -> (Vec<Option<Mesh>>, Mesh) {
         mesher.clear();
-        mesher.fast_mesh(&buffer, &self.opaque_mask, &self.transparent_mask);
+        mesher.fast_mesh(&self.voxels, &self.opaque_mask, &self.transparent_mask);
 
         let max_id = Voxel::iter()
             .max_by(|v1, v2| v1.id().cmp(&v2.id()))

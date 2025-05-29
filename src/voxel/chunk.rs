@@ -487,11 +487,9 @@ pub mod tests {
         }
 
         use std::collections::BTreeSet;
-        let mut buffer = vec![0u16; bgm::CS_P3];
         let transparents =
             Voxel::iter().filter(|v| v.transparent()).map(|v| v.id()).collect::<BTreeSet<_>>();
-        chunk.as_binary_voxels(&mut buffer);
-        let mask = bgm::compute_opaque_mask(&buffer, &transparents);
+        let mask = bgm::compute_opaque_mask(&chunk.voxels, &transparents);
         for index in 0..bgm::CS_P2 {
             assert_eq!(chunk.opaque_mask[index], mask[index]);
         }
