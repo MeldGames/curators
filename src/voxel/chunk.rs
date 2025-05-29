@@ -60,54 +60,56 @@ pub mod padded {
     }
 }
 
+#[derive(Debug, Component)]
+#[require(Name::new("Voxels"))]
+pub struct Voxels {
+    chunks: HashMap<[Scalar; 3], VoxelChunk>, // spatially hashed chunks because its easy
+}
+
+impl Voxels {
+    /// Given a voxel position, find the chunk it is in.
+    pub fn find_chunk([x, y, z]: [Scalar; 3]) -> [Scalar; 3] {
+        [x / unpadded::SIZE as Scalar, y / unpadded::SIZE as Scalar, z / unpadded::SIZE as Scalar]
+    }
+
+    pub fn relative_point([x, y, z]: [Scalar; 3]) -> [Scalar; 3] {
+        [x % unpadded::SIZE as Scalar, y % unpadded::SIZE as Scalar, z % unpadded::SIZE as Scalar]
+    }
+
+    pub fn set(&mut self, point: [Scalar; 3], voxel: Voxel) {
+        let chunk = self.chunks.entry(Self::find_chunk(point)).or_default();
+        chunk.set(Self::relative_point(point), voxel);
+    }
+}
+
 /// Single voxel chunk, 64^3 (1 padding on the edges for meshing)
 #[derive(Debug, Component)]
 #[require(Name::new("Voxel Chunk"))]
 pub struct VoxelChunk {
-    pub voxels: Vec<u16>, // unpadded::ARR_STRIDE length
-
-    pub opaque_mask: Vec<u64>,      // 64*64 length
-    pub transparent_mask: Vec<u64>, // 64*64 length
+    pub voxels: Vec<u16>,           // padded::ARR_STRIDE length
+    pub opaque_mask: Vec<u64>,      // padded::SIZE^2 length, bit masks of 64^3 voxels
+    pub transparent_mask: Vec<u64>, // padded::SIZE^2 length
 
     // Voxel health
     health: HashMap<[Scalar; 3], i16>,
-
-    // Changed over the last frame.
-    changed: Vec<GridChange>,
 }
 
-#[derive(Debug, Component, Reflect)]
-pub struct GridChange {
-    pub point: [Scalar; 3],
-    pub last_voxel: Voxel,
-    pub new_voxel: Voxel,
-}
-
-impl VoxelChunk {
-    pub fn new() -> Self {
+impl Default for VoxelChunk {
+    fn default() -> Self {
         Self {
-            voxels: vec![Voxel::Air.id(); unpadded::ARR_STRIDE],
+            voxels: vec![Voxel::Air.id(); padded::ARR_STRIDE],
 
             opaque_mask: vec![0u64; padded::SIZE * padded::SIZE],
             transparent_mask: vec![0u64; padded::SIZE * padded::SIZE],
 
             health: HashMap::default(),
-            changed: Vec::new(),
         }
     }
+}
 
-    #[inline]
-    pub fn linearize(&self, point: [Scalar; 3]) -> usize {
-        unpadded::linearize(point)
-    }
-
-    #[inline]
-    pub fn delinearize(&self, index: usize) -> [Scalar; 3] {
-        unpadded::delinearize(index)
-    }
-
-    pub fn voxel_iter(&self) -> impl Iterator<Item = ([Scalar; 3], Voxel)> {
-        (0..self.array_size()).map(|i| (self.delinearize(i), self.linear_voxel(i)))
+impl VoxelChunk {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn get_voxel(&self, point: [Scalar; 3]) -> Option<Voxel> {
@@ -115,8 +117,7 @@ impl VoxelChunk {
             return None;
         }
 
-        let index = self.linearize(point);
-        Some(self.linear_voxel(index))
+        Some(self.voxel_from_index(padded::linearize(point)))
     }
 
     pub fn voxel(&self, point: [Scalar; 3]) -> Voxel {
@@ -124,12 +125,11 @@ impl VoxelChunk {
             panic!("Point out of bounds: {:?}", point);
         }
 
-        let index = self.linearize(point);
-        self.linear_voxel(index)
+        self.voxel_from_index(padded::linearize(point))
     }
 
     #[inline]
-    pub fn linear_voxel(&self, index: usize) -> Voxel {
+    pub fn voxel_from_index(&self, index: usize) -> Voxel {
         Voxel::from_id(self.voxels[index]).unwrap()
     }
 
@@ -137,17 +137,16 @@ impl VoxelChunk {
         if !self.in_chunk_bounds(point) {
             panic!("Point out of bounds: {:?}", point);
         }
+        let padded_point = point.map(|p| p + 1);
+        self.set_unpadded(padded_point, voxel);
+    }
 
-        let index = self.linearize(point);
-        let last_voxel = self.linear_voxel(index);
-        if last_voxel != voxel {
-            self.changed.push(GridChange { point, last_voxel, new_voxel: voxel });
-        }
+    pub fn set_unpadded(&mut self, point: [Scalar; 3], voxel: Voxel) {
+        let index = padded::linearize(point);
 
         self.clear_health(point);
         self.voxels[index as usize] = voxel.id();
-
-        self.set_masks(point.map(|p| p + 1), voxel.transparent())
+        self.set_masks(point, voxel.transparent())
     }
 
     pub fn set_masks(&mut self, padded_point: [Scalar; 3], transparent: bool) {
@@ -166,23 +165,44 @@ impl VoxelChunk {
         }
     }
 
-    pub fn changed(&self) -> impl Iterator<Item = &GridChange> {
-        self.changed.iter()
-    }
-
-    pub fn clear_changed(&mut self) {
-        self.changed.clear();
-    }
-
-    pub fn clear_changed_system(mut grids: Query<&mut Self>) {
-        for mut grid in &mut grids {
-            grid.clear_changed();
-        }
+    pub fn voxel_iter(&self) -> impl Iterator<Item = ([Scalar; 3], Voxel)> {
+        self.point_iter().map(|p| (p, self.voxel(p)))
     }
 
     /// Iterate over all points in this grid.
     pub fn point_iter(&self) -> impl Iterator<Item = [Scalar; 3]> {
-        (0..self.array_size()).map(|i| self.delinearize(i))
+        // iterate x -> z -> y, same as stored because cache
+        struct PointIter {
+            current: [Scalar; 3],
+            done: bool,
+        }
+        impl Iterator for PointIter {
+            type Item = [Scalar; 3];
+
+            fn next(&mut self) -> Option<Self::Item> {
+                if self.done {
+                    None
+                } else {
+                    let next = self.current;
+                    self.current[0] += 1;
+                    if self.current[0] >= unpadded::SIZE as Scalar {
+                        self.current[0] = 0;
+                        self.current[2] += 1;
+                        if self.current[2] >= unpadded::SIZE as Scalar {
+                            self.current[2] = 0;
+                            self.current[1] += 1;
+                            if self.current[1] >= unpadded::SIZE as Scalar {
+                                self.done = true;
+                            }
+                        }
+                    }
+
+                    Some(next)
+                }
+            }
+        }
+
+        PointIter { current: [0; 3], done: false }
     }
 
     #[inline]
@@ -351,6 +371,13 @@ pub mod tests {
     }
 
     #[test]
+    pub fn set_chunk_voxel() {
+        let mut chunk = VoxelChunk::new();
+        chunk.set([0, 0, 0], Voxel::Dirt);
+        assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Dirt);
+    }
+
+    #[test]
     pub fn linearize() {
         let sanity = |point| unpadded::delinearize(unpadded::linearize(point));
         assert_eq!(sanity([1, 1, 1]), [1, 1, 1]);
@@ -381,6 +408,20 @@ pub mod tests {
         assert!(!chunk.in_chunk_bounds([-1, 0, 0]));
         assert!(!chunk.in_chunk_bounds([0, -1, 0]));
         assert!(!chunk.in_chunk_bounds([0, 0, -1]));
+    }
+
+    #[test]
+    pub fn point_iter() {
+        let chunk = VoxelChunk::new();
+        let mut iter = chunk.point_iter();
+        assert_eq!(iter.next(), Some([0, 0, 0]));
+        assert_eq!(iter.next(), Some([1, 0, 0]));
+        assert_eq!(iter.next(), Some([2, 0, 0]));
+        for _ in 0..60 {
+            iter.next();
+        }
+        assert_eq!(iter.next(), Some([0, 0, 1]));
+        assert_eq!(iter.last(), Some([unpadded::SIZE as Scalar - 1; 3]));
     }
 
     #[test]

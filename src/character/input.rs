@@ -2,8 +2,7 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
-use crate::voxel::GRID_SCALE;
-use crate::voxel::{Voxel, VoxelChunk};
+use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
 
 #[derive(Component)]
 pub struct Controlling;

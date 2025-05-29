@@ -2,21 +2,20 @@ use bevy::pbr::light_consts::lux;
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
 use bevy::render::camera::Exposure;
-
 pub use chunk::VoxelChunk;
-pub use voxel::Voxel;
 pub use mesh::UpdateVoxelMeshSet;
+pub use voxel::Voxel;
 
 use crate::character;
 
+pub mod chunk;
 pub mod collider;
 pub mod mesh;
 pub mod pick;
 pub mod raycast;
-pub mod chunk;
 pub mod voxel;
 
-//pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
+// pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
 pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
 
 #[derive(Default)]
@@ -28,11 +27,7 @@ impl Plugin for VoxelPlugin {
         app.register_type::<Exposure>();
 
         app.add_plugins(pick::VoxelPickPlugin);
-        app.add_plugins(collider::plugin)
-            .add_plugins(character::plugin)
-            .add_plugins(mesh::plugin);
-
-        app.add_systems(Update, VoxelChunk::clear_changed_system);
+        app.add_plugins(collider::plugin).add_plugins(character::plugin).add_plugins(mesh::plugin);
 
         app.insert_resource(WireframeConfig { global: false, ..default() });
 
@@ -44,7 +39,7 @@ impl Plugin for VoxelPlugin {
 
 pub fn spawn_voxel_grid(mut commands: Commands) {
     let mut grid = VoxelChunk::new();
-    
+
     let width = grid.x_size();
     let length = grid.z_size();
     let height = grid.y_size();

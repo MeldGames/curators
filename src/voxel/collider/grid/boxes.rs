@@ -8,7 +8,7 @@ use crate::voxel::{Voxel, VoxelChunk};
 pub struct VoxelBoxColliderPlugin;
 impl Plugin for VoxelBoxColliderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, spawn_box_colliders.before(VoxelChunk::clear_changed_system));
+        app.add_systems(Update, spawn_box_colliders);
         // app.add_systems(Update, spawn_ball);
     }
 }
