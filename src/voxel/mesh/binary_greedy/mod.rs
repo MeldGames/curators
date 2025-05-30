@@ -1,6 +1,3 @@
-use std::collections::BTreeSet;
-
-use avian3d::collision::collider;
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
 use bevy::platform::collections::HashMap;
@@ -10,7 +7,7 @@ use bevy::render::render_resource::PrimitiveTopology;
 use binary_greedy_meshing as bgm;
 
 use super::UpdateVoxelMeshSet;
-use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk, Voxels};
+use crate::voxel::{Voxel, VoxelChunk, Voxels};
 
 const MASK_6: u32 = 0b111111;
 

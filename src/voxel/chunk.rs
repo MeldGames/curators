@@ -1,4 +1,3 @@
-use bevy::ecs::world::{OccupiedEntry, VacantEntry};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
@@ -169,7 +168,7 @@ impl Voxels {
             let world_distance = world_point.distance(ray.origin);
             hit.distance = world_distance;
 
-            if let Some(gizmos) = &mut gizmos {
+            if let Some(_gizmos) = &mut gizmos {
                 //gizmos.sphere(world_point, 0.01, Color::srgb(1.0, 0.0, 0.0));
 
                 /*
@@ -401,7 +400,7 @@ impl VoxelChunk {
     }
 
     /// Cast a ray in the localspace of the voxel grid.
-    pub fn cast_local_ray(&self, ray: Ray3d, length: f32, gizmos: Option<Gizmos>) -> Option<Hit> {
+    pub fn cast_local_ray(&self, ray: Ray3d, length: f32, _gizmos: Option<Gizmos>) -> Option<Hit> {
         let volume =
             BoundingVolume3 { size: IVec3::new(self.x_size(), self.y_size(), self.z_size()) };
         for hit in volume.traverse_ray(ray, length) {
@@ -432,12 +431,11 @@ pub mod tests {
     use binary_greedy_meshing as bgm;
 
     use super::*;
-    use crate::voxel::mesh::binary_greedy::BinaryGreedyMeshing;
 
     #[test]
     pub fn create_chunk() {
         // if this fails, probably allocated too much to stack
-        let chunk = VoxelChunk::new();
+        VoxelChunk::new();
     }
 
     #[test]
@@ -445,6 +443,8 @@ pub mod tests {
         let mut chunk = VoxelChunk::new();
         chunk.set([0, 0, 0], Voxel::Dirt);
         assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Dirt);
+        chunk.set([0, 0, 0], Voxel::Water);
+        assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Water);
     }
 
     #[test]
@@ -557,7 +557,6 @@ pub mod tests {
 
     #[test]
     fn find_chunk() {
-        let voxels = Voxels::new();
         println!("{:?}", Voxels::find_chunk(IVec3::new(62, 0, 0)));
     }
 }

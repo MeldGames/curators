@@ -22,7 +22,7 @@ pub fn apply_movement(
         // TODO: Smooth out the change from normal speed to digging speed.
         // Maybe slow more the further you are from the current target block?
         let dig_max_speed = 2.0; // if digging this is the max speed.
-        let mut movement = move_input * speed;
+        let mut movement = move_input.normalize_or_zero() * speed;
         if dig {
             if movement.x > dig_max_speed {
                 movement.x = dig_max_speed;

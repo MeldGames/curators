@@ -1,5 +1,3 @@
-use core::f32;
-
 use bevy::prelude::*;
 
 use crate::voxel::{Voxel, Voxels};

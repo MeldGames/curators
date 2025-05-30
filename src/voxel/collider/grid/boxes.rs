@@ -3,7 +3,7 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::voxel::{Voxel, VoxelChunk};
+use crate::voxel::VoxelChunk;
 
 pub struct VoxelBoxColliderPlugin;
 impl Plugin for VoxelBoxColliderPlugin {

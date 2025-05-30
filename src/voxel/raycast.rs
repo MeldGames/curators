@@ -34,7 +34,7 @@ pub struct VoxelRay3Iterator {
     i: IVec3,
     step: IVec3,
     delta: Vec3,
-    dist: Vec3,
+    // dist: Vec3,
     t_max: Vec3,
     t: f32,
     norm: Option<IVec3>,
@@ -103,7 +103,7 @@ impl VoxelRay3Iterator {
             if delta.z < f32::INFINITY { delta.z * dist.z } else { f32::INFINITY },
         );
 
-        Self { volume, max_d, i, step, delta, dist, t_max, t, norm: None, done: false }
+        Self { volume, max_d, i, step, delta, t_max, t, norm: None, done: false }
     }
 }
 
