@@ -116,39 +116,32 @@ impl Voxel {
     }
 
     pub fn material(self) -> StandardMaterial {
-        let default_material = 
-                StandardMaterial {
-                    perceptual_roughness: 1.0,
-                    base_color: Color::WHITE,
-                    ..default()
-                };
+        let default_material = StandardMaterial {
+            perceptual_roughness: 1.0,
+            reflectance: 0.1,
+            base_color: Color::WHITE,
+            ..default()
+        };
         match self {
-            Voxel::Dirt => {
-                StandardMaterial {
-                    perceptual_roughness: 1.0,
-                    base_color: Color::srgb(79.0 / 225.0, 55.0 / 255.0, 39.0 / 255.0),
-                    ..default_material
-                }
-            }
-            Voxel::Grass => {
-                StandardMaterial {
-                    perceptual_roughness: 1.0,
-                    base_color: Color::srgb(124.0 / 225.0, 252.0 / 255.0, 0.0 / 255.0),
-                    ..default_material
-                }
-            }
-            Voxel::Base => {
-                StandardMaterial {
-                    perceptual_roughness: 1.0,
-                    base_color: Color::srgb(0.0 / 225.0, 0.0 / 255.0, 0.0 / 255.0),
-                    ..default_material
-                }
-            }
+            Voxel::Dirt => StandardMaterial {
+                perceptual_roughness: 1.0,
+                base_color: Color::srgb(79.0 / 225.0, 55.0 / 255.0, 39.0 / 255.0),
+                ..default_material
+            },
+            Voxel::Grass => StandardMaterial {
+                perceptual_roughness: 1.0,
+                base_color: Color::srgb(124.0 / 225.0, 252.0 / 255.0, 0.0 / 255.0),
+                ..default_material
+            },
+            Voxel::Base => StandardMaterial {
+                perceptual_roughness: 1.0,
+                base_color: Color::srgb(0.0 / 225.0, 0.0 / 255.0, 0.0 / 255.0),
+                ..default_material
+            },
             _ => default_material,
         }
     }
 }
-
 
 #[cfg(test)]
 mod test {
