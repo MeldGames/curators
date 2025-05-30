@@ -259,9 +259,18 @@ impl BinaryGreedyMeshing for VoxelChunk {
                     Mesh::ATTRIBUTE_NORMAL,
                     VertexAttributeValues::Float32x3(normals[i].clone()),
                 );
+
+                let mut uvs = Vec::new();
+                for _ in 0..(positions[i].len() / 4) {
+                    uvs.push([0.0, 0.0]);
+                    uvs.push([0.0, 1.0]);
+                    uvs.push([1.0, 0.0]);
+                    uvs.push([1.0, 1.0]);
+                }
                 mesh.insert_attribute(
                     Mesh::ATTRIBUTE_UV_0,
-                    VertexAttributeValues::Float32x2(vec![[0.0; 2]; positions[i].len()]),
+                    // VertexAttributeValues::Float32x2(vec![[0.0; 2]; positions[i].len()]),
+                    VertexAttributeValues::Float32x2(uvs),
                 );
                 mesh.insert_indices(Indices::U32(indices[i].clone()));
 

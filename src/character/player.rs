@@ -3,7 +3,10 @@ use bevy::color::palettes::css::GRAY;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::pbr::{Atmosphere, ShadowFilteringMethod};
+use bevy::pbr::{
+    Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel,
+    ShadowFilteringMethod,
+};
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
@@ -78,6 +81,10 @@ pub fn spawn_player(
         ShadowFilteringMethod::Temporal,
         Msaa::Off,
         TemporalAntiAliasing { reset: true },
+        ScreenSpaceAmbientOcclusion {
+            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
+            constant_object_thickness: 4.0,
+        },
     );
 
     let flying = commands
