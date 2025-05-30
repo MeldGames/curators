@@ -40,8 +40,8 @@ impl Plugin for VoxelPlugin {
 pub fn spawn_voxel_grid(mut commands: Commands) {
     let mut grid = Voxels::new();
 
-    let width = 16;
-    let length = 16;
+    let width = 62;
+    let length = 62;
     let ground_level = 31;
     // let ground_level = grid.ground_level();
     for x in 0..width {

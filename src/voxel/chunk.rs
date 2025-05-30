@@ -140,10 +140,6 @@ impl Voxels {
         size
     }
 
-    pub fn voxel_size(&self) -> IVec3 {
-        self.chunk_size() * unpadded::SIZE as i32
-    }
-
     pub fn cast_ray(
         &self,
         grid_transform: &GlobalTransform,
@@ -160,7 +156,7 @@ impl Voxels {
 
         let local_ray = Ray3d { origin: local_origin, direction: local_direction };
 
-        let volume = BoundingVolume3 { size: self.voxel_size() };
+        let volume = BoundingVolume3 { size: self.chunk_size() };
         for mut hit in volume.traverse_ray(local_ray, length) {
             let local_distance = hit.distance;
             let local_point = local_ray.origin + local_ray.direction * local_distance;

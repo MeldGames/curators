@@ -3,7 +3,7 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::voxel::{GRID_SCALE, VoxelChunk, Voxels};
+use crate::voxel::{GRID_SCALE, Voxels};
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, rebuild_borders);
@@ -22,12 +22,12 @@ pub fn rebuild_borders(
 
     mut last_size: Local<IVec3>,
 ) {
-    let Ok((digsite_transform, digsite)) = digsite.single() else {
+    let Ok((_digsite_transform, digsite)) = digsite.single() else {
         return;
     };
 
     // Voxel grid has changed, check if the size has.
-    let new_size = digsite.voxel_size();
+    let new_size = digsite.chunk_size();
     if new_size == *last_size {
         return;
     }
@@ -40,7 +40,7 @@ pub fn rebuild_borders(
 
     // Create new borders around digsite
     const PADDING: f32 = 20.0;
-    let digsite_bounds = digsite.voxel_size().as_vec3() * GRID_SCALE;
+    let digsite_bounds = digsite.chunk_size().as_vec3() * GRID_SCALE;
     let ground_level = 31.0 * GRID_SCALE.y;
     let y_pos = ground_level / 2.0;
     let y_height = ground_level;
