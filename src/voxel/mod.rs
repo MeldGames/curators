@@ -87,36 +87,36 @@ fn dynamic_scene(mut suns: Query<&mut Transform, With<Sun>>, time: Res<Time>) {
 pub struct Sun;
 
 pub fn spawn_directional_lights(mut commands: Commands) {
-    commands.spawn((
-        Transform::from_translation(Vec3::new(0.0, 1.0, 0.5)).looking_at(Vec3::ZERO, Vec3::Y),
-        DirectionalLight {
-            shadows_enabled: true,
-            soft_shadow_size: Some(1.0),
-            illuminance: lux::RAW_SUNLIGHT,
-            ..default()
-        },
-        Sun,
-    ));
+    // commands.spawn((
+    //     Transform::from_translation(Vec3::new(0.0, 1.0,
+    // 0.5)).looking_at(Vec3::ZERO, Vec3::Y),     DirectionalLight {
+    //         shadows_enabled: true,
+    //         soft_shadow_size: Some(1.0),
+    //         illuminance: lux::RAW_SUNLIGHT,
+    //         ..default()
+    //     },
+    //     Sun,
+    // ));
 
-    commands.spawn((Transform::from_xyz(5.0, 5.0, 5.0), PointLight {
-        color: Color::srgb(1.0, 0.0, 0.0),
-        intensity: 900_000.0,
-        range: 100.0,
-        radius: 10.0,
-        shadows_enabled: true,
-        ..default()
-    }));
+    // commands.spawn((Transform::from_xyz(5.0, 5.0, 5.0), PointLight {
+    //     color: Color::srgb(1.0, 0.0, 0.0),
+    //     intensity: 900_000.0,
+    //     range: 100.0,
+    //     radius: 10.0,
+    //     shadows_enabled: true,
+    //     ..default()
+    // }));
 
-    commands.spawn((
-        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        SpotLight {
-            color: Color::srgb(0.0, 1.0, 1.0),
-            intensity: 100_000_000.0,
-            range: 100.0,
-            shadows_enabled: true,
-            ..default()
-        },
-    ));
+    // commands.spawn((
+    //     Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    //     SpotLight {
+    //         color: Color::srgb(0.0, 1.0, 1.0),
+    //         intensity: 100_000_000.0,
+    //         range: 100.0,
+    //         shadows_enabled: true,
+    //         ..default()
+    //     },
+    // ));
 
     // let steepness = 3.0;
     // let height = Vec3::Y * steepness;
