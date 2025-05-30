@@ -8,6 +8,7 @@ use iyes_perf_ui::prelude::*;
 pub mod camera;
 pub mod character;
 pub mod cursor;
+pub mod ssao;
 pub mod voxel;
 
 pub fn server(app: &mut App) {}
@@ -21,6 +22,7 @@ pub fn shared(app: &mut App) {
         .add_plugins(PhysicsPlugins::default());
     // app.add_plugins(PhysicsDebugPlugin::default());
     app.add_plugins(TemporalAntiAliasPlugin);
+    app.add_plugins(ssao::plugin);
 
     app.add_plugins(voxel::VoxelPlugin::default())
         .add_plugins(WireframePlugin::default())
