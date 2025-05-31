@@ -52,7 +52,7 @@ pub fn spawn_player(
             Transform::from_xyz(0.0, 3.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             SpotLight {
                 color: Color::srgb(1.0, 1.0, 1.0),
-                intensity: 5_000_000.0,
+                intensity: 7_500.0,
                 shadows_enabled: false,
                 ..default()
             },
