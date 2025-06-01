@@ -8,6 +8,7 @@ use iyes_perf_ui::prelude::*;
 pub mod camera;
 pub mod character;
 pub mod cursor;
+pub mod item;
 pub mod ssao;
 pub mod voxel;
 
