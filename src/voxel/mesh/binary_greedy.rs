@@ -9,7 +9,8 @@ use binary_greedy_meshing as bgm;
 use super::UpdateVoxelMeshSet;
 use crate::voxel::{Voxel, VoxelChunk, Voxels};
 
-const MASK_6: u32 = 0b111111;
+const MASK_6: u64 = 0b111111;
+const MASK_XYZ: u64 = 0b111111_111111_111111;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
@@ -207,6 +208,8 @@ pub trait BinaryGreedyMeshing {
 
 impl BinaryGreedyMeshing for VoxelChunk {
     fn generate_meshes(&self, mesher: &mut bgm::Mesher) -> (Vec<Option<Mesh>>, ColliderMesh) {
+        use bgm::Face;
+
         let mut collider_mesh = ColliderMesh::default();
 
         mesher.clear();
@@ -220,19 +223,73 @@ impl BinaryGreedyMeshing for VoxelChunk {
         let mut positions = vec![Vec::new(); max_id + 1];
         let mut normals = vec![Vec::new(); max_id + 1];
         let mut indices = vec![Vec::new(); max_id + 1];
+        let mut uvs = vec![Vec::new(); max_id + 1];
         for (face_n, quads) in mesher.quads.iter().enumerate() {
-            let face: bgm::Face = (face_n as u8).into();
+            let face: Face = (face_n as u8).into();
             let n = face.n();
             for quad in quads {
                 let voxel_i = (quad >> 32) as usize;
+                // UV coordinates (0..64, 0..64)
+                let w = ((MASK_6 & (quad >> 18)) as u32) as f32;
+                let h = ((MASK_6 & (quad >> 24)) as u32) as f32;
+                let xyz = (MASK_XYZ & quad) as u32;
+                let x = (MASK_6 as u32 & xyz) as f32;
+                let y = (MASK_6 as u32 & (xyz >> 6)) as f32;
+                let z = (MASK_6 as u32 & (xyz >> 12)) as f32;
 
-                let vertices_packed = face.vertices_packed(*quad);
-                for vertex_packed in vertices_packed.iter() {
-                    let x = *vertex_packed & MASK_6;
-                    let y = (*vertex_packed >> 6) & MASK_6;
-                    let z = (*vertex_packed >> 12) & MASK_6;
-                    positions[voxel_i].push([x as f32, y as f32, z as f32]);
+                trait ArrAdd {
+                    fn add(self, other: Self) -> Self;
+                }
+
+                impl ArrAdd for [f32; 3] {
+                    fn add(self, other: Self) -> Self {
+                        [self[0] + other[0], self[1] + other[1], self[2] + other[2]]
+                    }
+                }
+
+                let pos_uvs: [([f32; 3], [f32; 2]); 4] = match face {
+                    Face::Left => [
+                        ([x, y, z], [h, w]),
+                        ([x, y, z].add([0., 0., h]), [0., w]),
+                        ([x, y, z].add([0., w, 0.]), [h, 0.]),
+                        ([x, y, z].add([0., w, h]), [0., 0.]),
+                    ],
+                    Face::Down => [
+                        ([x, y, z].add([-w, 0., h]), [w, h]),
+                        ([x, y, z].add([-w, 0., 0.]), [w, 0.]),
+                        ([x, y, z].add([0., 0., h]), [0., h]),
+                        ([x, y, z], [0., 0.]),
+                    ],
+                    Face::Back => [
+                        ([x, y, z], [w, h]),
+                        ([x, y, z].add([0., h, 0.]), [w, 0.]),
+                        ([x, y, z].add([w, 0., 0.]), [0., h]),
+                        ([x, y, z].add([w, h, 0.]), [0., 0.]),
+                    ],
+                    Face::Right => [
+                        ([x, y, z], [0., 0.]),
+                        ([x, y, z].add([0., 0., h]), [h, 0.]),
+                        ([x, y, z].add([0., -w, 0.]), [0., w]),
+                        ([x, y, z].add([0., -w, h]), [h, w]),
+                    ],
+                    Face::Up => [
+                        ([x, y, z].add([w, 0., h]), [w, h]),
+                        ([x, y, z].add([w, 0., 0.]), [w, 0.]),
+                        ([x, y, z].add([0., 0., h]), [0., h]),
+                        ([x, y, z], [0., 0.]),
+                    ],
+                    Face::Front => [
+                        ([x, y, z].add([-w, h, 0.]), [0., 0.]),
+                        ([x, y, z].add([-w, 0., 0.]), [0., h]),
+                        ([x, y, z].add([0., h, 0.]), [w, 0.]),
+                        ([x, y, z], [w, h]),
+                    ],
+                };
+
+                for (pos, uv) in pos_uvs {
+                    positions[voxel_i].push(pos);
                     normals[voxel_i].push(n.clone());
+                    uvs[voxel_i].push(uv);
                 }
             }
         }
@@ -259,18 +316,9 @@ impl BinaryGreedyMeshing for VoxelChunk {
                     Mesh::ATTRIBUTE_NORMAL,
                     VertexAttributeValues::Float32x3(normals[i].clone()),
                 );
-
-                let mut uvs = Vec::new();
-                for _ in 0..(positions[i].len() / 4) {
-                    uvs.push([0.0, 0.0]);
-                    uvs.push([0.0, 1.0]);
-                    uvs.push([1.0, 0.0]);
-                    uvs.push([1.0, 1.0]);
-                }
                 mesh.insert_attribute(
                     Mesh::ATTRIBUTE_UV_0,
-                    // VertexAttributeValues::Float32x2(vec![[0.0; 2]; positions[i].len()]),
-                    VertexAttributeValues::Float32x2(uvs),
+                    VertexAttributeValues::Float32x2(uvs[i].clone()),
                 );
                 mesh.insert_indices(Indices::U32(indices[i].clone()));
 

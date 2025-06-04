@@ -12,6 +12,7 @@ use bevy_enhanced_input::prelude::*;
 
 use super::input::DigState;
 use crate::camera::*;
+use crate::item::Hold;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(Startup, spawn_player);
@@ -46,6 +47,7 @@ pub fn spawn_player(
             ),
             Actions::<super::input::PlayerInput>::default(),
             DigState::default(),
+            Hold::default(),
         ))
         .with_child((
             Name::new("Player Spotlight"),
