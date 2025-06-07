@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
+use avian3d::prelude::*;
 
 #[derive(Component)]
 pub struct Item;
@@ -57,6 +58,9 @@ pub fn spawn_test_items(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>
             base_color: Color::WHITE.into(),
             ..Default::default()
         })),
+
+        RigidBody::Dynamic,
+        Collider::sphere(0.5),
 
         Transform::from_xyz(2.0, 7.0, 2.0),
     ));
@@ -159,7 +163,11 @@ pub fn grab_item(
         hold.entity = Some(item_entity);
         item_transform.translation = Vec3::ZERO;
         commands.entity(item_entity)
-            .insert(ChildOf(hold.hold_entity));
+            .insert((
+                ColliderDisabled,
+                RigidBodyDisabled,
+                ChildOf(hold.hold_entity),
+            ));
 
         commands.entity(holder_entity)
             .remove::<Actions<HandsFree>>()
@@ -184,7 +192,10 @@ pub fn drop_item(trigger: Trigger<Fired<Drop>>, mut holding: Query<(Entity, &mut
             transform.translation = global.translation();
         }
 
-        commands.entity(item_entity).remove::<ChildOf>();
+        commands.entity(item_entity)
+            .remove::<ColliderDisabled>()
+            .remove::<RigidBodyDisabled>()
+            .remove::<ChildOf>();
     }
 
     commands.entity(holder_entity)
