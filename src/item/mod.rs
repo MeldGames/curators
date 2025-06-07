@@ -4,12 +4,14 @@ use bevy_enhanced_input::prelude::*;
 #[derive(Component)]
 pub struct Item;
 
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct Hold {
     /// Entity we are currently holding
     pub entity: Option<Entity>,
 
+    // Hold entity, 
+    pub hold_entity: Entity,
     // TODO: Grab point?
     // pub local_grab_point: Vec3,
 }
@@ -42,9 +44,6 @@ pub fn plugin(app: &mut App) {
         .add_observer(grab_item)
         .add_observer(drop_item);
 
-    app
-        .add_systems(FixedPostUpdate, attach_item)
-        .add_systems(PostUpdate, attach_item);
     app.add_systems(Startup, spawn_test_items);
 }
 
@@ -111,7 +110,8 @@ pub fn free_binding(
 pub fn grab_item(
     trigger: Trigger<Fired<Grab>>,
     mut holding: Query<(Entity, NameOrEntity, &GlobalTransform, &mut Hold)>,
-    items: Query<(Entity, NameOrEntity, &GlobalTransform, &Item)>,
+    mut items: Query<(Entity, NameOrEntity, &mut Transform, &Item)>,
+    child_of: Query<(), With<ChildOf>>,
     mut commands: Commands,
 ) {
     let Ok((holder_entity, holder_name, holder_transform, mut hold)) = holding.get_mut(trigger.target()) else {
@@ -123,11 +123,20 @@ pub fn grab_item(
     // TODO:
     // - Take into account direction of holder
     // - Take into account closeness of items
-    for (item_entity, item_name, item_transform, item) in items {
+    for (item_entity, item_name, mut item_transform, item) in &mut items {
         const PICKUP_RADIUS: f32 = 3.0;
-        if item_transform.translation().distance(holder_transform.translation()) < PICKUP_RADIUS {
+        if item_transform.translation.distance(holder_transform.translation()) < PICKUP_RADIUS {
+            if child_of.contains(item_entity) {
+                warn!("item entity already has a parent");
+                continue;
+            }
+
             info!("{} picked up {}", holder_name, item_name);
             hold.entity = Some(item_entity);
+            item_transform.translation = Vec3::ZERO;
+            commands.entity(item_entity)
+                .insert(ChildOf(hold.hold_entity));
+
             commands.entity(holder_entity)
                 .remove::<Actions<HandsFree>>()
                 .insert(Actions::<Holding>::default());
@@ -137,7 +146,7 @@ pub fn grab_item(
     }
 }
 
-pub fn drop_item(trigger: Trigger<Fired<Drop>>, mut holding: Query<(Entity, &mut Hold)>, name: Query<NameOrEntity>, mut commands: Commands) {
+pub fn drop_item(trigger: Trigger<Fired<Drop>>, mut holding: Query<(Entity, &mut Hold)>, mut transforms: Query<(&mut Transform, &GlobalTransform)>, name: Query<NameOrEntity>, mut commands: Commands) {
     let Ok((holder_entity, mut hold)) = holding.get_mut(trigger.target()) else {
         return;
     };
@@ -147,20 +156,15 @@ pub fn drop_item(trigger: Trigger<Fired<Drop>>, mut holding: Query<(Entity, &mut
     info!("{} dropped {}", holder_name.unwrap(), item_name.unwrap());
 
     // TODO: Align dropped item to the grid if targetting something.
-    hold.entity = None;
+    if let Some(item_entity) = hold.entity.take() {
+        if let Ok((mut transform, global)) = transforms.get_mut(item_entity) {
+            transform.translation = global.translation();
+        }
+
+        commands.entity(item_entity).remove::<ChildOf>();
+    }
+
     commands.entity(holder_entity)
         .remove::<Actions<Holding>>()
         .insert(Actions::<HandsFree>::default());
-}
-
-/// Attach item to the player when held
-pub fn attach_item(holders: Query<(Entity, &Hold)>, mut transforms: Query<&mut Transform>, globals: Query<&GlobalTransform>) {
-    for (holder_entity, hold) in &holders {
-        if let Some(holding) = hold.entity {
-            let Ok(holder_global) = globals.get(holder_entity)  else { continue; };
-            let Ok(mut item_transform) = transforms.get_mut(holding) else { continue; };
-            item_transform.translation = holder_global.translation();
-        }
-    }
-
 }

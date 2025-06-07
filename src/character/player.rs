@@ -31,6 +31,17 @@ pub fn spawn_player(
     let collider = Collider::capsule(0.4, 0.8);
     let mesh = meshes.add(Mesh::from(Capsule3d::new(0.4, 0.8)));
 
+    let hold_entity = commands.spawn(
+        (
+            Name::new("Hold position"),
+            Transform {
+                translation: Vec3::NEG_Z,
+                scale: Vec3::splat(0.5),
+                ..default()
+            },
+        )
+    ).id();
+
     let player = commands
         .spawn((
             Player,
@@ -47,7 +58,10 @@ pub fn spawn_player(
             ),
             Actions::<super::input::PlayerInput>::default(),
             DigState::default(),
-            Hold::default(),
+            Hold {
+                entity: None,
+                hold_entity: hold_entity,
+            },
         ))
         .with_child((
             Name::new("Player Spotlight"),
@@ -59,6 +73,7 @@ pub fn spawn_player(
                 ..default()
             },
         ))
+        .add_child(hold_entity)
         .id();
 
     let metering_mask: Handle<Image> = asset_server.load("basic_metering_mask.png");
