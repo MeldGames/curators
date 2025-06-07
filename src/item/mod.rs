@@ -109,12 +109,17 @@ pub fn free_binding(
 
 pub fn grab_item(
     trigger: Trigger<Fired<Grab>>,
-    mut holding: Query<(Entity, NameOrEntity, &GlobalTransform, &mut Hold)>,
+    mut holding: Query<(Entity, NameOrEntity, &mut Hold)>,
+    globals: Query<&GlobalTransform>,
     mut items: Query<(Entity, NameOrEntity, &mut Transform, &Item)>,
     child_of: Query<(), With<ChildOf>>,
     mut commands: Commands,
 ) {
-    let Ok((holder_entity, holder_name, holder_transform, mut hold)) = holding.get_mut(trigger.target()) else {
+    let Ok((holder_entity, holder_name, mut hold)) = holding.get_mut(trigger.target()) else {
+        return;
+    };
+
+    let Ok(hold_position) = globals.get(hold.hold_entity) else {
         return;
     };
 
@@ -123,26 +128,44 @@ pub fn grab_item(
     // TODO:
     // - Take into account direction of holder
     // - Take into account closeness of items
-    for (item_entity, item_name, mut item_transform, item) in &mut items {
-        const PICKUP_RADIUS: f32 = 3.0;
-        if item_transform.translation.distance(holder_transform.translation()) < PICKUP_RADIUS {
+    let mut closest_item = None;
+    const PICKUP_RADIUS: f32 = 2.0;
+    for (item_entity, _, item_transform, _) in &items {
+        let distance = item_transform.translation.distance(hold_position.translation());
+        if distance <= PICKUP_RADIUS {
             if child_of.contains(item_entity) {
                 warn!("item entity already has a parent");
                 continue;
             }
 
-            info!("{} picked up {}", holder_name, item_name);
-            hold.entity = Some(item_entity);
-            item_transform.translation = Vec3::ZERO;
-            commands.entity(item_entity)
-                .insert(ChildOf(hold.hold_entity));
+            let mut set = if let Some((_, closest_distance)) = closest_item {
+                distance < closest_distance
+            } else {
+                true
+            };
 
-            commands.entity(holder_entity)
-                .remove::<Actions<HandsFree>>()
-                .insert(Actions::<Holding>::default());
-
-            return;
+            if set {
+                closest_item = Some((item_entity, distance));
+            }
         }
+    }
+
+    if let Some((item_entity, _)) = closest_item {
+        let Ok((_, item_name, mut item_transform, item)) = items.get_mut(item_entity) else {
+            return;
+        };
+
+        info!("{} picked up {}", holder_name, item_name);
+        hold.entity = Some(item_entity);
+        item_transform.translation = Vec3::ZERO;
+        commands.entity(item_entity)
+            .insert(ChildOf(hold.hold_entity));
+
+        commands.entity(holder_entity)
+            .remove::<Actions<HandsFree>>()
+            .insert(Actions::<Holding>::default());
+    } else {
+        info!("no item found in grab radius");
     }
 }
 
