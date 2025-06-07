@@ -4,27 +4,36 @@ use bevy_enhanced_input::prelude::*;
 #[derive(Component)]
 pub struct Item;
 
-#[derive(Component, Default)]
-pub struct Hold(Option<Entity>);
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
+pub struct Hold {
+    /// Entity we are currently holding
+    pub entity: Option<Entity>,
+
+    // TODO: Grab point?
+    // pub local_grab_point: Vec3,
+}
 
 #[derive(Debug, InputContext)]
 pub struct HandsFree;
 
 #[derive(Debug, InputAction)]
-#[input_action(output = bool)]
+#[input_action(output = bool, require_reset = true)]
 pub struct Grab;
 
 #[derive(Debug, InputContext)]
 pub struct Holding;
 
 #[derive(Debug, InputAction)]
-#[input_action(output = bool)]
+#[input_action(output = bool, require_reset = true)]
 pub struct Drop;
 
 pub fn plugin(app: &mut App) {
     app
         .add_input_context::<HandsFree>()
         .add_input_context::<Holding>();
+
+    app.register_type::<Hold>();
 
     app
         .add_observer(add_hold)
@@ -33,7 +42,9 @@ pub fn plugin(app: &mut App) {
         .add_observer(grab_item)
         .add_observer(drop_item);
 
-    app.add_systems(FixedUpdate, attach_item);
+    app
+        .add_systems(FixedPostUpdate, attach_item)
+        .add_systems(PostUpdate, attach_item);
     app.add_systems(Startup, spawn_test_items);
 }
 
@@ -61,7 +72,7 @@ pub fn add_hold(
         return;
     };
 
-    if hold.0.is_some() {
+    if hold.entity.is_some() {
         commands.entity(trigger.target())
             .remove::<Actions<HandsFree>>()
             .insert(Actions::<Holding>::default());
@@ -75,26 +86,26 @@ pub fn add_hold(
 
 pub fn holding_binding(
     trigger: Trigger<Binding<Holding>>,
-    mut inputs: Query<&mut Actions<Holding>>,
+    mut inputs: Query<(&mut Actions<Holding>, &mut Hold)>,
 ) {
-    let Ok(mut actions) = inputs.get_mut(trigger.target()) else {
+    let Ok((mut actions, mut hold)) = inputs.get_mut(trigger.target()) else {
         return;
     };
 
     info!("binding holding");
-    actions.bind::<Drop>().to(KeyCode::KeyG).with_conditions(JustPress::default());
+    actions.bind::<Drop>().to(KeyCode::KeyG).with_conditions(Press::default());
 }
 
 pub fn free_binding(
     trigger: Trigger<Binding<HandsFree>>,
-    mut inputs: Query<&mut Actions<HandsFree>>,
+    mut inputs: Query<(&mut Actions<HandsFree>, &mut Hold)>,
 ) {
-    let Ok(mut actions) = inputs.get_mut(trigger.target()) else {
+    let Ok((mut actions, mut hold)) = inputs.get_mut(trigger.target()) else {
         return;
     };
 
     info!("binding hands free");
-    actions.bind::<Grab>().to(KeyCode::KeyG).with_conditions(JustPress::default());
+    actions.bind::<Grab>().to(KeyCode::KeyG).with_conditions(Press::default());
 }
 
 pub fn grab_item(
@@ -115,8 +126,8 @@ pub fn grab_item(
     for (item_entity, item_name, item_transform, item) in items {
         const PICKUP_RADIUS: f32 = 3.0;
         if item_transform.translation().distance(holder_transform.translation()) < PICKUP_RADIUS {
-            info!("{:?} picked up {:?}", holder_name, item_name);
-            hold.0 = Some(item_entity);
+            info!("{} picked up {}", holder_name, item_name);
+            hold.entity = Some(item_entity);
             commands.entity(holder_entity)
                 .remove::<Actions<HandsFree>>()
                 .insert(Actions::<Holding>::default());
@@ -132,10 +143,11 @@ pub fn drop_item(trigger: Trigger<Fired<Drop>>, mut holding: Query<(Entity, &mut
     };
 
     let holder_name = name.get(holder_entity);
-    let item_name = hold.0.map(|item_entity| name.get(item_entity).unwrap());
-    info!("{:?} dropped {:?}", holder_name, item_name);
+    let item_name = hold.entity.map(|item_entity| name.get(item_entity).unwrap());
+    info!("{} dropped {}", holder_name.unwrap(), item_name.unwrap());
 
-    hold.0 = None;
+    // TODO: Align dropped item to the grid if targetting something.
+    hold.entity = None;
     commands.entity(holder_entity)
         .remove::<Actions<Holding>>()
         .insert(Actions::<HandsFree>::default());
@@ -144,7 +156,7 @@ pub fn drop_item(trigger: Trigger<Fired<Drop>>, mut holding: Query<(Entity, &mut
 /// Attach item to the player when held
 pub fn attach_item(holders: Query<(Entity, &Hold)>, mut transforms: Query<&mut Transform>, globals: Query<&GlobalTransform>) {
     for (holder_entity, hold) in &holders {
-        if let Some(holding) = hold.0 {
+        if let Some(holding) = hold.entity {
             let Ok(holder_global) = globals.get(holder_entity)  else { continue; };
             let Ok(mut item_transform) = transforms.get_mut(holding) else { continue; };
             item_transform.translation = holder_global.translation();

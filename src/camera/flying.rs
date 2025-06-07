@@ -191,7 +191,7 @@ pub fn handle_rotation(
         return;
     };
 
-    let camera_rotate = actions.action::<CameraRotate>();
+    let camera_rotate = actions.get::<CameraRotate>().unwrap();
 
     // If the cursor grab setting caused this, prevent it from doing anything.
     let mut rotation = camera_rotate.value().as_axis2d();
@@ -232,7 +232,7 @@ pub fn handle_movement(
     let Ok((mut transform, actions, settings, mut state)) = query.single_mut() else {
         return;
     };
-    let movement = actions.action::<CameraMove>().value().as_axis3d();
+    let movement = actions.get::<CameraMove>().unwrap().value().as_axis3d();
 
     // Apply movement update
     if movement != Vec3::ZERO {

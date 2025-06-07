@@ -14,8 +14,8 @@ pub fn apply_movement(
     mut players: Query<(&mut KinematicCharacterController, &KCCGrounded, &Actions<PlayerInput>)>,
 ) {
     for (mut controller, grounded, actions) in &mut players {
-        let move_input = actions.action::<Move>().value().as_axis2d();
-        let dig = actions.action::<Dig>().value().as_bool();
+        let move_input = actions.get::<Move>().unwrap().value().as_axis2d();
+        let dig = actions.get::<Dig>().unwrap().value().as_bool();
 
         let speed = 5.0;
 

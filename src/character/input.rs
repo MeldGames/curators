@@ -75,7 +75,7 @@ pub fn dig_target(
     mut gizmos: Gizmos,
 ) {
     for (global_transform, actions, mut state, collider) in &mut players {
-        let interact = actions.action::<Dig>();
+        let interact = actions.get::<Dig>().unwrap();
         match interact.state() {
             ActionState::Fired => {
                 state.time_since_dig += time.delta_secs();
@@ -132,7 +132,7 @@ pub fn dig_block(
     mut voxels: Query<&mut Voxels>,
 ) {
     for (actions, mut dig_state) in &mut players {
-        if let ActionState::Fired = actions.action::<Dig>().state() {
+        if let ActionState::Fired = actions.get::<Dig>().unwrap().state() {
             if let Some((digsite_entity, voxel_pos)) = dig_state.target_block {
                 if let Ok(mut voxels) = voxels.get_mut(digsite_entity) {
                     if let Some(voxel_state) = voxels.get_voxel(voxel_pos.into()) {

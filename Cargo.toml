@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 # Bevy
-bevy = { version = "0.16.0", features = ["experimental_pbr_pcss"] }
+bevy = { version = "0.16.1", features = ["experimental_pbr_pcss"] }
 #bevy = { version = "0.16.0", features = ["dynamic_linking", "trace_tracy"] }
 # Set max log levels. This helps avoid unwanted low-severity log spam, which can affect performance.
 log = { version = "0.4", features = [
@@ -21,10 +21,11 @@ tracing = { version = "0.1", features = [
 #iyes_perf_ui = "0.4.0"
 iyes_perf_ui = { git = "https://github.com/olekspickle/iyes_perf_ui", branch = "main" }
 bevy-inspector-egui = "0.31.0"
-bevy_enhanced_input = "0.11.0"
+bevy_enhanced_input = "0.12.0"
 #avian3d = "0.2.1"
 avian3d = { git = "https://github.com/Jondolf/avian", rev = "8a6953298" }
 bevy_replicon = "0.33"
+bevy_turborand = "0.11.0"
 
 # Meshing
 fast-surface-nets = "0.2.1"
@@ -39,6 +40,7 @@ mem_dbg = "0.3"
 num-traits = "0.2"
 num-derive = "0.4"
 dashmap = "6.1.0"
+thiserror = "2"
 
 [patch.crates-io]
 #bevy_enhanced_input = { git = "https://github.com/projectharmonia/bevy_enhanced_input", rev = "21ddc08755" }

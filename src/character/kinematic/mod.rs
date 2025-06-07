@@ -306,7 +306,7 @@ pub fn handle_jump(
 ) {
     for (mut controller, grounded, mut jump, actions) in &mut players {
         let mut falloff = 0.0;
-        match actions.action::<Jump>().state() {
+        match actions.get::<Jump>().unwrap().state() {
             ActionState::Fired => {
                 if grounded.grounded {
                     if jump.current_force.is_none() && !jump.last_jump {

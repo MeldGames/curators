@@ -42,7 +42,7 @@ pub fn cursor_binding(trigger: Trigger<Binding<Cursor>>, mut cursor: Query<&mut 
     };
 
     actions.bind::<FreeCursor>().to(KeyCode::AltLeft);
-    actions.bind::<ToggleCursor>().to(KeyCode::KeyZ).with_conditions(JustPress::default());
+    actions.bind::<ToggleCursor>().to(KeyCode::KeyZ).with_conditions(Press::default());
 }
 
 #[derive(Resource, Deref)]
@@ -61,7 +61,7 @@ pub fn cursor_grab(
     let cursor = cursor.single().unwrap();
     let grabbers = grabbers.iter().count();
 
-    if cursor.action::<ToggleCursor>().state() == ActionState::Fired {
+    if cursor.get::<ToggleCursor>().unwrap().state() == ActionState::Fired {
         toggle.0 = !toggle.0;
         info!("toggled cursor: {:?}", toggle.0);
     }
@@ -74,7 +74,7 @@ pub fn cursor_grab(
                 grab = true;
             }
 
-            if cursor.action::<FreeCursor>().value().as_bool() {
+            if cursor.get::<FreeCursor>().unwrap().value().as_bool() {
                 grab = false;
             }
         }
