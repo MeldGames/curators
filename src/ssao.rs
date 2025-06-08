@@ -4,9 +4,8 @@ use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
     app.insert_resource(AmbientLight { brightness: 2500.0, ..default() });
-    info!("test ssao !!!!!!!!!");
-    app.add_systems(Startup, setup);
-    app.add_systems(Update, update);
+    // app.add_systems(Startup, setup);
+    // app.add_systems(Update, update);
 }
 
 fn setup(

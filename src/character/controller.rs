@@ -11,7 +11,13 @@ pub(super) fn plugin(app: &mut App) {
 }
 
 pub fn apply_movement(
-    mut players: Query<(&mut KinematicCharacterController, &KCCGrounded, &mut Transform, &Actions<PlayerInput>)>,
+    mut players: Query<(
+        &mut KinematicCharacterController,
+        &KCCGrounded,
+        &mut Transform,
+        &Actions<PlayerInput>,
+    )>,
+    time: Res<Time>,
 ) {
     for (mut controller, grounded, mut transform, actions) in &mut players {
         let move_input = actions.get::<Move>().unwrap().value().as_axis2d();
@@ -53,7 +59,8 @@ pub fn apply_movement(
 
         if movement.length_squared() > 0.0 {
             let angle = movement.y.atan2(movement.x) - std::f32::consts::PI / 2.0;
-            transform.rotation = Quat::from_axis_angle(Vec3::Y, angle);
+            let target = Quat::from_axis_angle(Vec3::Y, angle);
+            transform.rotation = transform.rotation.slerp(target, time.delta_secs() * 20.0);
         }
     }
 }

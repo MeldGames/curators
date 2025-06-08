@@ -1,6 +1,6 @@
+use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
-use avian3d::prelude::*;
 
 #[derive(Component)]
 pub struct Item;
@@ -11,7 +11,7 @@ pub struct Hold {
     /// Entity we are currently holding
     pub entity: Option<Entity>,
 
-    // Hold entity, 
+    // Hold entity,
     pub hold_entity: Entity,
     // TODO: Grab point?
     // pub local_grab_point: Vec3,
@@ -32,14 +32,11 @@ pub struct Holding;
 pub struct Drop;
 
 pub fn plugin(app: &mut App) {
-    app
-        .add_input_context::<HandsFree>()
-        .add_input_context::<Holding>();
+    app.add_input_context::<HandsFree>().add_input_context::<Holding>();
 
     app.register_type::<Hold>();
 
-    app
-        .add_observer(add_hold)
+    app.add_observer(add_hold)
         .add_observer(holding_binding)
         .add_observer(free_binding)
         .add_observer(grab_item)
@@ -48,44 +45,43 @@ pub fn plugin(app: &mut App) {
     app.add_systems(Startup, spawn_test_items);
 }
 
-pub fn spawn_test_items(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
-    meshes.add(Sphere::new(0.5));
+pub fn spawn_test_items(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     commands.spawn((
         Item,
         Name::new("Test item (sphere)"),
-        Mesh3d(meshes.add(Sphere::new(0.5))),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE.into(),
-            ..Default::default()
-        })),
-
+        Mesh3d(meshes.add(Sphere::new(0.3))),
+        MeshMaterial3d(
+            materials
+                .add(StandardMaterial { base_color: Color::WHITE.into(), ..Default::default() }),
+        ),
         RigidBody::Dynamic,
-        Collider::sphere(0.5),
-
+        SleepingDisabled,
+        Collider::sphere(0.3),
         Transform::from_xyz(2.0, 7.0, 2.0),
     ));
 }
 
-pub fn add_hold(
-    trigger: Trigger<OnInsert, Hold>,
-    hold: Query<&Hold>,
-    mut commands: Commands,
-) {
+pub fn add_hold(trigger: Trigger<OnInsert, Hold>, hold: Query<&Hold>, mut commands: Commands) {
     let Ok(hold) = hold.get(trigger.target()) else {
         return;
     };
 
     if hold.entity.is_some() {
-        commands.entity(trigger.target())
+        commands
+            .entity(trigger.target())
             .remove::<Actions<HandsFree>>()
             .insert(Actions::<Holding>::default());
     } else {
-        commands.entity(trigger.target())
+        commands
+            .entity(trigger.target())
             .remove::<Actions<Holding>>()
             .insert(Actions::<HandsFree>::default());
     }
 }
-
 
 pub fn holding_binding(
     trigger: Trigger<Binding<Holding>>,
@@ -162,14 +158,14 @@ pub fn grab_item(
         info!("{} picked up {}", holder_name, item_name);
         hold.entity = Some(item_entity);
         item_transform.translation = Vec3::ZERO;
-        commands.entity(item_entity)
-            .insert((
-                ColliderDisabled,
-                RigidBodyDisabled,
-                ChildOf(hold.hold_entity),
-            ));
+        commands.entity(item_entity).insert((
+            ColliderDisabled,
+            RigidBodyDisabled,
+            ChildOf(hold.hold_entity),
+        ));
 
-        commands.entity(holder_entity)
+        commands
+            .entity(holder_entity)
             .remove::<Actions<HandsFree>>()
             .insert(Actions::<Holding>::default());
     } else {
@@ -177,7 +173,13 @@ pub fn grab_item(
     }
 }
 
-pub fn drop_item(trigger: Trigger<Fired<Drop>>, mut holding: Query<(Entity, &mut Hold)>, mut transforms: Query<(&mut Transform, &GlobalTransform)>, name: Query<NameOrEntity>, mut commands: Commands) {
+pub fn drop_item(
+    trigger: Trigger<Fired<Drop>>,
+    mut holding: Query<(Entity, &mut Hold)>,
+    mut transforms: Query<(&mut Transform, &GlobalTransform)>,
+    name: Query<NameOrEntity>,
+    mut commands: Commands,
+) {
     let Ok((holder_entity, mut hold)) = holding.get_mut(trigger.target()) else {
         return;
     };
@@ -192,13 +194,15 @@ pub fn drop_item(trigger: Trigger<Fired<Drop>>, mut holding: Query<(Entity, &mut
             transform.translation = global.translation();
         }
 
-        commands.entity(item_entity)
+        commands
+            .entity(item_entity)
             .remove::<ColliderDisabled>()
             .remove::<RigidBodyDisabled>()
             .remove::<ChildOf>();
     }
 
-    commands.entity(holder_entity)
+    commands
+        .entity(holder_entity)
         .remove::<Actions<Holding>>()
         .insert(Actions::<HandsFree>::default());
 }

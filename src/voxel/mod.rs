@@ -87,16 +87,16 @@ fn dynamic_scene(mut suns: Query<&mut Transform, With<Sun>>, time: Res<Time>) {
 pub struct Sun;
 
 pub fn spawn_directional_lights(mut commands: Commands) {
-    // commands.spawn((
-    //     Transform::from_translation(Vec3::new(0.0, 1.0,
-    // 0.5)).looking_at(Vec3::ZERO, Vec3::Y),     DirectionalLight {
-    //         shadows_enabled: true,
-    //         soft_shadow_size: Some(1.0),
-    //         illuminance: lux::RAW_SUNLIGHT,
-    //         ..default()
-    //     },
-    //     Sun,
-    // ));
+    commands.spawn((
+        Transform::from_translation(Vec3::new(0.0, 1.0, 0.5)).looking_at(Vec3::ZERO, Vec3::Y),
+        DirectionalLight {
+            shadows_enabled: true,
+            soft_shadow_size: Some(1.0),
+            // illuminance: lux::RAW_SUNLIGHT,
+            ..default()
+        },
+        Sun,
+    ));
 
     // commands.spawn((Transform::from_xyz(5.0, 5.0, 5.0), PointLight {
     //     color: Color::srgb(1.0, 0.0, 0.0),
