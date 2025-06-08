@@ -3,6 +3,7 @@ use bevy::core_pipeline::auto_exposure::AutoExposurePlugin;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasPlugin;
 use bevy::pbr::wireframe::WireframePlugin;
 use bevy::prelude::*;
+use bevy_mod_outline::*;
 use iyes_perf_ui::prelude::*;
 
 pub mod camera;
@@ -24,6 +25,11 @@ pub fn shared(app: &mut App) {
     app.add_plugins(PhysicsDebugPlugin::default());
     app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
+
+    app.add_plugins((
+        OutlinePlugin,
+        AutoGenerateOutlineNormalsPlugin::default(),
+    ));
 
     app.add_plugins(voxel::VoxelPlugin::default())
         .add_plugins(item::plugin)

@@ -32,6 +32,7 @@ fast-surface-nets = "0.2.1"
 binary-greedy-meshing = "0.4.1"
 bevy_meshem = { git = "https://github.com/aceeri/Meshem", branch = "bevy-0.16" }
 #bevy_meshem = { path = "../Meshem" }
+bevy_mod_outline = "0.10.1"
 
 # Other
 rand = "0.9.1"
