@@ -26,10 +26,7 @@ pub fn shared(app: &mut App) {
     app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
 
-    app.add_plugins((
-        OutlinePlugin,
-        AutoGenerateOutlineNormalsPlugin::default(),
-    ));
+    app.add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin::default()));
 
     app.add_plugins(voxel::VoxelPlugin::default())
         .add_plugins(item::plugin)

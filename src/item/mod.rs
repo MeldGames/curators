@@ -1,8 +1,8 @@
 use avian3d::prelude::*;
-use bevy::prelude::*;
 use bevy::platform::collections::HashSet;
+use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
-use bevy_mod_outline::{OutlineVolume, AsyncSceneInheritOutline};
+use bevy_mod_outline::{AsyncSceneInheritOutline, OutlineVolume};
 
 #[derive(Component)]
 pub struct Item;
@@ -44,9 +44,7 @@ pub fn plugin(app: &mut App) {
         .add_observer(drop_item);
 
     app.add_systems(Startup, spawn_test_items);
-    app
-        .add_systems(Update, grab_item)
-        .add_systems(Update, ItemOutline::lerp_color);
+    app.add_systems(Update, grab_item).add_systems(Update, ItemOutline::lerp_color);
 }
 
 pub fn spawn_test_items(
@@ -109,7 +107,7 @@ pub fn holding_binding(
         return;
     };
 
-    //info!("binding holding");
+    // info!("binding holding");
     actions.bind::<Drop>().to(KeyCode::KeyG).with_conditions(Press::default());
 }
 
@@ -121,29 +119,28 @@ pub fn free_binding(
         return;
     };
 
-    //info!("binding hands free");
+    // info!("binding hands free");
     actions.bind::<Grab>().to(KeyCode::KeyG).with_conditions(Press::default());
 }
 
 #[derive(Component)]
 pub struct ItemOutline {
     pub alpha_range: std::ops::RangeInclusive<f32>, // current alpha
-    pub step: f32, // step amount per second
-    pub direction: bool, // true -> up, false -> down
+    pub step: f32,                                  // step amount per second
+    pub direction: bool,                            // true -> up, false -> down
 }
 
 impl Default for ItemOutline {
     fn default() -> Self {
-        Self {
-            alpha_range: 0.7..=1.0,
-            step: 2.0,
-            direction: true,
-        }
+        Self { alpha_range: 0.7..=1.0, step: 2.0, direction: true }
     }
 }
 
 impl ItemOutline {
-    pub fn lerp_color(mut outlines: Query<(&mut OutlineVolume, &mut ItemOutline)>, time: Res<Time>) {
+    pub fn lerp_color(
+        mut outlines: Query<(&mut OutlineVolume, &mut ItemOutline)>,
+        time: Res<Time>,
+    ) {
         for (mut volume, mut meta) in &mut outlines {
             let mut alpha = volume.colour.alpha();
             let step = meta.step * (meta.alpha_range.end() - meta.alpha_range.start());
@@ -243,22 +240,14 @@ pub fn grab_item(
 
     for entity in remove_outlines {
         commands.entity(entity).remove::<OutlineVolume>();
-    } 
+    }
 
     for entity in add_outlines {
         commands.entity(entity).insert((
-            ItemOutline {
-                alpha_range: 0.4..=0.7,
-                step: 2.0,
-                ..default()
-            },
-            OutlineVolume {
-                visible: true,
-                width: 2.0,
-                colour: Color::srgba(0.0, 0.0, 0.0, 0.4),
-            },
+            ItemOutline { alpha_range: 0.4..=0.7, step: 2.0, ..default() },
+            OutlineVolume { visible: true, width: 2.0, colour: Color::srgba(0.0, 0.0, 0.0, 0.4) },
         ));
-    } 
+    }
 }
 
 pub fn drop_item(

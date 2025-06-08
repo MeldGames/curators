@@ -45,8 +45,13 @@ pub fn rebuild_borders(
     let y_pos = ground_level / 2.0;
     let y_height = ground_level;
 
-    let mut from_lengths =
-        |x, y, z| (RigidBody::Static, Collider::cuboid(x, y, z), Mesh3d(meshes.add(Mesh::from(Cuboid::new(x, y, z)))));
+    let mut from_lengths = |x, y, z| {
+        (
+            RigidBody::Static,
+            Collider::cuboid(x, y, z),
+            Mesh3d(meshes.add(Mesh::from(Cuboid::new(x, y, z)))),
+        )
+    };
 
     let ground_material = MeshMaterial3d(materials.add(StandardMaterial {
         base_color: Srgba::new(0.0, 82.0 / 255.0, 0.0, 1.0).into(),
