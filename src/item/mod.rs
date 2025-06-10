@@ -245,7 +245,7 @@ pub fn grab_item(
     for entity in add_outlines {
         commands.entity(entity).insert((
             ItemOutline { alpha_range: 0.4..=0.7, step: 2.0, ..default() },
-            OutlineVolume { visible: true, width: 2.0, colour: Color::srgba(0.0, 0.0, 0.0, 0.4) },
+            OutlineVolume { visible: true, width: 4.0, colour: Color::srgba(0.0, 0.0, 0.0, 0.4) },
         ));
     }
 }

@@ -22,7 +22,7 @@ pub fn send_test_digsite(mut writer: EventWriter<GenerateDigsite>) {
     writer.send(GenerateDigsite {
         digsite: Digsite {
             start: IVec3::new(0, 0, 0),
-            end: IVec3::new(64, 31, 64),
+            end: IVec3::new(64, 16, 64),
 
             layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
         },
@@ -49,8 +49,8 @@ pub struct Layers {
 
 impl Layers {
     pub fn sample_height(&self, sample_height: f32) -> Voxel {
-        for (layer_height, layer) in &self.layers {
-            if *layer_height > sample_height {
+        for (layer_height, layer) in self.layers.iter().rev() {
+            if *layer_height < sample_height {
                 return *layer;
             }
         }
@@ -117,6 +117,8 @@ impl Digsite {
                     let voxel = self.layers.sample_height(range_height);
                     voxels.set_voxel(IVec3::new(x, y, z), voxel);
                 }
+
+                voxels.set_voxel(IVec3::new(x, min.y, z), Voxel::Base);
             }
         }
 
