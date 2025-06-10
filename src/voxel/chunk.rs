@@ -1,4 +1,4 @@
-use bevy::platform::collections::HashMap;
+use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use super::raycast::Hit;
@@ -73,11 +73,12 @@ pub mod padded {
 #[require(Name::new("Voxels"))]
 pub struct Voxels {
     chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
+    changed_chunks: HashSet<IVec3>,
 }
 
 impl Voxels {
     pub fn new() -> Self {
-        Self { chunks: HashMap::new() }
+        Self { chunks: HashMap::new(), changed_chunks: HashSet::new(), }
     }
 
     /// Given a voxel position, find the chunk it is in.
@@ -90,8 +91,10 @@ impl Voxels {
     }
 
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
-        let chunk = self.chunks.entry(Self::find_chunk(point)).or_default();
+        let chunk_point = Self::find_chunk(point);
+        let chunk = self.chunks.entry(chunk_point).or_default();
         let relative_point = Self::relative_point(point);
+        self.changed_chunks.insert(chunk_point);
         chunk.set(relative_point.into(), voxel);
     }
 
@@ -158,6 +161,7 @@ impl Voxels {
 
         let volume = BoundingVolume3 { size: self.chunk_size() };
         for mut hit in volume.traverse_ray(local_ray, length) {
+            //info!("hit: {:?}", hit);
             let local_distance = hit.distance;
             let local_point = local_ray.origin + local_ray.direction * local_distance;
             let world_point = grid_transform.transform_point(local_point);
@@ -189,6 +193,15 @@ impl Voxels {
 
     pub fn chunk_iter(&self) -> impl Iterator<Item = (IVec3, &VoxelChunk)> {
         self.chunks.iter().map(|(p, c)| (*p, c))
+    }
+
+    pub fn changed_chunk_iter(&self) -> impl Iterator<Item = (IVec3, &VoxelChunk)> {
+        self.changed_chunks.iter()
+            .filter_map(|p| self.chunks.get(p).map(|chunk| (*p, chunk)))
+    }
+
+    pub fn clear_changed_chunks(&mut self) {
+        self.changed_chunks.clear();
     }
 }
 

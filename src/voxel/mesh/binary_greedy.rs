@@ -85,7 +85,8 @@ pub fn update_binary_mesh(
     for (voxels_entity, voxels, voxel_chunks, mut voxels_collider) in &mut grids {
         collider_mesh_buffer.clear();
 
-        for (chunk_pos, chunk) in voxels.chunk_iter() {
+        for (chunk_pos, chunk) in voxels.changed_chunk_iter() {
+            info!("chunk {:?} changed, updating binary mesh", chunk_pos);
             let (render_meshes, mut collider_mesh) = chunk.generate_meshes(&mut mesher.0);
             collider_mesh
                 .translate(chunk_pos.as_vec3() * crate::voxel::chunk::unpadded::SIZE as f32);

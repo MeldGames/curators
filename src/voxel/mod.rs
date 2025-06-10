@@ -34,6 +34,7 @@ impl Plugin for VoxelPlugin {
         app.add_systems(Startup, spawn_voxel_grid);
         app.add_systems(Startup, spawn_directional_lights);
         app.add_systems(Update, dynamic_scene);
+        app.add_systems(First, clear_changed_chunks);
     }
 }
 
@@ -76,6 +77,14 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         // mesh::meshem::Meshem,
         mesh::binary_greedy::BinaryGreedy,
     ));
+}
+
+pub fn clear_changed_chunks(mut voxels: Query<&mut Voxels>) {
+    let Ok(mut voxels) = voxels.single_mut() else { 
+        return;
+    };
+
+    voxels.clear_changed_chunks();
 }
 
 fn dynamic_scene(mut suns: Query<&mut Transform, With<Sun>>, time: Res<Time>) {
