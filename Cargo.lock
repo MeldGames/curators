@@ -418,8 +418,9 @@ dependencies = [
 
 [[package]]
 name = "avian3d"
-version = "0.2.0"
-source = "git+https://github.com/Jondolf/avian?rev=8a6953298#8a6953298178addc24adc17fcafae3108b5ea4f9"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0feaf6ed522e3e55130d820bfa2a3f3395092cbee2c986cfc1a464b60b50b4ca"
 dependencies = [
  "avian_derive",
  "bevy",
@@ -438,7 +439,8 @@ dependencies = [
 [[package]]
 name = "avian_derive"
 version = "0.2.2"
-source = "git+https://github.com/Jondolf/avian?rev=8a6953298#8a6953298178addc24adc17fcafae3108b5ea4f9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12b257f601a1535e0d4a7a7796f535e3a13de62fd422b16dff7c14d27f0d4048"
 dependencies = [
  "proc-macro-error2",
  "proc-macro2",
@@ -939,8 +941,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_heavy"
-version = "0.1.0"
-source = "git+https://github.com/Jondolf/bevy_heavy#3905efe581700296de8f48d33388c5471dfca785"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34ccc861fea2ff58c67f4df119512e204050bd7631a3a9c65e1a5e9d162cce28"
 dependencies = [
  "bevy_math",
  "bevy_reflect",
@@ -1530,8 +1533,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_transform_interpolation"
-version = "0.1.0"
-source = "git+https://github.com/Jondolf/bevy_transform_interpolation#9fd7fe92c32e2d30e38b80566dfa7b740119b593"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72c7c6c4e6a3d5415b3a29a17bd20c17cd0e2f068b96b24e263316d58d5346ea"
 dependencies = [
  "bevy",
 ]
@@ -3205,7 +3209,8 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 [[package]]
 name = "iyes_perf_ui"
 version = "0.5.0"
-source = "git+https://github.com/olekspickle/iyes_perf_ui?branch=main#0ff2fe342e30857980746070ead95706d03036e1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e4468c51a47d2422a3a3e01b45cb47ed0fbce520495dd7de495bcfe8ce0f856"
 dependencies = [
  "bevy",
  "chrono",

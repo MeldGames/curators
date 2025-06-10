@@ -131,6 +131,11 @@ pub fn update_binary_mesh(
             | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
             | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
 
+        if collider_mesh.count_vertices() == 0 {
+            //warn!("no vertices in collider mesh");
+            continue;
+        }
+
         let Some(mut new_collider) = Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
         else {
             info!("cannot create trimesh from mesh");

@@ -44,29 +44,29 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     let length = 62;
     let ground_level = 31;
     // let ground_level = grid.ground_level();
-    for x in 0..width {
-        for z in 0..length {
-            for y in 0..ground_level {
-                grid.set_voxel([x, y, z].into(), Voxel::Dirt);
-            }
-        }
-    }
+    // for x in 0..width {
+    //     for z in 0..length {
+    //         for y in 0..ground_level {
+    //             grid.set_voxel([x, y, z].into(), Voxel::Dirt);
+    //         }
+    //     }
+    // }
 
-    for x in 0..width {
-        for z in 0..length {
-            for y in (ground_level - 2)..ground_level {
-                grid.set_voxel([x, y, z].into(), Voxel::Grass);
-            }
-        }
-    }
+    // for x in 0..width {
+    //     for z in 0..length {
+    //         for y in (ground_level - 2)..ground_level {
+    //             grid.set_voxel([x, y, z].into(), Voxel::Grass);
+    //         }
+    //     }
+    // }
 
-    for x in 0..width {
-        for z in 0..length {
-            for y in 0..1 {
-                grid.set_voxel([x, y, z].into(), Voxel::Base);
-            }
-        }
-    }
+    // for x in 0..width {
+    //     for z in 0..length {
+    //         for y in 0..1 {
+    //             grid.set_voxel([x, y, z].into(), Voxel::Base);
+    //         }
+    //     }
+    // }
 
     commands.spawn((
         grid,

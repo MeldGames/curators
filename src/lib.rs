@@ -10,6 +10,8 @@ pub mod camera;
 pub mod character;
 pub mod cursor;
 pub mod item;
+pub mod digsite;
+pub mod tool;
 pub mod ssao;
 pub mod voxel;
 
@@ -30,6 +32,7 @@ pub fn shared(app: &mut App) {
 
     app.add_plugins(voxel::VoxelPlugin::default())
         .add_plugins(item::plugin)
+        .add_plugins(digsite::plugin)
         .add_plugins(WireframePlugin::default())
         .add_plugins(AutoExposurePlugin)
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
