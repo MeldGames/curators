@@ -5,6 +5,7 @@ use bevy_enhanced_input::prelude::*;
 use bevy_mod_outline::{AsyncSceneInheritOutline, OutlineVolume};
 
 #[derive(Component)]
+#[require(SweptCcd, SleepingDisabled)]
 pub struct Item;
 
 #[derive(Component, Reflect)]
@@ -61,7 +62,6 @@ pub fn spawn_test_items(
                 .add(StandardMaterial { base_color: Color::WHITE.into(), ..Default::default() }),
         ),
         RigidBody::Dynamic,
-        SleepingDisabled,
         Collider::sphere(0.3),
         Transform::from_xyz(2.0, 7.0, 2.0),
     ));
@@ -75,7 +75,6 @@ pub fn spawn_test_items(
                 .add(StandardMaterial { base_color: Color::WHITE.into(), ..Default::default() }),
         ),
         RigidBody::Dynamic,
-        SleepingDisabled,
         Collider::sphere(0.3),
         Transform::from_xyz(3.0, 7.0, 2.0),
     ));
