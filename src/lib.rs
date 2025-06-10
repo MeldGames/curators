@@ -1,8 +1,10 @@
 use avian3d::prelude::*;
 use bevy::core_pipeline::auto_exposure::AutoExposurePlugin;
+use bevy::core_pipeline::core_3d::graph::Node3d;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasPlugin;
 use bevy::pbr::wireframe::WireframePlugin;
 use bevy::prelude::*;
+use bevy_edge_detection::*;
 use bevy_mod_outline::*;
 use iyes_perf_ui::prelude::*;
 
@@ -33,6 +35,12 @@ pub fn shared(app: &mut App) {
     app.add_plugins(voxel::VoxelPlugin::default())
         .add_plugins(item::plugin)
         .add_plugins(digsite::plugin)
+        .add_plugins(EdgeDetectionPlugin {
+            // If you wish to apply Smaa anti-aliasing after edge detection,
+            // please ensure that the rendering order of [`EdgeDetectionNode`] is set before
+            // [`SmaaNode`].
+            before: Node3d::Smaa,
+        })
         .add_plugins(WireframePlugin::default())
         .add_plugins(AutoExposurePlugin)
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())

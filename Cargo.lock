@@ -239,6 +239,7 @@ dependencies = [
  "avian3d",
  "bevy",
  "bevy-inspector-egui",
+ "bevy_edge_detection",
  "bevy_enhanced_input",
  "bevy_meshem",
  "bevy_mod_outline",
@@ -777,6 +778,13 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.101",
+]
+
+[[package]]
+name = "bevy_edge_detection"
+version = "0.15.4"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]

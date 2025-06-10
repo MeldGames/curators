@@ -2,12 +2,14 @@ use avian3d::prelude::*;
 use bevy::color::palettes::css::GRAY;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasing;
+use bevy::core_pipeline::smaa::Smaa;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::{
     Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel,
     ShadowFilteringMethod,
 };
 use bevy::prelude::*;
+use bevy_edge_detection::EdgeDetection;
 use bevy_enhanced_input::prelude::*;
 
 use super::input::DigState;
@@ -96,6 +98,21 @@ pub fn spawn_player(
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
             constant_object_thickness: 4.0,
         },
+
+        EdgeDetection {
+            depth_threshold: 0.3,
+            normal_threshold: 1.0,
+            depth_thickness: 1.0,
+            uv_distortion_frequency: Vec2::new(1.0, 1.0),
+            uv_distortion_strength: Vec2::new(0.0, 0.0),
+            edge_color: Color::srgba(0.0, 0.0, 0.0, 0.5),
+            enable_depth: true,
+            enable_normal: true,
+            enable_color: false,
+
+            ..default()
+        },
+        Smaa::default(),
     );
 
     let flying = commands

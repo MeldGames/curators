@@ -28,7 +28,7 @@ pub struct FollowSettings {
 
 impl Default for FollowSettings {
     fn default() -> Self {
-        Self { offset: Vec3::new(0.0, 2.0, 0.3) * 7.0 }
+        Self { offset: Vec3::new(0.0, 2.0, 0.4) * 7.0 }
     }
 }
 

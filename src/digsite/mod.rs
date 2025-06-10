@@ -50,7 +50,7 @@ pub struct Layers {
 impl Layers {
     pub fn sample_height(&self, sample_height: f32) -> Voxel {
         for (layer_height, layer) in &self.layers {
-            if *layer_height < sample_height {
+            if *layer_height > sample_height {
                 return *layer;
             }
         }
@@ -108,11 +108,12 @@ impl Digsite {
         for x in min.x..max.x {
             for z in min.z..max.z {
                 let coord_height = layer_noise.sample(Vec2::new(x as f32, z as f32));
-                info!("coord_height: {:?}", coord_height);
+                // info!("coord_height: {:?}", coord_height);
                 let coord_height = coord_height as i32;
 
                 for y in min.y..coord_height {
                     let range_height = y as f32 / (coord_height - min.y) as f32;
+                    // info!("range_height: {:?}", range_height);
                     let voxel = self.layers.sample_height(range_height);
                     voxels.set_voxel(IVec3::new(x, y, z), voxel);
                 }
