@@ -2,7 +2,7 @@ use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use bevy::render::mesh::{Indices, VertexAttributeValues};
+use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
 use binary_greedy_meshing as bgm;
 
@@ -104,16 +104,21 @@ pub fn update_binary_mesh(
                 let Some(mesh) = render_mesh else {
                     continue;
                 };
-                let mesh = meshes.add(mesh);
+                let new_aabb = mesh.compute_aabb();
+                let mesh_handle = meshes.add(mesh);
 
                 if let Some(entity) = chunk_meshes.get(&voxel) {
-                    commands.entity(*entity).insert(Mesh3d(mesh));
+                    let mut entity_commands = commands.entity(*entity);
+                    entity_commands.insert(Mesh3d(mesh_handle));
+                    if let Some(new_aabb) = new_aabb {
+                        entity_commands.insert(new_aabb);
+                    }
                 } else {
                     let material = materials.add(voxel.material());
                     let id = commands
                         .spawn((
                             Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
-                            Mesh3d(mesh),
+                            Mesh3d(mesh_handle),
                             MeshMaterial3d(material),
                             ChildOf(*chunk_entity),
                         ))
