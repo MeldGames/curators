@@ -1,13 +1,14 @@
 //! Spawning of fossils and the voxels in the digsite area.
 use bevy::prelude::*;
+use noiz::math_noise::Pow2;
+use noiz::prelude::*;
 use thiserror::Error;
-use noiz::{math_noise::Pow2, prelude::*};
 
 use crate::voxel::{Voxel, Voxels};
 
 pub fn plugin(app: &mut App) {
     app.add_event::<GenerateDigsite>();
-    
+
     app.add_systems(Update, gen_digsite);
     app.add_systems(Startup, send_test_digsite);
 }
@@ -18,17 +19,14 @@ pub struct GenerateDigsite {
 }
 
 pub fn send_test_digsite(mut writer: EventWriter<GenerateDigsite>) {
-    writer.send(GenerateDigsite { digsite: Digsite {
-        start: IVec3::new(0, 0, 0),
-        end: IVec3::new(16, 31, 16),
+    writer.send(GenerateDigsite {
+        digsite: Digsite {
+            start: IVec3::new(0, 0, 0),
+            end: IVec3::new(64, 31, 64),
 
-        layers: Layers {
-            layers: vec![
-                (0.0, Voxel::Dirt),
-                (0.9, Voxel::Grass),
-            ]
+            layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
         },
-    }});
+    });
 }
 
 pub fn gen_digsite(mut requests: EventReader<GenerateDigsite>, mut voxels: Query<&mut Voxels>) {
@@ -54,7 +52,7 @@ impl Layers {
         for (layer_height, layer) in &self.layers {
             if *layer_height < sample_height {
                 return *layer;
-            } 
+            }
         }
 
         Voxel::Air
@@ -86,18 +84,14 @@ impl Digsite {
     pub fn validate(&self) -> Result<(), Vec<GenError>> {
         let mut errors = Vec::new();
 
-        /*let layer_thickness_sum = self.layers.iter().map(|(_, thick)| thick).sum();
-        let bounds_height = (self.end.y - self.start.y).abs();
+        // let layer_thickness_sum = self.layers.iter().map(|(_, thick)| thick).sum();
+        // let bounds_height = (self.end.y - self.start.y).abs();
+        //
+        // if layer_thickness_sum >= bounds_height {
+        // errors.push(GenError::LayerThickness { bounds_height, layer_thickens });
+        // }
 
-        if layer_thickness_sum >= bounds_height {
-            errors.push(GenError::LayerThickness { bounds_height, layer_thickens });
-        }*/
-
-        if errors.len() > 0 {
-            Err(errors)
-        } else {
-            Ok(())
-        }
+        if errors.len() > 0 { Err(errors) } else { Ok(()) }
     }
 
     pub fn generate_digsite(&self, voxels: &mut Voxels) -> Result<(), Vec<GenError>> {
@@ -108,7 +102,7 @@ impl Digsite {
 
         let mut layer_noise = basic_noise();
         layer_noise.set_seed(1);
-        layer_noise.set_period(1.0);
+        layer_noise.set_period(50.0);
 
         // Set up layers
         for x in min.x..max.x {
@@ -136,29 +130,36 @@ impl Digsite {
 pub fn basic_noise() -> impl SampleableFor<Vec2, f32> + ScalableNoise + SeedableNoise {
     Noise {
         noise: Masked(
-            LayeredNoise::new(
-                NormedByDerivative::<f32, EuclideanLength, PeakDerivativeContribution>::default()
-                    .with_falloff(0.3),
-                Persistence(0.6),
-                FractalLayers {
-                    layer: Octave(BlendCellGradients::<
-                        SimplexGrid,
-                        SimplecticBlend,
-                        QuickGradients,
-                        true,
-                    >::default()),
-                    lacunarity: 1.8,
-                    amount: 8,
-                },
+            (
+                LayeredNoise::new(
+                    NormedByDerivative::<f32, EuclideanLength, PeakDerivativeContribution>::default()
+                        .with_falloff(0.3),
+                    Persistence(0.6),
+                    FractalLayers {
+                        layer: Octave(BlendCellGradients::<
+                            SimplexGrid,
+                            SimplecticBlend,
+                            QuickGradients,
+                            true,
+                        >::default()),
+                        lacunarity: 1.8,
+                        amount: 8,
+                    },
+                ),
+                SNormToUNorm,
+                RemapCurve::<Lerped<f32>, f32, false>::from(Lerped {
+                    start: 20.0,
+                    end: 50.0,
+                }),
             ),
             (
                 MixCellGradients::<OrthoGrid, Smoothstep, QuickGradients>::default(),
                 SNormToUNorm,
-                /*Pow2,
+                Pow2,
                 RemapCurve::<Lerped<f32>, f32, false>::from(Lerped {
                     start: 0.5f32,
                     end: 1.0,
-                }),*/
+                }),
             ),
         ),
         ..default()
@@ -167,9 +168,9 @@ pub fn basic_noise() -> impl SampleableFor<Vec2, f32> + ScalableNoise + Seedable
     // Here's another one you can try:
     // Noise {
     //     noise: LayeredNoise::new(
-    //         NormedByDerivative::<f32, EuclideanLength, PeakDerivativeContribution>::default()
-    //             .with_falloff(0.3),
-    //         Persistence(0.6),
+    //         NormedByDerivative::<f32, EuclideanLength,
+    // PeakDerivativeContribution>::default()
+    // .with_falloff(0.3),         Persistence(0.6),
     //         FractalLayers {
     //             layer: Octave(MixCellGradients::<
     //                 OrthoGrid,

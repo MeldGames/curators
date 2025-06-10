@@ -132,7 +132,7 @@ pub fn update_binary_mesh(
             | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
 
         if collider_mesh.count_vertices() == 0 {
-            //warn!("no vertices in collider mesh");
+            // warn!("no vertices in collider mesh");
             continue;
         }
 

@@ -9,10 +9,10 @@ use iyes_perf_ui::prelude::*;
 pub mod camera;
 pub mod character;
 pub mod cursor;
-pub mod item;
 pub mod digsite;
-pub mod tool;
+pub mod item;
 pub mod ssao;
+pub mod tool;
 pub mod voxel;
 
 pub fn server(app: &mut App) {}
@@ -24,7 +24,7 @@ pub fn client(app: &mut App) {
 pub fn shared(app: &mut App) {
     app.add_plugins(bevy_enhanced_input::EnhancedInputPlugin)
         .add_plugins(PhysicsPlugins::default());
-    app.add_plugins(PhysicsDebugPlugin::default());
+    // app.add_plugins(PhysicsDebugPlugin::default());
     app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
 
