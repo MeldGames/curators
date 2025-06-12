@@ -143,6 +143,26 @@ impl Voxels {
         size
     }
 
+    pub fn cast_chunk_ray(
+        &self,
+        grid_transform: &GlobalTransform,
+        ray: Ray3d,
+        length: f32,
+        mut gizmos: Option<&mut Gizmos>,
+    ) -> Option<Hit> {
+        let inv_matrix = grid_transform.compute_matrix().inverse();
+        let Ok(local_direction) = Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3()))
+        else {
+            return None;
+        };
+        let local_origin = inv_matrix.transform_vector3(ray.origin);
+
+        let local_ray = Ray3d { origin: local_origin, direction: local_direction };
+
+        let volume = BoundingVolume3 { size: self.chunk_size() };
+        todo!();
+    }
+
     pub fn cast_ray(
         &self,
         grid_transform: &GlobalTransform,

@@ -23,6 +23,7 @@ pub fn send_test_digsite(mut writer: EventWriter<GenerateDigsite>) {
         digsite: Digsite {
             start: IVec3::new(0, 0, 0),
             end: IVec3::new(1000, 16, 1000),
+            //end: IVec3::new(128, 16, 62),
 
             layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
         },

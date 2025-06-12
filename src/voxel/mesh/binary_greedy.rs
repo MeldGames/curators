@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
 use binary_greedy_meshing as bgm;
+use bgm::Face;
 
 use super::UpdateVoxelMeshSet;
 use crate::voxel::{Voxel, VoxelChunk, Voxels};
@@ -25,7 +26,7 @@ pub struct BinaryGreedy;
 
 pub fn add_buffers(trigger: Trigger<OnAdd, BinaryGreedy>, mut commands: Commands) {
     info!("adding binary greedy meshing buffers");
-    commands.entity(trigger.target()).insert_if_new((Chunks::default(), VoxelsCollider(None)));
+    commands.entity(trigger.target()).insert_if_new((Visibility::Inherited, Chunks::default(), VoxelsCollider(None)));
 }
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
@@ -33,6 +34,9 @@ pub struct Chunks(HashMap<IVec3, Entity>);
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct VoxelsCollider(pub Option<Entity>);
+
+#[derive(Component, Debug, Default, Deref, DerefMut)]
+pub struct ChunkCollider(pub Option<Entity>);
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct ChunkMeshes(HashMap<Voxel, Entity>);
@@ -55,6 +59,7 @@ pub fn spawn_chunk_entities(
                     .spawn((
                         Name::new(format!("Chunk [{:?}]", chunk_pos)),
                         ChunkMeshes::default(),
+                        ChunkCollider::default(),
                         ChildOf(voxels_entity),
                         Transform {
                             translation: chunk_pos.as_vec3()
@@ -73,8 +78,8 @@ pub fn spawn_chunk_entities(
 
 pub fn update_binary_mesh(
     mut commands: Commands,
-    mut grids: Query<(Entity, &Voxels, &mut Chunks, &mut VoxelsCollider), Changed<Voxels>>,
-    mut chunk_mesh_entities: Query<&mut ChunkMeshes>,
+    mut grids: Query<(Entity, &Voxels, &mut Chunks), Changed<Voxels>>,
+    mut chunk_mesh_entities: Query<(&mut ChunkMeshes, &mut ChunkCollider)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -82,21 +87,22 @@ pub fn update_binary_mesh(
     mut mesher: Local<BgmMesher>,
     mut collider_mesh_buffer: Local<ColliderMesh>,
 ) {
-    for (voxels_entity, voxels, voxel_chunks, mut voxels_collider) in &mut grids {
-        collider_mesh_buffer.clear();
+    for (voxels_entity, voxels, voxel_chunks) in &mut grids {
+        // collider_mesh_buffer.clear();
 
         for (chunk_pos, chunk) in voxels.changed_chunk_iter() {
-            info!("chunk {:?} changed, updating binary mesh", chunk_pos);
-            let (render_meshes, mut collider_mesh) = chunk.generate_meshes(&mut mesher.0);
-            collider_mesh
+            //info!("chunk {:?} changed, updating binary mesh", chunk_pos);
+            let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
+            let mut collider_mesh = chunk.generate_collider_mesh(&mut mesher.0);
+            /*collider_mesh
                 .translate(chunk_pos.as_vec3() * crate::voxel::chunk::unpadded::SIZE as f32);
-            collider_mesh_buffer.combine(&collider_mesh);
+            collider_mesh_buffer.combine(&collider_mesh);*/
 
             let Some(chunk_entity) = voxel_chunks.get(&chunk_pos) else {
                 continue;
             };
 
-            let Ok(mut chunk_meshes) = chunk_mesh_entities.get_mut(*chunk_entity) else {
+            let Ok((mut chunk_meshes, mut chunk_collider)) = chunk_mesh_entities.get_mut(*chunk_entity) else {
                 continue;
             };
 
@@ -128,42 +134,43 @@ pub fn update_binary_mesh(
                     chunk_meshes.insert(voxel, id);
                 }
             }
-        }
 
-        let collider_mesh = collider_mesh_buffer.to_mesh();
+            let collider_mesh = collider_mesh.to_mesh();
 
-        let flags = TrimeshFlags::MERGE_DUPLICATE_VERTICES
-            | TrimeshFlags::FIX_INTERNAL_EDGES
-            | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
-            | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
+            let flags = TrimeshFlags::MERGE_DUPLICATE_VERTICES
+                | TrimeshFlags::FIX_INTERNAL_EDGES
+                | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
+                | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
 
-        if collider_mesh.count_vertices() == 0 {
-            // warn!("no vertices in collider mesh");
-            continue;
-        }
+            if collider_mesh.count_vertices() == 0 {
+                // warn!("no vertices in collider mesh");
+                continue;
+            }
 
-        let Some(mut new_collider) = Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
-        else {
-            info!("cannot create trimesh from mesh");
-            continue;
-        };
-        new_collider.set_scale(crate::voxel::GRID_SCALE, 32);
+            info!("generating new collider");
+            let Some(mut new_collider) = Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
+            else {
+                info!("cannot create trimesh from mesh");
+                continue;
+            };
+            new_collider.set_scale(crate::voxel::GRID_SCALE, 32);
 
-        if let Some(entity) = voxels_collider.0.clone() {
-            commands.entity(entity).insert(new_collider);
-        } else {
-            voxels_collider.0 = Some(
-                commands
-                    .spawn((
-                        Name::new("Voxels Collider"),
-                        new_collider,
-                        RigidBody::Static,
-                        CollisionMargin(0.05),
-                        Transform::from_translation(Vec3::splat(0.0)),
-                        ChildOf(voxels_entity),
-                    ))
-                    .id(),
-            );
+            if let Some(entity) = chunk_collider.0.clone() {
+                commands.entity(entity).insert(new_collider);
+            } else {
+                chunk_collider.0 = Some(
+                    commands
+                        .spawn((
+                            Name::new("Voxel Collider"),
+                            new_collider,
+                            RigidBody::Static,
+                            CollisionMargin(0.05),
+                            Transform::from_translation(Vec3::splat(0.0)),
+                            ChildOf(*chunk_entity),
+                        ))
+                        .id(),
+                );
+            }
         }
     }
 }
@@ -214,15 +221,75 @@ impl ColliderMesh {
 pub trait BinaryGreedyMeshing {
     /// Generates 1 mesh per voxel type (voxel id is the index) and 1 collider
     /// mesh with all collidable voxels combined.
-    fn generate_meshes(&self, mesher: &mut bgm::Mesher) -> (Vec<Option<Mesh>>, ColliderMesh);
+    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher) -> Vec<Option<Mesh>>;
+    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher) -> ColliderMesh;
+}
+
+pub fn pos_uvs(quad: &u64, face: Face) -> [([f32; 3], [f32; 2]); 4] {
+    let voxel_i = (quad >> 32) as usize;
+
+    // UV coordinates (0..64, 0..64)
+    let w = ((MASK_6 & (quad >> 18)) as u32) as f32;
+    let h = ((MASK_6 & (quad >> 24)) as u32) as f32;
+    let xyz = (MASK_XYZ & quad) as u32;
+    let x = (MASK_6 as u32 & xyz) as f32;
+    let y = (MASK_6 as u32 & (xyz >> 6)) as f32;
+    let z = (MASK_6 as u32 & (xyz >> 12)) as f32;
+
+    trait ArrAdd {
+        fn add(self, other: Self) -> Self;
+    }
+
+    impl ArrAdd for [f32; 3] {
+        fn add(self, other: Self) -> Self {
+            [self[0] + other[0], self[1] + other[1], self[2] + other[2]]
+        }
+    }
+
+    let pos_uvs: [([f32; 3], [f32; 2]); 4] = match face {
+        Face::Left => [
+            ([x, y, z], [h, w]),
+            ([x, y, z].add([0., 0., h]), [0., w]),
+            ([x, y, z].add([0., w, 0.]), [h, 0.]),
+            ([x, y, z].add([0., w, h]), [0., 0.]),
+        ],
+        Face::Down => [
+            ([x, y, z].add([-w, 0., h]), [w, h]),
+            ([x, y, z].add([-w, 0., 0.]), [w, 0.]),
+            ([x, y, z].add([0., 0., h]), [0., h]),
+            ([x, y, z], [0., 0.]),
+        ],
+        Face::Back => [
+            ([x, y, z], [w, h]),
+            ([x, y, z].add([0., h, 0.]), [w, 0.]),
+            ([x, y, z].add([w, 0., 0.]), [0., h]),
+            ([x, y, z].add([w, h, 0.]), [0., 0.]),
+        ],
+        Face::Right => [
+            ([x, y, z], [0., 0.]),
+            ([x, y, z].add([0., 0., h]), [h, 0.]),
+            ([x, y, z].add([0., -w, 0.]), [0., w]),
+            ([x, y, z].add([0., -w, h]), [h, w]),
+        ],
+        Face::Up => [
+            ([x, y, z].add([w, 0., h]), [w, h]),
+            ([x, y, z].add([w, 0., 0.]), [w, 0.]),
+            ([x, y, z].add([0., 0., h]), [0., h]),
+            ([x, y, z], [0., 0.]),
+        ],
+        Face::Front => [
+            ([x, y, z].add([-w, h, 0.]), [0., 0.]),
+            ([x, y, z].add([-w, 0., 0.]), [0., h]),
+            ([x, y, z].add([0., h, 0.]), [w, 0.]),
+            ([x, y, z], [w, h]),
+        ],
+    };
+
+    pos_uvs
 }
 
 impl BinaryGreedyMeshing for VoxelChunk {
-    fn generate_meshes(&self, mesher: &mut bgm::Mesher) -> (Vec<Option<Mesh>>, ColliderMesh) {
-        use bgm::Face;
-
-        let mut collider_mesh = ColliderMesh::default();
-
+    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher) -> Vec<Option<Mesh>> {
         mesher.clear();
         mesher.fast_mesh(&self.voxels, &self.opaque_mask, &self.transparent_mask);
 
@@ -233,90 +300,24 @@ impl BinaryGreedyMeshing for VoxelChunk {
 
         let mut positions = vec![Vec::new(); max_id + 1];
         let mut normals = vec![Vec::new(); max_id + 1];
-        let mut indices = vec![Vec::new(); max_id + 1];
         let mut uvs = vec![Vec::new(); max_id + 1];
         for (face_n, quads) in mesher.quads.iter().enumerate() {
             let face: Face = (face_n as u8).into();
             let n = face.n();
             for quad in quads {
                 let voxel_i = (quad >> 32) as usize;
-                // UV coordinates (0..64, 0..64)
-                let w = ((MASK_6 & (quad >> 18)) as u32) as f32;
-                let h = ((MASK_6 & (quad >> 24)) as u32) as f32;
-                let xyz = (MASK_XYZ & quad) as u32;
-                let x = (MASK_6 as u32 & xyz) as f32;
-                let y = (MASK_6 as u32 & (xyz >> 6)) as f32;
-                let z = (MASK_6 as u32 & (xyz >> 12)) as f32;
-
-                trait ArrAdd {
-                    fn add(self, other: Self) -> Self;
-                }
-
-                impl ArrAdd for [f32; 3] {
-                    fn add(self, other: Self) -> Self {
-                        [self[0] + other[0], self[1] + other[1], self[2] + other[2]]
-                    }
-                }
-
-                let pos_uvs: [([f32; 3], [f32; 2]); 4] = match face {
-                    Face::Left => [
-                        ([x, y, z], [h, w]),
-                        ([x, y, z].add([0., 0., h]), [0., w]),
-                        ([x, y, z].add([0., w, 0.]), [h, 0.]),
-                        ([x, y, z].add([0., w, h]), [0., 0.]),
-                    ],
-                    Face::Down => [
-                        ([x, y, z].add([-w, 0., h]), [w, h]),
-                        ([x, y, z].add([-w, 0., 0.]), [w, 0.]),
-                        ([x, y, z].add([0., 0., h]), [0., h]),
-                        ([x, y, z], [0., 0.]),
-                    ],
-                    Face::Back => [
-                        ([x, y, z], [w, h]),
-                        ([x, y, z].add([0., h, 0.]), [w, 0.]),
-                        ([x, y, z].add([w, 0., 0.]), [0., h]),
-                        ([x, y, z].add([w, h, 0.]), [0., 0.]),
-                    ],
-                    Face::Right => [
-                        ([x, y, z], [0., 0.]),
-                        ([x, y, z].add([0., 0., h]), [h, 0.]),
-                        ([x, y, z].add([0., -w, 0.]), [0., w]),
-                        ([x, y, z].add([0., -w, h]), [h, w]),
-                    ],
-                    Face::Up => [
-                        ([x, y, z].add([w, 0., h]), [w, h]),
-                        ([x, y, z].add([w, 0., 0.]), [w, 0.]),
-                        ([x, y, z].add([0., 0., h]), [0., h]),
-                        ([x, y, z], [0., 0.]),
-                    ],
-                    Face::Front => [
-                        ([x, y, z].add([-w, h, 0.]), [0., 0.]),
-                        ([x, y, z].add([-w, 0., 0.]), [0., h]),
-                        ([x, y, z].add([0., h, 0.]), [w, 0.]),
-                        ([x, y, z], [w, h]),
-                    ],
-                };
-
-                for (pos, uv) in pos_uvs {
+                for (pos, uv) in pos_uvs(quad, face) {
                     positions[voxel_i].push(pos);
                     normals[voxel_i].push(n.clone());
                     uvs[voxel_i].push(uv);
                 }
             }
         }
-        for i in 0..positions.len() {
-            indices[i] = bgm::indices(positions[i].len() / 4);
-        }
 
         let mut meshes = vec![None; max_id + 1];
         for voxel in Voxel::iter() {
             let i = voxel.id() as usize;
             if voxel.filling() && positions[i].len() > 0 {
-                if voxel.collidable() {
-                    collider_mesh.positions.extend(positions[i].clone());
-                    collider_mesh.normals.extend(normals[i].clone());
-                }
-
                 let mut mesh =
                     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
                 mesh.insert_attribute(
@@ -331,12 +332,38 @@ impl BinaryGreedyMeshing for VoxelChunk {
                     Mesh::ATTRIBUTE_UV_0,
                     VertexAttributeValues::Float32x2(uvs[i].clone()),
                 );
-                mesh.insert_indices(Indices::U32(indices[i].clone()));
+                mesh.insert_indices(Indices::U32(bgm::indices(positions[i].len() / 4)));
 
                 meshes[i] = Some(mesh);
             }
         }
 
-        (meshes, collider_mesh)
+        meshes
+    }
+    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher) -> ColliderMesh {
+        let mut collide_voxels= vec![0u16; bgm::CS_P3].into_boxed_slice();
+        for (index, voxel) in self.voxels.iter().enumerate() {
+            if Voxel::from_id(*voxel).unwrap().collidable() {
+                collide_voxels[index] = 1;
+            }
+        }
+
+        let mut collider_mesh = ColliderMesh::default();
+        mesher.clear();
+        mesher.fast_mesh(&*collide_voxels, &self.opaque_mask, &self.transparent_mask);
+
+        for (face_n, quads) in mesher.quads.iter().enumerate() {
+            let face: Face = (face_n as u8).into();
+            let n = face.n();
+            for quad in quads {
+                let voxel_i = (quad >> 32) as usize;
+                for (pos, uv) in pos_uvs(quad, face) {
+                    collider_mesh.positions.push(pos);
+                    collider_mesh.normals.push(n.clone());
+                }
+            }
+        }
+
+        collider_mesh
     }
 }
