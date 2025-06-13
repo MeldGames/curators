@@ -90,6 +90,11 @@ pub fn update_binary_mesh(
     for (voxels_entity, voxels, voxel_chunks) in &mut grids {
         // collider_mesh_buffer.clear();
 
+        let count = voxels.changed_chunk_iter().count();
+        if count > 0 {
+            info!("updating {} chunks render/collider meshes", count);
+        }
+
         for (chunk_pos, chunk) in voxels.changed_chunk_iter() {
             //info!("chunk {:?} changed, updating binary mesh", chunk_pos);
             let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
@@ -147,7 +152,6 @@ pub fn update_binary_mesh(
                 continue;
             }
 
-            info!("generating new collider");
             let Some(mut new_collider) = Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
             else {
                 info!("cannot create trimesh from mesh");

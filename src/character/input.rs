@@ -92,7 +92,7 @@ pub fn dig_target(
                 digsite_transform,
                 Ray3d { origin: global_transform.translation(), direction: Dir3::NEG_Y },
                 f32::INFINITY,
-                None,
+                &mut None,
             ) {
                 // TODO: Character height + X blocks
                 let collider_aabb = collider.aabb(Vec3::ZERO, Quat::IDENTITY);

@@ -42,7 +42,7 @@ pub fn draw_cursor(
         info!("No voxels found");
         return;
     };
-    let hit = voxels.cast_ray(chunk_transform, ray, 1_000.0, Some(&mut gizmos));
+    let hit = voxels.cast_ray(chunk_transform, ray, 1_000.0, &mut Some(&mut gizmos));
 
     // Draw a circle just above the ground plane at that position.
     if let Some(hit) = hit {
