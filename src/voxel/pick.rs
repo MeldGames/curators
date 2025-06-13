@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 use crate::voxel::{Voxel, Voxels};
 
@@ -14,7 +14,8 @@ pub fn draw_cursor(
     windows: Query<&Window>,
 
     mut voxels: Query<(&GlobalTransform, &mut Voxels)>,
-    input: Res<ButtonInput<MouseButton>>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    key_input: Res<ButtonInput<KeyCode>>,
     mut gizmos: Gizmos,
 ) {
     let Some((camera, camera_transform)) = camera_query.iter().find(|(camera, _)| camera.is_active)
@@ -70,11 +71,11 @@ pub fn draw_cursor(
         // Color::srgb(1.0, 0.0, 0.0),
         // );
 
-        if input.just_pressed(MouseButton::Right) {
+        if mouse_input.just_pressed(MouseButton::Right) || (mouse_input.pressed(MouseButton::Right) && key_input.pressed(KeyCode::ShiftLeft)) {
             // Place block
             let normal_block: [i32; 3] = (point_ivec + normal_ivec).into();
             voxels.set_voxel(normal_block.into(), Voxel::Dirt);
-        } else if input.just_pressed(MouseButton::Left) {
+        } else if mouse_input.just_pressed(MouseButton::Left) || (mouse_input.pressed(MouseButton::Left) && key_input.pressed(KeyCode::ShiftLeft)) {
             // Remove block
             let break_point = point_ivec;
             if let Some(voxel) = voxels.get_voxel(break_point.into()) {
