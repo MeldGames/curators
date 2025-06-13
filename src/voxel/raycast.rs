@@ -22,8 +22,8 @@ impl BoundingVolume3 {
 #[derive(Debug, Clone, Copy)]
 pub struct Hit {
     pub distance: f32,
-    pub voxel: (i32, i32, i32),
-    pub normal: Option<(i32, i32, i32)>,
+    pub voxel: IVec3,
+    pub normal: Option<IVec3>,
     pub t_max: Vec3,
 }
 

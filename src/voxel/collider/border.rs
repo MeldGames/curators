@@ -69,7 +69,11 @@ pub fn rebuild_borders(
     commands.spawn((
         Border,
         Name::new("Ground catch"),
-        Transform::from_xyz(voxels_bounds.x / 2.0, -GROUND_CATCH_HEIGHT / 2.0, voxels_bounds.z / 2.0),
+        Transform::from_xyz(
+            voxels_bounds.x / 2.0,
+            -GROUND_CATCH_HEIGHT / 2.0,
+            voxels_bounds.z / 2.0,
+        ),
         from_lengths(voxels_bounds.x, GROUND_CATCH_HEIGHT, voxels_bounds.z),
         ground_material.clone(),
     ));

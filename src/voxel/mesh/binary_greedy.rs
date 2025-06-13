@@ -4,8 +4,8 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
-use binary_greedy_meshing as bgm;
 use bgm::Face;
+use binary_greedy_meshing as bgm;
 
 use super::UpdateVoxelMeshSet;
 use crate::voxel::{Voxel, VoxelChunk, Voxels};
@@ -26,7 +26,11 @@ pub struct BinaryGreedy;
 
 pub fn add_buffers(trigger: Trigger<OnAdd, BinaryGreedy>, mut commands: Commands) {
     info!("adding binary greedy meshing buffers");
-    commands.entity(trigger.target()).insert_if_new((Visibility::Inherited, Chunks::default(), VoxelsCollider(None)));
+    commands.entity(trigger.target()).insert_if_new((
+        Visibility::Inherited,
+        Chunks::default(),
+        VoxelsCollider(None),
+    ));
 }
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
@@ -344,8 +348,9 @@ impl BinaryGreedyMeshing for VoxelChunk {
 
         meshes
     }
+
     fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher) -> ColliderMesh {
-        let mut collide_voxels= vec![0u16; bgm::CS_P3].into_boxed_slice();
+        let mut collide_voxels = vec![0u16; bgm::CS_P3].into_boxed_slice();
         for (index, voxel) in self.voxels.iter().enumerate() {
             if Voxel::from_id(*voxel).unwrap().collidable() {
                 collide_voxels[index] = 1;

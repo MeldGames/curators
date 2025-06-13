@@ -80,7 +80,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
 }
 
 pub fn clear_changed_chunks(mut voxels: Query<&mut Voxels>) {
-    let Ok(mut voxels) = voxels.single_mut() else { 
+    let Ok(mut voxels) = voxels.single_mut() else {
         return;
     };
 
