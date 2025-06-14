@@ -214,7 +214,7 @@ impl Voxels {
                 let SCALED_CHUNK_SIZE: Vec3 = CHUNK_SIZE * crate::voxel::GRID_SCALE;
 
                 let pos = chunk_hit.voxel.as_vec3();
-                info!("hit chunk: {:?}", chunk_hit.voxel);
+                // info!("hit chunk: {:?}", chunk_hit.voxel);
                 if let Some(gizmos) = gizmos {
                     gizmos.cuboid(
                         Transform {
@@ -230,14 +230,12 @@ impl Voxels {
             let chunk_pos = chunk_hit.voxel.as_vec3() * CHUNK_SIZE;
             let chunk_pos_transform = Transform { translation: chunk_pos, ..default() };
             let chunk_transform = grid_transform.mul_transform(chunk_pos_transform);
-            info!("chunk transform: {:?}", chunk_transform);
 
             self.local_voxel_ray_iter(chunk_transform, ray, length).map(move |mut voxel_hit| {
                 // Translate this to global space
                 let global_voxel_hit =
                     chunk_hit.voxel * IVec3::splat(unpadded::SIZE as i32) + voxel_hit.voxel;
                 voxel_hit.voxel = global_voxel_hit;
-                info!("global voxel hit: {:?}", global_voxel_hit);
                 voxel_hit
             })
         })
@@ -251,7 +249,7 @@ impl Voxels {
         mut gizmos: &mut Option<&mut Gizmos>,
     ) -> Option<Hit> {
         for hit in self.ray_iter(grid_transform, ray, length, &mut *gizmos) {
-            info!("hit: {hit:?}");
+            // info!("hit: {hit:?}");
             if let Some(voxel) = self.get_voxel(hit.voxel) {
                 if voxel.pickable() {
                     return Some(hit);

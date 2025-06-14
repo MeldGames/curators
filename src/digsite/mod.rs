@@ -22,7 +22,7 @@ pub fn send_test_digsite(mut writer: EventWriter<GenerateDigsite>) {
     writer.send(GenerateDigsite {
         digsite: Digsite {
             start: IVec3::new(0, 0, 0),
-            end: IVec3::new(1000, 16, 1000),
+            end: IVec3::new(512, 32, 512),
             // end: IVec3::new(128, 16, 62),
             layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
         },
@@ -102,7 +102,7 @@ impl Digsite {
 
         let mut layer_noise = basic_noise();
         layer_noise.set_seed(1);
-        layer_noise.set_period(50.0);
+        layer_noise.set_period(100.0);
 
         // Set up layers
         for x in min.x..max.x {
@@ -152,7 +152,7 @@ pub fn basic_noise() -> impl SampleableFor<Vec2, f32> + ScalableNoise + Seedable
                 SNormToUNorm,
                 RemapCurve::<Lerped<f32>, f32, false>::from(Lerped {
                     start: 0.0,
-                    end: 16.0,
+                    end: 32.0,
                 }),
             ),
             (

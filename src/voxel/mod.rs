@@ -15,7 +15,7 @@ pub mod pick;
 pub mod raycast;
 pub mod voxel;
 
-pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
+pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.1, 1.0);
 // pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
 
 #[derive(Default)]
