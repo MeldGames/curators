@@ -11,7 +11,7 @@ use iyes_perf_ui::prelude::*;
 pub mod camera;
 pub mod character;
 pub mod cursor;
-pub mod digsite;
+pub mod map;
 pub mod item;
 pub mod ssao;
 pub mod tool;
@@ -34,7 +34,7 @@ pub fn shared(app: &mut App) {
 
     app.add_plugins(voxel::VoxelPlugin::default())
         .add_plugins(item::plugin)
-        .add_plugins(digsite::plugin)
+        .add_plugins(map::plugin)
         .add_plugins(EdgeDetectionPlugin {
             // If you wish to apply Smaa anti-aliasing after edge detection,
             // please ensure that the rendering order of [`EdgeDetectionNode`] is set before

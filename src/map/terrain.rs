@@ -4,47 +4,36 @@ use noiz::math_noise::Pow2;
 use noiz::prelude::*;
 use thiserror::Error;
 
+use crate::map::{Aabb, MapParams, WorldGenSet};
 use crate::voxel::{Voxel, Voxels};
 
 pub fn plugin(app: &mut App) {
-    app.add_event::<GenerateDigsite>();
-
-    app.add_systems(Update, gen_digsite);
-    app.add_systems(Startup, send_test_digsite);
+    info!("terrain plugin !!!!!");
+    app.add_systems(PreUpdate, gen_terrain.in_set(WorldGenSet::Terrain));
 }
 
-#[derive(Event, Debug)]
-pub struct GenerateDigsite {
-    pub digsite: Digsite,
-}
+pub fn gen_terrain(
+    mut map: Query<&mut MapParams, Changed<MapParams>>,
+    mut voxels: Query<&mut Voxels>,
+) {
+    let Ok(mut map) = map.single_mut() else {
+        return;
+    };
 
-pub fn send_test_digsite(mut writer: EventWriter<GenerateDigsite>) {
-    writer.send(GenerateDigsite {
-        digsite: Digsite {
-            start: IVec3::new(0, 0, 0),
-            end: IVec3::new(512, 32, 512),
-            // end: IVec3::new(128, 16, 62),
-            layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
-        },
-    });
-}
-
-pub fn gen_digsite(mut requests: EventReader<GenerateDigsite>, mut voxels: Query<&mut Voxels>) {
     let Ok(mut voxels) = voxels.single_mut() else {
         return;
     };
 
-    for request in requests.read() {
-        info!("request: {:?}", request);
-        if let Err(error) = request.digsite.generate_digsite(&mut voxels) {
-            error!("Digsite generation: {:?}", error);
-        }
+    if let Err(errs) = map.terrain.apply(&mut voxels) {
+        error!("failed to generate terrain: {:?}", errs);
+    } else {
+        info!("generated terrain: {:?}", map.terrain);
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Layers {
-    layers: Vec<(f32, Voxel)>, // 0..1 range of floats
+    pub layers: Vec<(f32, Voxel)>, // 0..1 range of floats
 }
 
 impl Layers {
@@ -59,11 +48,10 @@ impl Layers {
     }
 }
 
-#[derive(Component, Debug)]
-pub struct Digsite {
-    /// Bounds of the digsite in the global voxel grid.
-    pub start: IVec3,
-    pub end: IVec3,
+#[derive(Event, Clone, Debug)]
+pub struct TerrainParams {
+    /// Bounds of the terrain in the global voxel grid.
+    pub aabb: Aabb,
 
     /// Layers starting from bottom up
     /// Second param is how many blocks thick the layer is.
@@ -76,29 +64,12 @@ pub enum GenError {
     LayerThickness { layer_thickness: i32, bounds_height: i32 },
 }
 
-impl Digsite {
-    pub fn bounds(&self) -> (IVec3, IVec3) {
-        (self.start.min(self.end), self.start.max(self.end))
-    }
-
-    pub fn validate(&self) -> Result<(), Vec<GenError>> {
-        let mut errors = Vec::new();
-
-        // let layer_thickness_sum = self.layers.iter().map(|(_, thick)| thick).sum();
-        // let bounds_height = (self.end.y - self.start.y).abs();
-        //
-        // if layer_thickness_sum >= bounds_height {
-        // errors.push(GenError::LayerThickness { bounds_height, layer_thickens });
-        // }
-
-        if errors.len() > 0 { Err(errors) } else { Ok(()) }
-    }
-
-    pub fn generate_digsite(&self, voxels: &mut Voxels) -> Result<(), Vec<GenError>> {
+impl TerrainParams {
+    pub fn apply(&self, voxels: &mut Voxels) -> Result<(), Vec<GenError>> {
         info!("generating digsite !!!");
-        self.validate()?;
 
-        let (min, max) = self.bounds();
+        let min = self.aabb.min;
+        let max = self.aabb.max;
 
         let mut layer_noise = basic_noise();
         layer_noise.set_seed(1);

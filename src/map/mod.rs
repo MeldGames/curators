@@ -1,0 +1,90 @@
+use bevy::ecs::schedule::SystemSet;
+use bevy::prelude::*;
+
+pub mod aabb;
+pub mod object;
+pub mod terrain;
+
+pub use aabb::Aabb;
+pub use object::GenerateObjects;
+pub use terrain::{Layers, TerrainParams};
+
+use crate::voxel::Voxel;
+
+pub fn plugin(app: &mut App) {
+    app.configure_sets(
+        PreUpdate,
+        (
+            WorldGenSet::Prepare,
+            WorldGenSet::Terrain,
+            WorldGenSet::Erosion,
+            WorldGenSet::Objects,
+            WorldGenSet::SurfaceDetails,
+            WorldGenSet::Finalize,
+        )
+            .chain(),
+    );
+
+    app.add_plugins(terrain::plugin);
+    app.add_plugins(object::plugin);
+
+    app.add_systems(Startup, create_basic_map);
+}
+
+/// Stages of world generation.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum WorldGenSet {
+    /// Sets up the voxel grid or chunk layout.
+    Prepare,
+    /// Generates base terrain heightmap or 3D features.
+    /// See [`terrain`].
+    Terrain,
+    /// Generates extra mountains.
+    Mountains,
+    /// Carves out caves or erosion layers.
+    Erosion,
+    /// Spawns fossils, artifacts, and other buried items.
+    /// See [`objects`].
+    Objects,
+    /// Spawns vegetation, rocks, and surface features.
+    SurfaceDetails,
+    /// Finalizes anything needed before the game starts.
+    Finalize,
+}
+
+pub fn create_basic_map(mut commands: Commands) {
+    commands.spawn(
+        (MapParams {
+            terrain: TerrainParams {
+                aabb: Aabb::from_size(IVec3::ZERO, IVec3::new(512, 32, 512)),
+                layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
+            },
+            digsite: DigsiteParams { count: 1 },
+        }),
+    );
+}
+
+pub struct Generated;
+
+#[derive(Component, Clone, Debug)]
+pub struct MapParams {
+    pub terrain: TerrainParams,
+    // pub mountains: Vec<Mountain>,
+    pub digsite: DigsiteParams, // How many digsites to generate
+}
+
+#[derive(Event, Clone, Debug)]
+pub struct DigsiteParams {
+    pub count: usize, // how many digsites to create.
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct Digsite {
+    aabbs: Vec<Aabb>,
+}
+
+impl Digsite {
+    pub fn aabbs(&self) -> &[Aabb] {
+        &self.aabbs
+    }
+}
