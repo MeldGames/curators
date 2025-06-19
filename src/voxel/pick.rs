@@ -1,21 +1,32 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
-use crate::voxel::{Voxel, Voxels};
+use crate::voxel::{raycast::{Hit, VoxelHit}, Voxel, Voxels};
 
 pub struct VoxelPickPlugin;
 impl Plugin for VoxelPickPlugin {
     fn build(&self, app: &mut App) {
+        app.insert_resource(CursorVoxel(None));
+        app.add_systems(First, cursor_voxel);
         app.add_systems(Update, draw_cursor);
     }
 }
 
-pub fn draw_cursor(
+#[derive(Resource, Debug, Clone, Deref)]
+pub struct CursorVoxel(Option<VoxelHit>);
+
+impl CursorVoxel {
+    pub fn hit(&self) -> &Option<VoxelHit> {
+        &self.0
+    }
+}
+
+pub fn cursor_voxel(
     camera_query: Query<(&Camera, &GlobalTransform)>,
     windows: Query<&Window>,
 
-    mut voxels: Query<(&GlobalTransform, &mut Voxels)>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-    key_input: Res<ButtonInput<KeyCode>>,
+    mut voxels: Query<(&GlobalTransform, &Voxels)>,
+
+    mut cursor_voxel: ResMut<CursorVoxel>,
     mut gizmos: Gizmos,
 ) {
     let Some((camera, camera_transform)) = camera_query.iter().find(|(camera, _)| camera.is_active)
@@ -31,7 +42,6 @@ pub fn draw_cursor(
 
     // Calculate a ray pointing from the camera into the world based on the cursor's
     // position.
-
     let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
         return;
     };
@@ -39,14 +49,30 @@ pub fn draw_cursor(
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
-    let Ok((chunk_transform, mut voxels)) = voxels.single_mut() else {
+    let Ok((voxels_transform, mut voxels)) = voxels.single_mut() else {
         info!("No voxels found");
         return;
     };
-    let hit = voxels.cast_ray(chunk_transform, ray, 1_000.0, &mut Some(&mut gizmos));
+    let hit = voxels.cast_ray(voxels_transform, ray, 1_000.0, &mut Some(&mut gizmos));
+    info!("hit: {hit:?}");
+    cursor_voxel.0 = hit;
+}
+
+pub fn draw_cursor(
+    cursor_voxel: Res<CursorVoxel>,
+    mut voxels: Query<(&GlobalTransform, &mut Voxels)>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut gizmos: Gizmos,
+) {
+    // Calculate if and where the ray is hitting a voxel.
+    let Ok((voxel_transform, mut voxels)) = voxels.single_mut() else {
+        info!("No voxels found");
+        return;
+    };
 
     // Draw a circle just above the ground plane at that position.
-    if let Some(hit) = hit {
+    if let Some(hit) = cursor_voxel.hit() {
         // let direct_point = ray.origin + hit.distance_to_chunk * chunk_SCALE;
 
         // info!("hit: {:?}", hit);
@@ -57,7 +83,7 @@ pub fn draw_cursor(
         let normal: Vec3 = normal_ivec.as_vec3();
 
         let point_with_normal = point + normal * 0.501;
-        let world_space_point = chunk_transform.transform_point(point_with_normal);
+        let world_space_point = voxel_transform.transform_point(point_with_normal);
 
         gizmos.circle(
             Isometry3d::new(world_space_point, Quat::from_rotation_arc(Vec3::Z, normal)),

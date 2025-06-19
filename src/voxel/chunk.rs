@@ -3,7 +3,7 @@ use bevy::prelude::*;
 
 use super::raycast::Hit;
 use crate::voxel::Voxel;
-use crate::voxel::raycast::{BoundingVolume3, VoxelRay3Iterator};
+use crate::voxel::raycast::{BoundingVolume3, VoxelHit, VoxelRay3Iterator};
 
 pub type Scalar = i32;
 
@@ -147,6 +147,7 @@ impl Voxels {
         max - min
     }
 
+    /// Raycasting in chunk space.
     pub fn chunk_ray_iter(
         &self,
         grid_transform: &GlobalTransform,
@@ -199,13 +200,14 @@ impl Voxels {
         })
     }
 
+    /// Raycasting in chunk space.
     pub fn ray_iter(
         &self,
         grid_transform: &GlobalTransform,
         ray: Ray3d,
         length: f32,
         mut gizmos: &mut Option<&mut Gizmos>,
-    ) -> impl Iterator<Item = Hit> {
+    ) -> impl Iterator<Item = VoxelHit> {
         self.chunk_ray_iter(grid_transform, ray, length).flat_map(move |chunk_hit| {
             const CHUNK_SIZE: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
@@ -232,11 +234,18 @@ impl Voxels {
             let chunk_transform = grid_transform.mul_transform(chunk_pos_transform);
 
             self.local_voxel_ray_iter(chunk_transform, ray, length).map(move |mut voxel_hit| {
-                // Translate this to global space
-                let global_voxel_hit =
+                // Translate this to voxel space
+                let voxel_space_hit =
                     chunk_hit.voxel * IVec3::splat(unpadded::SIZE as i32) + voxel_hit.voxel;
-                voxel_hit.voxel = global_voxel_hit;
-                voxel_hit
+                let world_space_hit = ray.origin + ray.direction * voxel_hit.distance;
+                VoxelHit {
+                    chunk: chunk_hit.voxel,
+                    voxel: voxel_space_hit,
+                    world_space: world_space_hit,
+
+                    distance: voxel_hit.distance,
+                    normal: voxel_hit.normal,
+                }
             })
         })
     }
@@ -247,7 +256,7 @@ impl Voxels {
         ray: Ray3d,
         length: f32,
         mut gizmos: &mut Option<&mut Gizmos>,
-    ) -> Option<Hit> {
+    ) -> Option<VoxelHit> {
         for hit in self.ray_iter(grid_transform, ray, length, &mut *gizmos) {
             // info!("hit: {hit:?}");
             if let Some(voxel) = self.get_voxel(hit.voxel) {

@@ -4,7 +4,7 @@ use noiz::math_noise::Pow2;
 use noiz::prelude::*;
 use thiserror::Error;
 
-use crate::map::{Aabb, MapParams, WorldGenSet};
+use crate::map::{VoxelAabb, MapParams, WorldGenSet};
 use crate::voxel::{Voxel, Voxels};
 
 pub fn plugin(app: &mut App) {
@@ -51,7 +51,7 @@ impl Layers {
 #[derive(Event, Clone, Debug)]
 pub struct TerrainParams {
     /// Bounds of the terrain in the global voxel grid.
-    pub aabb: Aabb,
+    pub aabb: VoxelAabb,
 
     /// Layers starting from bottom up
     /// Second param is how many blocks thick the layer is.

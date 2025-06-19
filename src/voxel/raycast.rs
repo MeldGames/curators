@@ -20,6 +20,16 @@ impl BoundingVolume3 {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub struct VoxelHit {
+    pub chunk: IVec3,
+    pub voxel: IVec3,
+    pub world_space: Vec3,
+
+    pub distance: f32,
+    pub normal: Option<IVec3>,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct Hit {
     pub distance: f32,
     pub voxel: IVec3,

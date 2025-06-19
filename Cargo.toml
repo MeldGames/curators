@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 # Bevy
 bevy = { version = "0.16.1", features = ["experimental_pbr_pcss"] }
+bevy_math = { version = "0.16.1", features = ["approx"] }
 #bevy = { version = "0.16.0", features = ["dynamic_linking", "trace_tracy"] }
 # Set max log levels. This helps avoid unwanted low-severity log spam, which can affect performance.
 log = { version = "0.4", features = [
@@ -45,6 +46,7 @@ num-traits = "0.2"
 num-derive = "0.4"
 dashmap = "6.1.0"
 thiserror = "2"
+approx = "0.5.1"
 
 [patch.crates-io]
 #bevy_enhanced_input = { git = "https://github.com/projectharmonia/bevy_enhanced_input", rev = "21ddc08755" }

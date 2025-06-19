@@ -1,10 +1,12 @@
 use bevy::ecs::schedule::SystemSet;
 use bevy::prelude::*;
 
+pub mod voxel_aabb;
 pub mod aabb;
 pub mod object;
 pub mod terrain;
 
+pub use voxel_aabb::VoxelAabb;
 pub use aabb::Aabb;
 pub use object::GenerateObjects;
 pub use terrain::{Layers, TerrainParams};
@@ -14,6 +16,19 @@ use crate::voxel::Voxel;
 pub fn plugin(app: &mut App) {
     app.configure_sets(
         PreUpdate,
+        (
+            WorldGenSet::Prepare,
+            WorldGenSet::Terrain,
+            WorldGenSet::Erosion,
+            WorldGenSet::Objects,
+            WorldGenSet::SurfaceDetails,
+            WorldGenSet::Finalize,
+        )
+            .chain(),
+    );
+
+    app.configure_sets(
+        Startup,
         (
             WorldGenSet::Prepare,
             WorldGenSet::Terrain,
@@ -56,7 +71,7 @@ pub fn create_basic_map(mut commands: Commands) {
     commands.spawn(
         (MapParams {
             terrain: TerrainParams {
-                aabb: Aabb::from_size(IVec3::ZERO, IVec3::new(512, 32, 512)),
+                aabb: VoxelAabb::from_size(IVec3::ZERO, IVec3::new(512, 32, 512)),
                 layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
             },
             digsite: DigsiteParams { count: 1 },
@@ -80,11 +95,33 @@ pub struct DigsiteParams {
 
 #[derive(Component, Debug, Clone)]
 pub struct Digsite {
-    aabbs: Vec<Aabb>,
+    voxel_aabbs: Vec<VoxelAabb>,
 }
 
 impl Digsite {
-    pub fn aabbs(&self) -> &[Aabb] {
-        &self.aabbs
+    pub fn voxel_aabbs(&self) -> &[VoxelAabb] {
+        &self.voxel_aabbs
+    }
+
+    pub fn remove_aabb_overlaps(&mut self) {
+        let mut result: Vec<VoxelAabb> = Vec::new();
+        
+        // Remove overlaps among the list
+        for current in self.voxel_aabbs.drain(..) {
+            let mut fragments = vec![current];
+    
+            // Remove overlaps with all boxes already in result
+            for existing in &result {
+                fragments = fragments
+                    .into_iter()
+                    .flat_map(|frag| frag.subtract(existing))
+                    .collect();
+            }
+    
+            // Add non-overlapping fragments to result
+            result.extend(fragments);
+        }
+
+        self.voxel_aabbs = result;
     }
 }
