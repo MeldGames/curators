@@ -54,7 +54,7 @@ pub fn cursor_voxel(
         return;
     };
     let hit = voxels.cast_ray(voxels_transform, ray, 1_000.0, &mut Some(&mut gizmos));
-    info!("hit: {hit:?}");
+    info!("cursor_voxel hit: {hit:?}");
     cursor_voxel.0 = hit;
 }
 

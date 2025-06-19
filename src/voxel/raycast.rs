@@ -5,7 +5,8 @@ use bevy::prelude::*;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct BoundingVolume3 {
-    pub size: IVec3,
+    pub min: IVec3,
+    pub max: IVec3,
 }
 
 impl BoundingVolume3 {
@@ -15,7 +16,11 @@ impl BoundingVolume3 {
 
     #[inline(always)]
     pub(crate) fn contains_point(&self, point: IVec3) -> bool {
-        point.cmpge(IVec3::ZERO).all() && point.cmplt(self.size).all()
+        point.cmpge(self.min).all() && point.cmple(self.max).all()
+    }
+
+    pub fn size(&self) -> IVec3 {
+        self.max - self.min + IVec3::ONE
     }
 }
 
@@ -84,7 +89,7 @@ impl VoxelRay3Iterator {
 
         // Max distance we can travel. This is either the ray length, or the current `t`
         // plus the corner to corner length of the voxel volume.
-        let max_d = f32::min(ray_length, t + IVec3::from(volume.size).as_vec3().length() + 2.0);
+        let max_d = f32::min(ray_length, t + volume.size().as_vec3().length() + 2.0);
 
         // The starting voxel for the raycast.
         let i = p.floor().as_ivec3();
@@ -182,8 +187,8 @@ fn test_aabb_of_chunk(
     direction: Vec3,
     distance: f32,
 ) -> Option<Vec3> {
-    let min = Vec3::ZERO;
-    let max = IVec3::from(volume.size).as_vec3();
+    let min = volume.min.as_vec3();
+    let max = volume.max.as_vec3();
     let mut t = Vec3::ZERO;
 
     for i in 0..3 {
