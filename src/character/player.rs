@@ -81,7 +81,7 @@ pub fn spawn_player(
         Tonemapping::default(),
         Atmosphere::EARTH,
         // Exposure::SUNLIGHT,
-        //Bloom::NATURAL,
+        // Bloom::NATURAL,
         /*bevy::core_pipeline::auto_exposure::AutoExposure {
             range: -3.0..=3.0,
             // range: -9.0..=1.0,
@@ -91,7 +91,7 @@ pub fn spawn_player(
             // metering_mask: metering_mask.clone(),
             ..default()
         },*/
-        //ShadowFilteringMethod::Temporal,
+        ShadowFilteringMethod::Temporal,
         Msaa::Off,
         TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion {
@@ -103,13 +103,13 @@ pub fn spawn_player(
             depth_threshold: 0.3,
             normal_threshold: 1.0,
             depth_thickness: 1.0,
-            uv_distortion_frequency: Vec2::new(1.0, 1.0),
-            uv_distortion_strength: Vec2::new(0.0, 0.0),
             edge_color: Color::srgba(0.0, 0.0, 0.0, 0.5),
             enable_depth: true,
             enable_normal: true,
             enable_color: false,
 
+            uv_distortion_frequency: Vec2::new(1.0, 1.0),
+            uv_distortion_strength: Vec2::new(0.0, 0.0),
             ..default()
         },
         Smaa::default(),

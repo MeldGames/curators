@@ -200,7 +200,7 @@ impl Voxels {
         let volume = BoundingVolume3 { min, max };
         info!("voxel traverse");
         info!("");
-        volume.traverse_ray(local_ray, length).into_iter().map(move |mut hit| {
+        volume.traverse_ray(local_ray, length).into_iter().map(move |hit| {
             // let local_distance = hit.distance;
             // let local_point = local_ray.origin + local_ray.direction.as_vec3() *
             // local_distance; let world_point =

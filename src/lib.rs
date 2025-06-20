@@ -6,15 +6,15 @@ use bevy::pbr::wireframe::WireframePlugin;
 use bevy::prelude::*;
 use bevy_edge_detection::*;
 use bevy_mod_outline::*;
-use iyes_perf_ui::prelude::*;
 use bevy_turborand::prelude::*;
+use iyes_perf_ui::prelude::*;
 
 pub mod camera;
 pub mod character;
 pub mod cursor;
-pub mod proc_mesh;
-pub mod map;
 pub mod item;
+pub mod map;
+pub mod proc_mesh;
 pub mod ssao;
 pub mod tool;
 pub mod voxel;
@@ -43,6 +43,7 @@ pub fn shared(app: &mut App) {
             // If you wish to apply Smaa anti-aliasing after edge detection,
             // please ensure that the rendering order of [`EdgeDetectionNode`] is set before
             // [`SmaaNode`].
+            // before: Node3d::Smaa,
             before: Node3d::Smaa,
         })
         .add_plugins(WireframePlugin::default())

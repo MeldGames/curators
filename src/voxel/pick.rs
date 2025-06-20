@@ -66,7 +66,7 @@ pub fn cursor_voxel(
     let test_ray = if let Some(last_ray) = *last_ray { last_ray } else { ray };
     let hit = voxels.cast_ray(voxels_transform, test_ray, 1_000.0);
     if let Some(hit) = hit {
-        info!("test hit: {:?}", hit);
+        // info!("test hit: {:?}", hit);
     }
 
     const GREEN: Color = Color::srgb(0.0, 1.0, 0.0);
@@ -76,7 +76,7 @@ pub fn cursor_voxel(
         use crate::voxel::GRID_SCALE;
         const CHUNK_SIZE: Vec3 = Vec3::splat(crate::voxel::chunk::unpadded::SIZE as f32);
 
-        info!("- hit: {:?}", hit);
+        // info!("- hit: {:?}", hit);
 
         // Generate chunk aabbs that we sampled
         {
