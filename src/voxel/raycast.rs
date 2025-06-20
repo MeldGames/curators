@@ -69,11 +69,10 @@ impl VoxelRay3Iterator {
 
         // Normalize direction vector
         let direction = Vec3::from(ray.direction).normalize();
-        info!("dir: {:?}", direction);
 
         // How long we have traveled thus far (modified by initial 'jump to volume
         // bounds').
-        let mut t = 0.0;
+        let t = 0.0;
 
         // If the point it outside the chunk, AABB test to 'jump ahead'.
         let to_volume = if !volume.contains_point(position.floor().as_ivec3()) {

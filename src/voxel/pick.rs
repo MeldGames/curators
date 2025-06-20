@@ -65,9 +65,7 @@ pub fn cursor_voxel(
 
     let test_ray = if let Some(last_ray) = *last_ray { last_ray } else { ray };
     let hit = voxels.cast_ray(voxels_transform, test_ray, 1_000.0);
-    if let Some(hit) = hit {
-        // info!("test hit: {:?}", hit);
-    }
+    cursor_voxel.0 = hit;
 
     const GREEN: Color = Color::srgb(0.0, 1.0, 0.0);
     const RED: Color = Color::srgb(1.0, 0.0, 0.0);

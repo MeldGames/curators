@@ -88,7 +88,6 @@ pub fn dig_target(
 
         // Find a target digsite and block position
         for (digsite_entity, digsite_transform, grid) in &voxels {
-            continue;
             if let Some(hit) = grid.cast_ray(
                 digsite_transform,
                 Ray3d { origin: global_transform.translation(), direction: Dir3::NEG_Y },
@@ -137,7 +136,7 @@ pub fn dig_block(
                 if let Ok(mut voxels) = voxels.get_mut(digsite_entity) {
                     if let Some(voxel_state) = voxels.get_voxel(voxel_pos.into()) {
                         if dig_state.time_since_dig >= dig_state.dig_time {
-                            let dig_power = 1;
+                            let dig_power = 10;
 
                             if let Some(health) = voxels.health(voxel_pos.into()) {
                                 let new_health = health.saturating_sub(dig_power);

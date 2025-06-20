@@ -95,8 +95,8 @@ pub fn update_binary_mesh(
         // collider_mesh_buffer.clear();
 
         let count = voxels.changed_chunk_iter().count();
-        if count > 0 {
-            info!("updating {} chunks render/collider meshes", count);
+        if count > 10 {
+            warn!("updating {} chunks render/collider meshes", count);
         }
 
         for (chunk_pos, chunk) in voxels.changed_chunk_iter() {
