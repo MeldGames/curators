@@ -94,9 +94,7 @@ impl VoxelRay3Iterator {
 
         // Max distance we can travel. This is either the ray length, or the current `t`
         // plus the corner to corner length of the voxel volume.
-        // let max_distance = f32::min(ray_length, t + volume.size().as_vec3().length()
-        // + 2.0);
-        let max_distance = ray_length;
+        let max_distance = f32::min(ray_length, t + volume.size().as_vec3().length() + 2.0);
 
         // The starting voxel for the raycast.
         let voxel = position.floor().as_ivec3();
@@ -186,6 +184,8 @@ impl Iterator for VoxelRay3Iterator {
                 }
             } else {
                 if self.t_max.y < self.t_max.z {
+                    info!("{:?} + {:?}", self.current_voxel.y, self.step.y);
+                    info!("{:?}", self);
                     self.current_voxel.y += self.step.y;
                     self.t = self.t_max.y;
                     self.t_max.y += self.delta.y;

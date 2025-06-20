@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
@@ -257,6 +259,76 @@ impl Voxels {
 
     pub fn clear_changed_chunks(&mut self) {
         self.changed_chunks.clear();
+    }
+
+    /// Take a 3x3 matrix around the voxel and smooth it on the y-axis.
+    pub fn smooth_voxel(&mut self, pos: IVec3, height_range: RangeInclusive<i32>) {
+        #[rustfmt::skip]
+        let surrounding = [
+            IVec3::new(-1, 0, 1), IVec3::new(0, 0, 1), IVec3::new(1, 0, 1),
+            IVec3::new(-1, 0, 0), IVec3::new(0, 0, 0), IVec3::new(1, 0, 0),
+            IVec3::new(-1, 0, -1), IVec3::new(0, 0, -1), IVec3::new(1, 0, -1),
+        ];
+
+        #[rustfmt::skip]
+        let convolution = [
+            1, 2, 1,
+            2, 3, 2,
+            1, 2, 1,
+        ];
+
+        let mut heights = [0; 9];
+        for (index, relative) in surrounding.iter().enumerate() {
+            // find the height by searching up and down until we find [`Voxel::Air`].
+            let voxel = pos + relative;
+
+            match self.get_voxel(voxel) {
+                Some(Voxel::Air) | None => {
+                    while heights[index] > *height_range.start() {
+                        match self.get_voxel(voxel + IVec3::Y * heights[index]) {
+                            Some(Voxel::Air) | None => {},
+                            _ => break,
+                        }
+
+                        heights[index] -= 1;
+                    }
+                },
+                _ => {
+                    while heights[index] < *height_range.end() {
+                        match self.get_voxel(voxel + IVec3::Y * heights[index]) {
+                            Some(Voxel::Air) | None => break,
+                            _ => {},
+                        }
+
+                        heights[index] += 1;
+                    }
+                },
+            };
+        }
+
+        let mut sum = 0;
+        for index in 0..9 {
+            sum += heights[index] * convolution[index];
+        }
+        let new_height = sum / 9;
+
+        // create a gradient over the range to the current height or the new height if
+        // lower.
+        let mut gradient = Vec::new();
+        for height in *height_range.start()..new_height.max(0) {
+            let voxel = match self.get_voxel(pos + IVec3::Y * height) {
+                Some(voxel) => voxel,
+                None => Voxel::Air,
+            };
+
+            gradient.push(voxel);
+        }
+
+        if new_height < pos.y {
+            // squish the voxels down
+        } else {
+            // stretch the voxels out
+        }
     }
 }
 
