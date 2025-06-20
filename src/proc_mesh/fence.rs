@@ -3,13 +3,14 @@
 use bevy::prelude::*;
 use bevy_turborand::prelude::*;
 
+use crate::map::WorldGenSet;
 use crate::voxel::pick::CursorVoxel;
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 
 pub fn plugin(mut app: &mut App) {
     app.register_type::<Fence>().register_type::<BoardParams>();
 
-    app.add_systems(PreUpdate, spawn_fence);
+    app.add_systems(PreUpdate, spawn_fence.in_set(WorldGenSet::SurfaceDetails));
     app.add_systems(PreUpdate, update_board);
 
     app.add_systems(PreUpdate, paint_fence);

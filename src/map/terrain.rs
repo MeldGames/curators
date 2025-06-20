@@ -4,7 +4,7 @@ use noiz::math_noise::Pow2;
 use noiz::prelude::*;
 use thiserror::Error;
 
-use crate::map::{VoxelAabb, MapParams, WorldGenSet};
+use crate::map::{MapParams, VoxelAabb, WorldGenSet};
 use crate::voxel::{Voxel, Voxels};
 
 pub fn plugin(app: &mut App) {
@@ -123,7 +123,7 @@ pub fn basic_noise() -> impl SampleableFor<Vec2, f32> + ScalableNoise + Seedable
                 SNormToUNorm,
                 RemapCurve::<Lerped<f32>, f32, false>::from(Lerped {
                     start: 0.0,
-                    end: 32.0,
+                    end: 48.0,
                 }),
             ),
             (
