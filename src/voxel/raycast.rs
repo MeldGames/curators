@@ -74,27 +74,26 @@ impl VoxelRay3Iterator {
         // bounds').
         let t = 0.0;
 
-        // If the point it outside the chunk, AABB test to 'jump ahead'.
-        let to_volume = if !volume.contains_point(position.floor().as_ivec3()) {
-            // First AABB test the chunk bounds
-            let entrypoint = test_aabb_of_chunk(volume, position, direction, ray_length);
+        const BACKOFF: f32 = 1.0;
 
+        // If the point it outside the chunk, AABB entry/exit test to 'jump ahead'.
+        let Some((entrypoint, exitpoint)) =
+            aabb_intersections(volume, position, direction, ray_length)
+        else {
             // Chunk AABB test failed, no way we could intersect a voxel.
-            if let Some(entrypoint) = entrypoint {
-                // Back the hit off at least 1 voxel
-                position = entrypoint - direction * 2.0;
-
-                (ray.origin - entrypoint).length()
-            } else {
-                return Self { done: true, ..Default::default() };
-            }
-        } else {
-            0.0 // we are already inside
+            return Self { done: true, ..Default::default() };
         };
+
+        // Back the hit off at least 1 voxel
+        position = entrypoint - direction * BACKOFF;
+        let to_volume = (ray.origin - entrypoint).length();
 
         // Max distance we can travel. This is either the ray length, or the current `t`
         // plus the corner to corner length of the voxel volume.
-        let max_distance = f32::min(ray_length, t + volume.size().as_vec3().length() + 2.0);
+        // TODO: Improve this:
+        // - this could ideally be the length from the current position to the exit
+        //   point of the aabb.
+        let max_distance = f32::min(ray_length, position.distance(exitpoint));
 
         // The starting voxel for the raycast.
         let voxel = position.floor().as_ivec3();
@@ -184,8 +183,6 @@ impl Iterator for VoxelRay3Iterator {
                 }
             } else {
                 if self.t_max.y < self.t_max.z {
-                    info!("{:?} + {:?}", self.current_voxel.y, self.step.y);
-                    info!("{:?}", self);
                     self.current_voxel.y += self.step.y;
                     self.t = self.t_max.y;
                     self.t_max.y += self.delta.y;
@@ -208,12 +205,12 @@ impl Iterator for VoxelRay3Iterator {
     }
 }
 
-fn test_aabb_of_chunk(
+fn aabb_intersections(
     volume: BoundingVolume3,
     from: Vec3,
     direction: Vec3,
     distance: f32,
-) -> Option<Vec3> {
+) -> Option<(Vec3, Vec3)> {
     let min = volume.min.as_vec3();
     let max = volume.max.as_vec3();
 
@@ -238,11 +235,16 @@ fn test_aabb_of_chunk(
         }
     }
 
-    if t_min <= t_max && t_max >= 0.0 && t_min <= distance {
-        Some(from + direction * t_min.max(0.0))
-    } else {
-        None
+    // Early exit: no intersection, or outside max distance
+    if t_min > t_max || t_max < 0.0 || t_min > distance {
+        return None;
     }
+
+    // Clamp to ray's valid distance range
+    let entry = from + direction * t_min.clamp(0.0, distance);
+    let exit = from + direction * t_max.clamp(0.0, distance);
+
+    Some((entry, exit))
 }
 
 pub fn plugin(mut app: &mut App) {
