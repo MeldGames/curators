@@ -2,8 +2,8 @@ use avian3d::prelude::*;
 use bevy::core_pipeline::auto_exposure::AutoExposurePlugin;
 use bevy::core_pipeline::core_3d::graph::Node3d;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasPlugin;
-use bevy::pbr::DirectionalLightShadowMap;
 use bevy::pbr::wireframe::WireframePlugin;
+use bevy::pbr::{DirectionalLightShadowMap, PointLightShadowMap};
 use bevy::prelude::*;
 use bevy_edge_detection::*;
 use bevy_mod_outline::*;
@@ -34,6 +34,7 @@ pub fn shared(app: &mut App) {
     app.add_plugins(ssao::plugin);
 
     app.insert_resource(GlobalRng::with_seed(1));
+    app.insert_resource(PointLightShadowMap { size: 8192 });
     app.insert_resource(DirectionalLightShadowMap { size: 8192 });
     app.add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin::default()));
 
