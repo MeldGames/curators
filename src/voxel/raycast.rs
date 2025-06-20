@@ -5,7 +5,8 @@ use bevy::prelude::*;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct BoundingVolume3 {
-    pub size: IVec3,
+    pub min: IVec3,
+    pub max: IVec3,
 }
 
 impl BoundingVolume3 {
@@ -15,7 +16,11 @@ impl BoundingVolume3 {
 
     #[inline(always)]
     pub(crate) fn contains_point(&self, point: IVec3) -> bool {
-        point.cmpge(IVec3::ZERO).all() && point.cmplt(self.size).all()
+        point.cmpge(self.min).all() && point.cmplt(self.max).all()
+    }
+
+    pub fn size(&self) -> IVec3 {
+        self.max - self.min + IVec3::ONE
     }
 }
 
@@ -34,76 +39,96 @@ pub struct Hit {
     pub distance: f32,
     pub voxel: IVec3,
     pub normal: Option<IVec3>,
-    pub t_max: Vec3,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct VoxelRay3Iterator {
+    /// Bounding volume we are checking against. Each 1 unit is a voxel.
     volume: BoundingVolume3,
-    max_d: f32,
-    i: IVec3,
+    /// Maximum distance we can travel.
+    max_distance: f32,
+    /// Voxel we are currently at.
+    current_voxel: IVec3,
     step: IVec3,
     delta: Vec3,
-    // dist: Vec3,
+
+    /// Distance we have travelled on each axis + 1 step
     t_max: Vec3,
+    /// Distance travelled from entrypoint to current position/voxel.
     t: f32,
-    norm: Option<IVec3>,
+    /// Distance travelled from origin to entrypoint.
+    to_volume: f32,
+    normal: Option<IVec3>,
     done: bool,
 }
 
 // Based on https://github.com/fenomas/fast-voxel-raycast/blob/master/index.js
 impl VoxelRay3Iterator {
     pub fn new(volume: BoundingVolume3, ray: Ray3d, ray_length: f32) -> Self {
-        let mut p = Vec3::from(ray.origin);
+        let mut position = ray.origin;
 
         // Normalize direction vector
-        let d = Vec3::from(ray.direction).normalize();
+        let direction = Vec3::from(ray.direction).normalize();
+        info!("dir: {:?}", direction);
 
         // How long we have traveled thus far (modified by initial 'jump to volume
         // bounds').
         let mut t = 0.0;
 
         // If the point it outside the chunk, AABB test to 'jump ahead'.
-        if !volume.contains_point(p.floor().as_ivec3()) {
+        let to_volume = if !volume.contains_point(position.floor().as_ivec3()) {
             // First AABB test the chunk bounds
-            let aabb = test_aabb_of_chunk(volume, p, d, ray_length);
+            let entrypoint = test_aabb_of_chunk(volume, position, direction, ray_length);
 
             // Chunk AABB test failed, no way we could intersect a voxel.
-            if aabb.is_none() {
+            if let Some(entrypoint) = entrypoint {
+                // Back the hit off at least 1 voxel
+                position = entrypoint - direction * 2.0;
+
+                (ray.origin - entrypoint).length()
+            } else {
                 return Self { done: true, ..Default::default() };
             }
-
-            let aabb = aabb.unwrap();
-
-            // Back the hit off at least 1 voxel
-            p = aabb - d * 2.0;
-
-            // Set t to the already traveled distance.
-            t += (p - aabb).length() - 2.0;
-        }
+        } else {
+            0.0 // we are already inside
+        };
 
         // Max distance we can travel. This is either the ray length, or the current `t`
         // plus the corner to corner length of the voxel volume.
-        let max_d = f32::min(ray_length, t + IVec3::from(volume.size).as_vec3().length() + 2.0);
+        // let max_distance = f32::min(ray_length, t + volume.size().as_vec3().length()
+        // + 2.0);
+        let max_distance = ray_length;
 
         // The starting voxel for the raycast.
-        let i = p.floor().as_ivec3();
+        let voxel = position.floor().as_ivec3();
 
-        // The directionVec we are stepping for each component.
-        let step = d.signum().as_ivec3();
+        // The direction we are stepping for each component.
+        let step = direction.signum().as_ivec3();
 
-        // Just abs(Vec3::ONE / d) but acounts for zeros in the distance vector.
+        // Just abs(Vec3::ONE / d) but accounts for zeros in the distance vector.
         let delta = (Vec3::new(
-            if d.x.abs() < f32::EPSILON { f32::INFINITY } else { 1.0 / d.x },
-            if d.y.abs() < f32::EPSILON { f32::INFINITY } else { 1.0 / d.y },
-            if d.z.abs() < f32::EPSILON { f32::INFINITY } else { 1.0 / d.z },
+            if direction.x.abs() < f32::EPSILON { f32::INFINITY } else { 1.0 / direction.x },
+            if direction.y.abs() < f32::EPSILON { f32::INFINITY } else { 1.0 / direction.y },
+            if direction.z.abs() < f32::EPSILON { f32::INFINITY } else { 1.0 / direction.z },
         ))
         .abs();
 
         let dist = Vec3::new(
-            if step.x > 0 { i.x as f32 + 1.0 - p.x } else { p.x - i.x as f32 },
-            if step.y > 0 { i.y as f32 + 1.0 - p.y } else { p.y - i.y as f32 },
-            if step.z > 0 { i.z as f32 + 1.0 - p.z } else { p.z - i.z as f32 },
+            if step.x > 0 {
+                voxel.x as f32 + 1.0 - position.x
+            } else {
+                position.x - voxel.x as f32
+            },
+            if step.y > 0 {
+                voxel.y as f32 + 1.0 - position.y
+            } else {
+                position.y - voxel.y as f32
+            },
+            if step.z > 0 {
+                voxel.z as f32 + 1.0 - position.z
+            } else {
+                position.z - voxel.z as f32
+            },
         );
 
         // The nearest voxel boundary.
@@ -113,7 +138,18 @@ impl VoxelRay3Iterator {
             if delta.z < f32::INFINITY { delta.z * dist.z } else { f32::INFINITY },
         );
 
-        Self { volume, max_d, i, step, delta, t_max, t, norm: None, done: false }
+        Self {
+            volume,
+            max_distance,
+            current_voxel: voxel,
+            step,
+            delta,
+            t_max,
+            t,
+            to_volume,
+            normal: None,
+            done: false,
+        }
     }
 }
 
@@ -125,46 +161,43 @@ impl Iterator for VoxelRay3Iterator {
             return None;
         }
 
-        while self.t <= self.max_d {
+        while self.t <= self.max_distance {
             // Test if the current traverse is within the volume.
             let mut hit = None;
-            if self.volume.contains_point(self.i) {
+            if self.volume.contains_point(self.current_voxel) {
                 hit = Some(Hit {
-                    distance: self.t,
-                    voxel: self.i.into(),
-                    normal: self.norm.map(|n| n.into()),
-                    t_max: self.t_max,
+                    distance: self.t + self.to_volume,
+                    voxel: self.current_voxel.into(),
+                    normal: self.normal.map(|n| n.into()),
                 });
             }
 
             // Select the smallest t_max
             if self.t_max.x < self.t_max.y {
                 if self.t_max.x < self.t_max.z {
-                    self.i.x += self.step.x;
+                    self.current_voxel.x += self.step.x;
                     self.t = self.t_max.x;
                     self.t_max.x += self.delta.x;
-                    self.norm = Some(IVec3::new(-self.step.x, 0, 0));
+                    self.normal = Some(IVec3::new(-self.step.x, 0, 0));
                 } else {
-                    self.i.z += self.step.z;
+                    self.current_voxel.z += self.step.z;
                     self.t = self.t_max.z;
                     self.t_max.z += self.delta.z;
-                    self.norm = Some(IVec3::new(0, 0, -self.step.z));
+                    self.normal = Some(IVec3::new(0, 0, -self.step.z));
                 }
             } else {
                 if self.t_max.y < self.t_max.z {
-                    self.i.y += self.step.y;
+                    self.current_voxel.y += self.step.y;
                     self.t = self.t_max.y;
                     self.t_max.y += self.delta.y;
-                    self.norm = Some(IVec3::new(0, -self.step.y, 0));
+                    self.normal = Some(IVec3::new(0, -self.step.y, 0));
                 } else {
-                    self.i.z += self.step.z;
+                    self.current_voxel.z += self.step.z;
                     self.t = self.t_max.z;
                     self.t_max.z += self.delta.z;
-                    self.norm = Some(IVec3::new(0, 0, -self.step.z));
+                    self.normal = Some(IVec3::new(0, 0, -self.step.z));
                 }
             }
-
-            // info!("self.t_max: {:?}", self.t_max);
 
             if hit.is_some() {
                 return hit;
@@ -182,34 +215,33 @@ fn test_aabb_of_chunk(
     direction: Vec3,
     distance: f32,
 ) -> Option<Vec3> {
-    let min = Vec3::ZERO;
-    let max = IVec3::from(volume.size).as_vec3();
-    let mut t = Vec3::ZERO;
+    let min = volume.min.as_vec3();
+    let max = volume.max.as_vec3();
+
+    let mut t_min = f32::NEG_INFINITY;
+    let mut t_max = f32::INFINITY;
 
     for i in 0..3 {
-        if direction[i] > 0.0 {
-            t[i] = (min[i] - from[i]) / direction[i];
+        if direction[i].abs() < f32::EPSILON {
+            // Ray is parallel to the slab. Reject if origin not within slab.
+            if from[i] < min[i] || from[i] > max[i] {
+                return None;
+            }
         } else {
-            t[i] = (max[i] - from[i]) / direction[i];
+            let inv_d = 1.0 / direction[i];
+            let mut t0 = (min[i] - from[i]) * inv_d;
+            let mut t1 = (max[i] - from[i]) * inv_d;
+            if t0 > t1 {
+                std::mem::swap(&mut t0, &mut t1);
+            }
+            t_min = t_min.max(t0);
+            t_max = t_max.min(t1);
         }
     }
 
-    let mi =
-        if t[0] > t[1] { if t[0] > t[2] { 0 } else { 2 } } else { if t[1] > t[2] { 1 } else { 2 } };
-
-    if t[mi] >= 0.0 && t[mi] <= distance {
-        // The intersect point (distance along the ray).
-        let pt = from + direction * t[mi];
-
-        // The other two value that need to be checked
-        let o1 = (mi + 1) % 3;
-        let o2 = (mi + 2) % 3;
-
-        if pt[o1] >= min[o1] && pt[o1] <= max[o1] && pt[o2] >= min[o2] && pt[o2] <= max[o2] {
-            return Some(pt);
-        }
+    if t_min <= t_max && t_max >= 0.0 && t_min <= distance {
+        Some(from + direction * t_min.max(0.0))
+    } else {
+        None
     }
-
-    // AABB test failed.
-    return None;
 }

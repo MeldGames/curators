@@ -88,11 +88,11 @@ pub fn dig_target(
 
         // Find a target digsite and block position
         for (digsite_entity, digsite_transform, grid) in &voxels {
+            continue;
             if let Some(hit) = grid.cast_ray(
                 digsite_transform,
                 Ray3d { origin: global_transform.translation(), direction: Dir3::NEG_Y },
                 f32::INFINITY,
-                &mut None,
             ) {
                 // TODO: Character height + X blocks
                 let collider_aabb = collider.aabb(Vec3::ZERO, Quat::IDENTITY);

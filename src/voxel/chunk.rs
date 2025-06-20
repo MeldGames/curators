@@ -169,33 +169,44 @@ impl Voxels {
 
         let local_ray = Ray3d { origin: local_origin, direction: local_direction };
 
-        let volume = BoundingVolume3 { size: self.chunk_size() };
-        // info!("chunk bounds: {:?}", self.chunk_size());
+        let (min, max) = self.chunk_bounds();
+        let volume = BoundingVolume3 { min, max };
+        // info!("chunk bounds: {:?}", self.chunk_size());chunk
+        info!("chunk traverse");
+        info!("");
         volume.traverse_ray(local_ray, length)
     }
 
     pub fn local_voxel_ray_iter(
         &self,
-        chunk_transform: GlobalTransform,
+        chunk_transform: &GlobalTransform,
+        chunk_pos: IVec3,
         ray: Ray3d,
         length: f32,
     ) -> impl Iterator<Item = Hit> {
-        let inv_matrix = chunk_transform.compute_matrix().inverse();
-        let Ok(local_direction) = Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3()))
-        else {
-            unreachable!();
+        // translate ray to voxel space
+
+        let local_ray = {
+            let inv_matrix = chunk_transform.compute_matrix().inverse();
+            Ray3d {
+                origin: inv_matrix.transform_point3(ray.origin),
+                direction: Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3()))
+                    .unwrap(),
+            }
         };
-        let local_origin = inv_matrix.transform_point3(ray.origin);
 
-        let local_ray = Ray3d { origin: local_origin, direction: local_direction };
-
-        let volume = BoundingVolume3 { size: IVec3::splat(unpadded::SIZE as i32) };
-        volume.traverse_ray(local_ray, length).into_iter().map(move |mut hit| {
-            let local_distance = hit.distance;
-            let local_point = local_ray.origin + local_ray.direction.as_vec3() * local_distance;
-            let world_point = chunk_transform.transform_point(local_point);
-            let world_distance = world_point.distance(ray.origin);
-            hit.distance = world_distance;
+        let min = chunk_pos * unpadded::SIZE as i32;
+        let max = min + IVec3::splat(unpadded::SIZE as i32);
+        let volume = BoundingVolume3 { min, max };
+        info!("voxel traverse");
+        info!("");
+        volume.traverse_ray(local_ray, length).into_iter().map(move |hit| {
+            // let local_distance = hit.distance;
+            // let local_point = local_ray.origin + local_ray.direction.as_vec3() *
+            // local_distance; let world_point =
+            // chunk_transform.transform_point(local_point); let world_distance
+            // = world_point.distance(ray.origin);
+            // hit.distance = world_distance;
             hit
         })
     }
@@ -206,47 +217,30 @@ impl Voxels {
         grid_transform: &GlobalTransform,
         ray: Ray3d,
         length: f32,
-        mut gizmos: &mut Option<&mut Gizmos>,
     ) -> impl Iterator<Item = VoxelHit> {
         self.chunk_ray_iter(grid_transform, ray, length).flat_map(move |chunk_hit| {
             const CHUNK_SIZE: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
-            {
-                #[allow(non_snake_case)]
-                let SCALED_CHUNK_SIZE: Vec3 = CHUNK_SIZE * crate::voxel::GRID_SCALE;
+            // let chunk_pos = chunk_hit.voxel.as_vec3() * CHUNK_SIZE;
+            // let chunk_pos_transform = Transform { translation: chunk_pos, ..default() };
+            // let chunk_transform = grid_transform.mul_transform(chunk_pos_transform);
 
-                let pos = chunk_hit.voxel.as_vec3();
-                // info!("hit chunk: {:?}", chunk_hit.voxel);
-                if let Some(gizmos) = gizmos {
-                    gizmos.cuboid(
-                        Transform {
-                            translation: pos * SCALED_CHUNK_SIZE + SCALED_CHUNK_SIZE / 2.0,
-                            scale: SCALED_CHUNK_SIZE,
-                            ..default()
-                        },
-                        Color::srgba(1.0, 0.0, 0.0, 1.0),
-                    );
-                }
-            }
+            self.local_voxel_ray_iter(grid_transform, chunk_hit.voxel, ray, length).map(
+                move |voxel_hit| {
+                    // Translate this to voxel space
+                    let voxel_space_hit =
+                        chunk_hit.voxel * IVec3::splat(unpadded::SIZE as i32) + voxel_hit.voxel;
+                    let world_space_hit = ray.origin + ray.direction * voxel_hit.distance;
+                    VoxelHit {
+                        chunk: chunk_hit.voxel,
+                        voxel: voxel_space_hit,
+                        world_space: world_space_hit,
 
-            let chunk_pos = chunk_hit.voxel.as_vec3() * CHUNK_SIZE;
-            let chunk_pos_transform = Transform { translation: chunk_pos, ..default() };
-            let chunk_transform = grid_transform.mul_transform(chunk_pos_transform);
-
-            self.local_voxel_ray_iter(chunk_transform, ray, length).map(move |mut voxel_hit| {
-                // Translate this to voxel space
-                let voxel_space_hit =
-                    chunk_hit.voxel * IVec3::splat(unpadded::SIZE as i32) + voxel_hit.voxel;
-                let world_space_hit = ray.origin + ray.direction * voxel_hit.distance;
-                VoxelHit {
-                    chunk: chunk_hit.voxel,
-                    voxel: voxel_space_hit,
-                    world_space: world_space_hit,
-
-                    distance: voxel_hit.distance,
-                    normal: voxel_hit.normal,
-                }
-            })
+                        distance: voxel_hit.distance,
+                        normal: voxel_hit.normal,
+                    }
+                },
+            )
         })
     }
 
@@ -255,9 +249,8 @@ impl Voxels {
         grid_transform: &GlobalTransform,
         ray: Ray3d,
         length: f32,
-        mut gizmos: &mut Option<&mut Gizmos>,
     ) -> Option<VoxelHit> {
-        for hit in self.ray_iter(grid_transform, ray, length, &mut *gizmos) {
+        for hit in self.ray_iter(grid_transform, ray, length) {
             // info!("hit: {hit:?}");
             if let Some(voxel) = self.get_voxel(hit.voxel) {
                 if voxel.pickable() {
@@ -484,19 +477,19 @@ impl VoxelChunk {
         None
     }
 
-    /// Cast a ray in the localspace of the voxel grid.
-    pub fn cast_local_ray(&self, ray: Ray3d, length: f32, _gizmos: Option<Gizmos>) -> Option<Hit> {
-        let volume =
-            BoundingVolume3 { size: IVec3::new(self.x_size(), self.y_size(), self.z_size()) };
-        for hit in volume.traverse_ray(ray, length) {
-            let voxel = self.voxel(hit.voxel.into());
-            if voxel.pickable() {
-                return Some(hit);
-            }
-        }
+    // Cast a ray in the localspace of the voxel grid.
+    // pub fn cast_local_ray(&self, ray: Ray3d, length: f32, _gizmos:
+    // Option<Gizmos>) -> Option<Hit> {     let volume =
+    //         BoundingVolume3 { size: IVec3::new(self.x_size(), self.y_size(),
+    // self.z_size()) };     for hit in volume.traverse_ray(ray, length) {
+    //         let voxel = self.voxel(hit.voxel.into());
+    //         if voxel.pickable() {
+    //             return Some(hit);
+    //         }
+    //     }
 
-        None
-    }
+    //     None
+    // }
 }
 
 pub fn memory_human_readable(bytes: usize) -> String {
