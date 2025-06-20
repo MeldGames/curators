@@ -16,7 +16,7 @@ impl BoundingVolume3 {
 
     #[inline(always)]
     pub(crate) fn contains_point(&self, point: IVec3) -> bool {
-        point.cmpge(self.min).all() && point.cmple(self.max).all()
+        point.cmpge(self.min).all() && point.cmplt(self.max).all()
     }
 
     pub fn size(&self) -> IVec3 {
@@ -59,6 +59,7 @@ pub struct VoxelRay3Iterator {
 // Based on https://github.com/fenomas/fast-voxel-raycast/blob/master/index.js
 impl VoxelRay3Iterator {
     pub fn new(volume: BoundingVolume3, ray: Ray3d, ray_length: f32) -> Self {
+        info!("ray: {ray:?}");
         let mut p = Vec3::from(ray.origin);
 
         // Normalize direction vector
@@ -68,23 +69,24 @@ impl VoxelRay3Iterator {
         // bounds').
         let mut t = 0.0;
 
+        info!("aabb: {volume:?}");
         // If the point it outside the chunk, AABB test to 'jump ahead'.
         if !volume.contains_point(p.floor().as_ivec3()) {
             // First AABB test the chunk bounds
-            let aabb = test_aabb_of_chunk(volume, p, d, ray_length);
+            let entrypoint = test_aabb_of_chunk(volume, p, d, ray_length);
+            info!("entrypoint: {entrypoint:?}");
 
             // Chunk AABB test failed, no way we could intersect a voxel.
-            if aabb.is_none() {
+            if let Some(entrypoint) = entrypoint {
+                // Back the hit off at least 1 voxel
+                p = entrypoint - d * 2.0;
+
+                // Set t to the already traveled distance.
+                t += (p - entrypoint).length() - 2.0;
+                info!("distance to aabb: {:?}", t);
+            } else {
                 return Self { done: true, ..Default::default() };
             }
-
-            let aabb = aabb.unwrap();
-
-            // Back the hit off at least 1 voxel
-            p = aabb - d * 2.0;
-
-            // Set t to the already traveled distance.
-            t += (p - aabb).length() - 2.0;
         }
 
         // Max distance we can travel. This is either the ray length, or the current `t`

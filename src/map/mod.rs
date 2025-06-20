@@ -1,15 +1,15 @@
 use bevy::ecs::schedule::SystemSet;
 use bevy::prelude::*;
 
-pub mod voxel_aabb;
 pub mod aabb;
 pub mod object;
 pub mod terrain;
+pub mod voxel_aabb;
 
-pub use voxel_aabb::VoxelAabb;
 pub use aabb::Aabb;
 pub use object::GenerateObjects;
 pub use terrain::{Layers, TerrainParams};
+pub use voxel_aabb::VoxelAabb;
 
 use crate::voxel::Voxel;
 
@@ -71,7 +71,7 @@ pub fn create_basic_map(mut commands: Commands) {
     commands.spawn(
         (MapParams {
             terrain: TerrainParams {
-                aabb: VoxelAabb::from_size(IVec3::ZERO, IVec3::new(512, 32, 512)),
+                aabb: VoxelAabb::from_size(IVec3::ZERO, IVec3::new(60, 32, 60)),
                 layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
             },
             digsite: DigsiteParams { count: 1 },
@@ -105,19 +105,17 @@ impl Digsite {
 
     pub fn remove_aabb_overlaps(&mut self) {
         let mut result: Vec<VoxelAabb> = Vec::new();
-        
+
         // Remove overlaps among the list
         for current in self.voxel_aabbs.drain(..) {
             let mut fragments = vec![current];
-    
+
             // Remove overlaps with all boxes already in result
             for existing in &result {
-                fragments = fragments
-                    .into_iter()
-                    .flat_map(|frag| frag.subtract(existing))
-                    .collect();
+                fragments =
+                    fragments.into_iter().flat_map(|frag| frag.subtract(existing)).collect();
             }
-    
+
             // Add non-overlapping fragments to result
             result.extend(fragments);
         }
