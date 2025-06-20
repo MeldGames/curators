@@ -27,7 +27,10 @@ impl Plugin for VoxelPlugin {
         app.register_type::<Exposure>();
 
         app.add_plugins(pick::VoxelPickPlugin);
-        app.add_plugins(collider::plugin).add_plugins(character::plugin).add_plugins(mesh::plugin);
+        app.add_plugins(collider::plugin)
+            .add_plugins(character::plugin)
+            .add_plugins(mesh::plugin)
+            .add_plugins(raycast::plugin);
 
         app.insert_resource(WireframeConfig { global: false, ..default() });
 

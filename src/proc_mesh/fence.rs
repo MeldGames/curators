@@ -130,7 +130,6 @@ pub fn paint_fence(
 
     if input.just_pressed(KeyCode::KeyO) {
         if let Some(hit) = cursor_voxel.hit() {
-            info!("hit: {:?}", hit);
             fence.points.push(hit.world_space);
             fence.conform_points_to_voxels(&voxels);
         }

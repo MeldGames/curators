@@ -30,9 +30,6 @@ pub fn cursor_voxel(
 
     mut cursor_voxel: ResMut<CursorVoxel>,
     mut gizmos: Gizmos,
-
-    mut last_ray: Local<Option<Ray3d>>,
-    input: Res<ButtonInput<MouseButton>>,
 ) {
     let Some((camera, camera_transform)) = camera_query.iter().find(|(camera, _)| camera.is_active)
     else {
@@ -51,10 +48,6 @@ pub fn cursor_voxel(
         return;
     };
 
-    if input.just_pressed(MouseButton::Middle) {
-        *last_ray = Some(ray);
-    }
-
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
@@ -63,60 +56,8 @@ pub fn cursor_voxel(
         return;
     };
 
-    let test_ray = if let Some(last_ray) = *last_ray { last_ray } else { ray };
-    let hit = voxels.cast_ray(voxels_transform, test_ray, 1_000.0);
+    let hit = voxels.cast_ray(voxels_transform, ray, 1_000.0);
     cursor_voxel.0 = hit;
-
-    const GREEN: Color = Color::srgb(0.0, 1.0, 0.0);
-    const RED: Color = Color::srgb(1.0, 0.0, 0.0);
-    const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
-    for hit in voxels.ray_iter(voxels_transform, test_ray, 1_000.0) {
-        use crate::voxel::GRID_SCALE;
-        const CHUNK_SIZE: Vec3 = Vec3::splat(crate::voxel::chunk::unpadded::SIZE as f32);
-
-        // info!("- hit: {:?}", hit);
-
-        // Generate chunk aabbs that we sampled
-        {
-            #[allow(non_snake_case)]
-            let SCALED_CHUNK_SIZE: Vec3 = CHUNK_SIZE * GRID_SCALE;
-
-            let pos = hit.chunk.as_vec3();
-            gizmos.cuboid(
-                Transform {
-                    translation: pos * SCALED_CHUNK_SIZE + SCALED_CHUNK_SIZE / 2.0,
-                    scale: SCALED_CHUNK_SIZE,
-                    ..default()
-                },
-                Color::srgb(1.0, 0.0, 0.0),
-            );
-        }
-
-        // Generate voxel aabbs that we sampled
-        {
-            let pos = hit.voxel.as_vec3();
-            gizmos.cuboid(
-                Transform {
-                    translation: pos * GRID_SCALE + GRID_SCALE / 2.0,
-                    scale: GRID_SCALE,
-                    ..default()
-                },
-                Color::srgb(1.0, 0.0, 0.0),
-            );
-        }
-
-        let entrypoint = test_ray.origin + test_ray.direction * hit.distance;
-        gizmos.circle(Isometry3d::from_translation(entrypoint), 0.25, GREEN);
-
-        if let Some(voxel) = voxels.get_voxel(hit.voxel) {
-            if voxel.pickable() {
-                break;
-            }
-        }
-    }
-    // let hit = voxels.cast_ray(voxels_transform, ray, 1_000.0, &mut Some(&mut
-    // gizmos)); info!("cursor_voxel hit: {hit:?}");
-    // cursor_voxel.0 = hit;
 }
 
 pub fn draw_cursor(

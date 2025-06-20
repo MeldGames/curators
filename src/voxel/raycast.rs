@@ -244,3 +244,119 @@ fn test_aabb_of_chunk(
         None
     }
 }
+
+pub fn plugin(mut app: &mut App) {
+    app.register_type::<DebugRaycast>();
+    app.insert_resource(DebugRaycast { show_chunks: false, show_voxels: false, debug_ray: None });
+    app.add_systems(PreUpdate, debug_raycast);
+}
+
+#[derive(Resource, Debug, Reflect)]
+#[reflect(Resource)]
+pub struct DebugRaycast {
+    /// Show chunk boundaries in raycast.
+    pub show_chunks: bool,
+    /// Show voxel boundaries in raycast.
+    pub show_voxels: bool,
+
+    pub debug_ray: Option<Ray3d>,
+}
+
+impl DebugRaycast {
+    fn enabled(&self) -> bool {
+        self.show_chunks || self.show_voxels
+    }
+}
+
+pub fn debug_raycast(
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+    windows: Query<&Window>,
+
+    mut voxels: Query<(&GlobalTransform, &crate::voxel::Voxels)>,
+
+    mut gizmos: Gizmos,
+
+    input: Res<ButtonInput<MouseButton>>,
+
+    mut debug_raycast: ResMut<DebugRaycast>,
+) {
+    if !debug_raycast.enabled() {
+        return;
+    }
+
+    let Some((camera, camera_transform)) = camera_query.iter().find(|(camera, _)| camera.is_active)
+    else {
+        return;
+    };
+    let Some(window) = windows.iter().find(|window| window.focused) else {
+        return;
+    };
+    let Some(cursor_position) = window.cursor_position() else {
+        return;
+    };
+
+    // Calculate a ray pointing from the camera into the world based on the cursor's
+    // position.
+    let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+        return;
+    };
+
+    if input.just_pressed(MouseButton::Middle) {
+        debug_raycast.debug_ray = Some(ray);
+    }
+
+    // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
+
+    // Calculate if and where the ray is hitting a voxel.
+    let Ok((voxels_transform, mut voxels)) = voxels.single_mut() else {
+        info!("No voxels found");
+        return;
+    };
+
+    let test_ray = if let Some(last_ray) = debug_raycast.debug_ray { last_ray } else { ray };
+
+    const GREEN: Color = Color::srgb(0.0, 1.0, 0.0);
+    const RED: Color = Color::srgb(1.0, 0.0, 0.0);
+    const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
+    for hit in voxels.ray_iter(voxels_transform, test_ray, 1_000.0) {
+        use crate::voxel::GRID_SCALE;
+        const CHUNK_SIZE: Vec3 = Vec3::splat(crate::voxel::chunk::unpadded::SIZE as f32);
+
+        // info!("- hit: {:?}", hit);
+
+        // Generate chunk aabbs that we sampled
+        if debug_raycast.show_chunks {
+            #[allow(non_snake_case)]
+            let SCALED_CHUNK_SIZE: Vec3 = CHUNK_SIZE * GRID_SCALE;
+
+            let pos = hit.chunk.as_vec3();
+            gizmos.cuboid(
+                Transform {
+                    translation: pos * SCALED_CHUNK_SIZE + SCALED_CHUNK_SIZE / 2.0,
+                    scale: SCALED_CHUNK_SIZE,
+                    ..default()
+                },
+                Color::srgb(1.0, 0.0, 0.0),
+            );
+        }
+
+        // Generate voxel aabbs that we sampled
+        if debug_raycast.show_voxels {
+            let pos = hit.voxel.as_vec3();
+            gizmos.cuboid(
+                Transform {
+                    translation: pos * GRID_SCALE + GRID_SCALE / 2.0,
+                    scale: GRID_SCALE,
+                    ..default()
+                },
+                Color::srgb(1.0, 0.0, 0.0),
+            );
+        }
+
+        if let Some(voxel) = voxels.get_voxel(hit.voxel) {
+            if voxel.pickable() {
+                break;
+            }
+        }
+    }
+}
