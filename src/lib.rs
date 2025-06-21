@@ -7,7 +7,7 @@ use bevy::pbr::{DirectionalLightShadowMap, PointLightShadowMap};
 use bevy::prelude::*;
 use bevy_edge_detection::*;
 use bevy_mod_outline::*;
-use bevy_turborand::prelude::*;
+use bevy_rand::prelude::*;
 use iyes_perf_ui::prelude::*;
 
 pub mod camera;
@@ -33,6 +33,7 @@ pub fn shared(app: &mut App) {
     app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
 
+    app.add_plugins(EntropyPlugin::<WyRand>::default());
     app.insert_resource(GlobalRng::with_seed(1));
     app.insert_resource(PointLightShadowMap { size: 8192 });
     app.insert_resource(DirectionalLightShadowMap { size: 8192 });
