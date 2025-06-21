@@ -1,4 +1,3 @@
-
 use bevy::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -24,6 +23,17 @@ impl Aabb {
         point.cmpge(self.min).all() && point.cmplt(self.max).all()
     }
 
+    /// Returns the number of voxels inside the AABB
+    pub fn volume(&self) -> f32 {
+        let size = self.size();
+        size.x * size.y * size.z
+    }
+
+    /// Does this AABB fit inside another?
+    pub fn fits_inside(&self, container: &Aabb) -> bool {
+        self.min.cmpge(container.min).all() && self.max.cmple(container.max).all()
+    }
+
     pub fn rotate(self, rotation: Quat) -> Self {
         let center = self.center();
         let corners = [
@@ -37,10 +47,8 @@ impl Aabb {
             Vec3::new(self.max.x, self.max.y, self.max.z),
         ];
 
-        let rotated_corners: Vec<Vec3> = corners
-            .iter()
-            .map(|&c| rotation * (c - center) + center)
-            .collect();
+        let rotated_corners: Vec<Vec3> =
+            corners.iter().map(|&c| rotation * (c - center) + center).collect();
 
         let mut min = rotated_corners[0];
         let mut max = rotated_corners[0];

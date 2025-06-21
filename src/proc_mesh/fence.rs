@@ -14,7 +14,7 @@ pub fn plugin(mut app: &mut App) {
     app.add_systems(PreUpdate, update_board);
 
     app.add_systems(PreUpdate, paint_fence);
-    app.add_systems(PreUpdate, test_fence);
+    app.add_systems(PreUpdate, test_fence.in_set(WorldGenSet::SurfaceDetails));
 }
 
 #[derive(Component, Debug, Reflect)]
@@ -260,9 +260,14 @@ pub fn spawn_fence(
                         global_rng.f32_normalized(),
                         global_rng.f32_normalized(),
                     );
+
+            let prev = Vec2::new(prev_point.x, prev_point.z);
+            let next = Vec2::new(next_point.x, next_point.z);
+            let facing_angle = prev.angle_to(next);
+
             let transform = Transform {
                 translation: point + Vec3::Y * 0.5 + fence.offset,
-                rotation: rotation_from_to(prev_point, next_point, Vec3::Y),
+                // rotation: Quat::from_axis_angle(Vec3::Y, facing_angle),
                 ..default()
             };
 
@@ -298,7 +303,11 @@ pub fn spawn_fence(
             let to_connect = if let Some(last) = last {
                 Some((last, post))
             } else {
-                if fence.enclosed { Some((posts[posts.len() - 1], post)) } else { None }
+                if fence.enclosed && fence.points.len() > 2 {
+                    Some((posts[posts.len() - 1], post))
+                } else {
+                    None
+                }
             };
 
             if let Some((from, to)) = to_connect {
