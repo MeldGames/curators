@@ -245,6 +245,7 @@ dependencies = [
  "bevy_math",
  "bevy_meshem",
  "bevy_mod_outline",
+ "bevy_prng",
  "bevy_rand",
  "bevy_replicon",
  "binary-greedy-meshing",

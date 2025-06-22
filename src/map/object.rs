@@ -2,7 +2,8 @@ use std::cmp::Ordering;
 
 use avian3d::prelude::*;
 use bevy::prelude::*;
-use bevy_rand::RngComponent;
+use bevy_rand::prelude::*;
+use bevy_prng::WyRand;
 use rand::Rng;
 
 use crate::map::{Aabb, Digsite, VoxelAabb, WorldGenSet};
@@ -30,23 +31,24 @@ pub fn create_digsite(mut commands: Commands, mut writer: EventWriter<GenerateOb
         )
         .id();
 
-    writer.write(GenerateObjects { digsite, objects: vec![Vec3::ONE, Vec3::new(1, 10, 1)] });
+    writer.write(GenerateObjects { digsite, objects: vec![Vec3::ONE, Vec3::new(1.0, 10.0, 1.0)] });
 }
 
 pub fn generate_objects(
+    mut rng: GlobalEntropy<WyRand>,
     mut generate_objects: EventReader<GenerateObjects>,
-    digsites: Query<(&Digsite, &RngComponent)>,
+    digsites: Query<(&Digsite, )>,
     name: Query<NameOrEntity>,
 ) {
     for mut event in generate_objects.read() {
-        let Ok((digsite, rng)) = digsites.get(event.digsite) else {
+        let Ok((digsite,)) = digsites.get(event.digsite) else {
             warn!("digsite {:?}", name.get(event.digsite).unwrap());
             continue;
         };
 
         // TODO: Read https://docs.rs/bevy_rand/latest/bevy_rand/
         let mut object_list = event.objects.clone();
-        digsite.place_aabbs(object_list, rng)
+        // let positions = digsite.place_aabbs(object_list, &mut rng);
         // Sort by largest volume to smallest
         // This'll give us the greatest chance at finding positions for each
         // object. object_list.sort_by(by_volume);

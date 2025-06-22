@@ -30,6 +30,7 @@ bevy_edge_detection = { git = "https://github.com/aceeri/bevy_edge_detection", b
 # Randomness
 rand_core = "0.9"
 bevy_rand = { version = "0.11", features = ["rand_chacha", "wyrand"] }
+bevy_prng = { version = "0.11", features = ["rand_chacha", "wyrand"] }
 noiz = "0.2.0"
 
 # Meshing

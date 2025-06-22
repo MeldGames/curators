@@ -1,7 +1,9 @@
 //! Generate a mesh of a fence given a line and voxel heights
 
 use bevy::prelude::*;
-use bevy_turborand::prelude::*;
+use bevy_rand::prelude::*;
+use bevy_prng::WyRand;
+use rand::Rng;
 
 use crate::map::WorldGenSet;
 use crate::voxel::pick::CursorVoxel;
@@ -183,7 +185,7 @@ fn rotation_from_to(start: Vec3, end: Vec3, up: Vec3) -> Quat {
 }
 
 pub fn update_board(
-    mut global_rng: ResMut<GlobalRng>,
+    mut rng: GlobalEntropy<WyRand>,
     mut boards: Query<(Entity, &Board, &BoardParams), Changed<Board>>,
     mut transforms: Query<&mut Transform>,
 ) {
@@ -194,27 +196,28 @@ pub fn update_board(
             continue;
         };
 
+
         let from = from.translation
             + board_params.connection_point_variance
                 * Vec3::new(
-                    global_rng.f32_normalized(),
-                    global_rng.f32_normalized(),
-                    global_rng.f32_normalized(),
+                    rng.random(),
+                    rng.random(),
+                    rng.random(),
                 );
         let to = to.translation
             + board_params.connection_point_variance
                 * Vec3::new(
-                    global_rng.f32_normalized(),
-                    global_rng.f32_normalized(),
-                    global_rng.f32_normalized(),
+                    rng.random(),
+                    rng.random(),
+                    rng.random(),
                 );
 
         let size = board_params.size
             + board_params.size_variance
                 * Vec3::new(
-                    global_rng.f32_normalized(),
-                    global_rng.f32_normalized(),
-                    global_rng.f32_normalized(),
+                    rng.random(),
+                    rng.random(),
+                    rng.random(),
                 );
 
         let distance = from.distance(to);
@@ -230,7 +233,7 @@ pub fn update_board(
 
 pub fn spawn_fence(
     mut commands: Commands,
-    mut global_rng: ResMut<GlobalRng>,
+    mut rng: GlobalEntropy<WyRand>,
     fences: Query<(Entity, &Fence, Option<&Children>), Changed<Fence>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -256,9 +259,9 @@ pub fn spawn_fence(
             let post_size = fence.post_size
                 + fence.post_size_variance
                     * Vec3::new(
-                        global_rng.f32_normalized(),
-                        global_rng.f32_normalized(),
-                        global_rng.f32_normalized(),
+                        rng.random(),
+                        rng.random(),
+                        rng.random(),
                     );
 
             let prev = Vec2::new(prev_point.x, prev_point.z);
@@ -284,7 +287,7 @@ pub fn spawn_fence(
                         materials.add(StandardMaterial {
                             perceptual_roughness: 1.0,
                             base_color: Color::srgb(205. / 255., 157. / 255., 111. / 255.)
-                                .darker(global_rng.f32() * 0.2),
+                                .darker(rng.random::<f32>() * 0.2),
                             ..default()
                         }),
                     ),
@@ -322,7 +325,7 @@ pub fn spawn_fence(
                                 materials.add(StandardMaterial {
                                     base_color: board_params.materials[0]
                                         .base_color
-                                        .darker(global_rng.f32() * 0.2),
+                                        .darker(rng.random::<f32>() * 0.2),
                                     ..board_params.materials[0].clone()
                                 }),
                             ),
