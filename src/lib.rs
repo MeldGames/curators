@@ -9,8 +9,8 @@ use bevy_edge_detection::*;
 use bevy_mod_outline::*;
 use bevy_prng::WyRand;
 use bevy_rand::prelude::EntropyPlugin;
-use rand_core::RngCore;
 use iyes_perf_ui::prelude::*;
+use rand_core::RngCore;
 
 pub mod camera;
 pub mod character;
@@ -32,7 +32,7 @@ pub fn shared(app: &mut App) {
     app.add_plugins(bevy_enhanced_input::EnhancedInputPlugin)
         .add_plugins(PhysicsPlugins::default());
     // app.add_plugins(PhysicsDebugPlugin::default());
-    app.add_plugins(TemporalAntiAliasPlugin);
+    // app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
 
     let seed: u64 = 1;

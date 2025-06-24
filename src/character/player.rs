@@ -93,7 +93,7 @@ pub fn spawn_player(
         },*/
         ShadowFilteringMethod::Temporal,
         Msaa::Off,
-        TemporalAntiAliasing::default(),
+        // TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
             constant_object_thickness: 4.0,
