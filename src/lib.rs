@@ -32,7 +32,7 @@ pub fn shared(app: &mut App) {
     app.add_plugins(bevy_enhanced_input::EnhancedInputPlugin)
         .add_plugins(PhysicsPlugins::default());
     // app.add_plugins(PhysicsDebugPlugin::default());
-    // app.add_plugins(TemporalAntiAliasPlugin);
+    app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
 
     let seed: u64 = 1;

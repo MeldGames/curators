@@ -2,7 +2,8 @@ use avian3d::prelude::*;
 use bevy::color::palettes::css::GRAY;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasing;
-use bevy::core_pipeline::smaa::Smaa;
+use bevy::core_pipeline::fxaa::Fxaa;
+use bevy::core_pipeline::smaa::{Smaa, SmaaPreset};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::{
     Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel,
@@ -91,7 +92,7 @@ pub fn spawn_player(
             // metering_mask: metering_mask.clone(),
             ..default()
         },*/
-        ShadowFilteringMethod::Temporal,
+        // ShadowFilteringMethod::Temporal,
         Msaa::Off,
         // TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion {
@@ -112,7 +113,10 @@ pub fn spawn_player(
             uv_distortion_strength: Vec2::new(0.0, 0.0),
             ..default()
         },
-        Smaa::default(),
+        Smaa {
+            preset: SmaaPreset::Ultra,
+        },
+        // Fxaa::default(),
     );
 
     let flying = commands
