@@ -142,20 +142,20 @@ pub fn spawn_player(
         ))
         .id();
 
-    let digsite = commands
-        .spawn((
-            Name::new("Digsite camera"),
-            DigsiteSettings::default(),
-            DigsiteState::default(),
-            camera_components.clone(),
-            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        ))
-        .id();
+    // let digsite = commands
+    //     .spawn((
+    //         Name::new("Digsite camera"),
+    //         DigsiteSettings::default(),
+    //         DigsiteState::default(),
+    //         camera_components.clone(),
+    //         Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+    //             .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    //     ))
+    //     .id();
 
     commands.spawn((
         Name::new("Camera toggle"),
         Actions::<CameraToggle>::default(),
-        CameraEntities { flying, follow, digsite, active: ActiveCamera::Follow },
+        CameraEntities { flying, follow, /*digsite,*/ active: ActiveCamera::Flying },
     ));
 }

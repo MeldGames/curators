@@ -99,7 +99,7 @@ pub fn add_hold(trigger: Trigger<OnInsert, Hold>, hold: Query<&Hold>, mut comman
 }
 
 pub fn holding_binding(
-    trigger: Trigger<Binding<Holding>>,
+    trigger: Trigger<Bind<Holding>>,
     mut inputs: Query<(&mut Actions<Holding>, &mut Hold)>,
 ) {
     let Ok((mut actions, mut hold)) = inputs.get_mut(trigger.target()) else {
@@ -111,7 +111,7 @@ pub fn holding_binding(
 }
 
 pub fn free_binding(
-    trigger: Trigger<Binding<HandsFree>>,
+    trigger: Trigger<Bind<HandsFree>>,
     mut inputs: Query<(&mut Actions<HandsFree>, &mut Hold)>,
 ) {
     let Ok((mut actions, mut hold)) = inputs.get_mut(trigger.target()) else {
@@ -172,7 +172,7 @@ pub fn grab_item(
     outlined_items: Query<Entity, (With<Item>, With<OutlineVolume>)>,
     child_of: Query<(), With<ChildOf>>,
     mut commands: Commands,
-) {
+) -> Result<()> {
     let mut remove_outlines = outlined_items.iter().collect::<HashSet<_>>();
     let mut add_outlines = HashSet::new();
 
@@ -213,7 +213,7 @@ pub fn grab_item(
                 continue;
             };
 
-            if actions.get::<Grab>().unwrap().value().as_bool() {
+            if actions.value::<Grab>()? {
                 info!("{} picked up {}", holder_name, item_name);
                 hold.entity = Some(item_entity);
                 item_transform.translation = Vec3::ZERO;
@@ -247,6 +247,8 @@ pub fn grab_item(
             OutlineVolume { visible: true, width: 4.0, colour: Color::srgba(0.0, 0.0, 0.0, 0.4) },
         ));
     }
+
+    Ok(())
 }
 
 pub fn drop_item(

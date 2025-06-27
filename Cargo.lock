@@ -787,6 +787,7 @@ dependencies = [
 [[package]]
 name = "bevy_edge_detection"
 version = "0.15.4"
+source = "git+https://github.com/aceeri/bevy_edge_detection?branch=master#c56db1a5ce6a0c823c111e993b0a2804967c4f57"
 dependencies = [
  "bevy",
 ]
@@ -838,9 +839,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_enhanced_input"
-version = "0.12.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e54cbf32f3dd047c0fe0ecfa7d126828e1fbd7869e862b6411e144c8be1b282c"
+checksum = "b1de620edaf609614a7f2dc8dacd7c928a8400e15f8b36a37e2b0555a6cb8874"
 dependencies = [
  "bevy",
  "bevy_enhanced_input_macros",
@@ -852,9 +853,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_enhanced_input_macros"
-version = "0.12.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fa85f75056068d2b457beb6213e58b05762324bd3dee325c9ac24e9100ba19f"
+checksum = "63736a0eb049bceeb85afcf74a4136e50ab0c644c1300dd9ebdeb16ea63d3191"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -1162,9 +1163,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_outline"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "815a232a6616cdef3fadaa789269daca91eb598ffa22612218f8b5ed55dff7b5"
+checksum = "76f2e02ab0c78edf7bad91745c29ee38061e73713fce5fa6b5a3beeafffe4f5a"
 dependencies = [
  "bevy",
  "bitfield",
@@ -1397,9 +1398,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_replicon"
-version = "0.33.0"
+version = "0.34.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eb17dfa27929fb499f7fc27b2ec11ff4913ff2dded3b8bbfb50e439e7332d28"
+checksum = "0d4ce1947bc4f59da376589e1b019def816b49ecb9d23ecf0233211d137ac9fe"
 dependencies = [
  "bevy",
  "bitflags 2.9.0",
@@ -1690,8 +1691,6 @@ dependencies = [
 [[package]]
 name = "binary-greedy-meshing"
 version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17f73b45cc178ef2c2c1246231451ba67412ded43f0d21f7df3f2bc0559d802c"
 
 [[package]]
 name = "bindgen"

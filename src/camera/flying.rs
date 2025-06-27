@@ -82,7 +82,7 @@ impl<I: IntoBindings> IntoBindings for SixDOF<I> {
 }
 
 pub fn camera_binding(
-    trigger: Trigger<Binding<FlyingCamera>>,
+    trigger: Trigger<Bind<FlyingCamera>>,
     mut flying: Query<&mut Actions<FlyingCamera>>,
 ) {
     let Ok(mut actions) = flying.get_mut(trigger.target()) else {
@@ -186,18 +186,14 @@ pub fn handle_rotation(
     mut camera: Query<(&mut Transform, &mut FlyingState, &FlyingSettings, &Actions<FlyingCamera>)>,
     windows: Query<&Window>,
     mut cursor_grab_offset: ResMut<CursorGrabOffset>,
-) {
-    let Ok((mut transform, mut state, settings, actions)) = camera.single_mut() else {
-        return;
-    };
-
-    let camera_rotate = actions.get::<CameraRotate>().unwrap();
+) -> Result<()> {
+    let Ok((mut transform, mut state, settings, actions)) = camera.single_mut() else { return Ok(()); };
 
     // If the cursor grab setting caused this, prevent it from doing anything.
-    let mut rotation = camera_rotate.value().as_axis2d();
+    let mut rotation = actions.value::<CameraRotate>()?;
 
     if !crate::cursor::cursor_grabbed(windows) {
-        return;
+        return Ok(());
     }
 
     // Handle mouse input
@@ -205,7 +201,7 @@ pub fn handle_rotation(
         if cursor_grab_offset.is_none() {
             // Unknown delta, ignore this one.
             cursor_grab_offset.0 = Some(Vec2::ZERO);
-            return;
+            return Ok(());
         }
 
         rotation += cursor_grab_offset.unwrap();
@@ -217,6 +213,8 @@ pub fn handle_rotation(
         state.yaw -= rotation.x * RADIANS_PER_DOT * settings.sensitivity;
         transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, state.yaw, state.pitch);
     }
+
+    Ok(())
 }
 
 pub fn handle_movement(
@@ -226,13 +224,11 @@ pub fn handle_movement(
         (&mut Transform, &Actions<FlyingCamera>, &FlyingSettings, &mut FlyingState),
         With<Camera>,
     >,
-) {
+) -> Result<()> {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, actions, settings, mut state)) = query.single_mut() else {
-        return;
-    };
-    let movement = actions.get::<CameraMove>().unwrap().value().as_axis3d();
+    let Ok((mut transform, actions, settings, mut state)) = query.single_mut() else { return Ok(()); };
+    let movement = actions.value::<CameraMove>()?;
 
     // Apply movement update
     if movement != Vec3::ZERO {
@@ -291,4 +287,6 @@ pub fn handle_movement(
     // }
     // }
     // }
+
+    Ok(())
 }

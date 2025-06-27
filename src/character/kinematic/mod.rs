@@ -303,10 +303,10 @@ pub fn handle_jump(
         &Actions<PlayerInput>,
     )>,
     time: Res<Time>,
-) {
+) -> Result<()> {
     for (mut controller, grounded, mut jump, actions) in &mut players {
         let mut falloff = 0.0;
-        match actions.get::<Jump>().unwrap().state() {
+        match actions.state::<Jump>()? {
             ActionState::Fired => {
                 if grounded.grounded {
                     if jump.current_force.is_none() && !jump.last_jump {
@@ -337,4 +337,6 @@ pub fn handle_jump(
             controller.velocity += Vec3::Y * force;
         }
     }
+
+    Ok(())
 }

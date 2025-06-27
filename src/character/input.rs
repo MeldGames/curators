@@ -22,7 +22,7 @@ pub(super) fn plugin(app: &mut App) {
 }
 
 pub fn player_binding(
-    trigger: Trigger<Binding<PlayerInput>>,
+    trigger: Trigger<Bind<PlayerInput>>,
     mut players: Query<&mut Actions<PlayerInput>>,
 ) {
     let Ok(mut actions) = players.get_mut(trigger.target()) else {
@@ -73,10 +73,9 @@ pub fn dig_target(
     mut voxels: Query<(Entity, &GlobalTransform, &mut Voxels)>,
     time: Res<Time>,
     mut gizmos: Gizmos,
-) {
+) -> Result<()> {
     for (global_transform, actions, mut state, collider) in &mut players {
-        let interact = actions.get::<Dig>().unwrap();
-        match interact.state() {
+        match actions.state::<Dig>()? {
             ActionState::Fired => {
                 state.time_since_dig += time.delta_secs();
             },
@@ -124,14 +123,16 @@ pub fn dig_target(
             }
         }
     }
+
+    Ok(())
 }
 
 pub fn dig_block(
     mut players: Query<(&Actions<PlayerInput>, &mut DigState)>,
     mut voxels: Query<&mut Voxels>,
-) {
+) -> Result<()> {
     for (actions, mut dig_state) in &mut players {
-        if let ActionState::Fired = actions.get::<Dig>().unwrap().state() {
+        if let ActionState::Fired = actions.state::<Dig>()? {
             if let Some((digsite_entity, voxel_pos)) = dig_state.target_block {
                 if let Ok(mut voxels) = voxels.get_mut(digsite_entity) {
                     if let Some(voxel_state) = voxels.get_voxel(voxel_pos.into()) {
@@ -154,4 +155,6 @@ pub fn dig_block(
             }
         }
     }
+
+    Ok(())
 }

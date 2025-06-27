@@ -29,21 +29,21 @@ pub struct Toggle;
 #[derive(Reflect, Default)]
 pub enum ActiveCamera {
     Flying,
-    Follow,
     #[default]
-    Digsite,
+    Follow,
+    // Digsite,
 }
 
 #[derive(Component, Reflect)]
 pub struct CameraEntities {
     pub follow: Entity,
     pub flying: Entity,
-    pub digsite: Entity,
+    // pub digsite: Entity,
     pub active: ActiveCamera,
 }
 
 pub fn toggle_binding(
-    trigger: Trigger<Binding<CameraToggle>>,
+    trigger: Trigger<Bind<CameraToggle>>,
     mut toggle: Query<&mut Actions<CameraToggle>>,
 ) {
     let Ok(mut actions) = toggle.get_mut(trigger.target()) else {
@@ -55,7 +55,7 @@ pub fn toggle_binding(
 
 impl CameraEntities {
     pub fn assert_state(&self, commands: &mut Commands, cameras: &mut Query<&mut Camera>) {
-        let Ok(mut cameras) = cameras.get_many_mut([self.flying, self.follow, self.digsite]) else {
+        let Ok(mut cameras) = cameras.get_many_mut([self.flying, self.follow]) else {
             return;
         };
 
@@ -65,7 +65,7 @@ impl CameraEntities {
             }
         }
 
-        let [mut flying_camera, mut follow_camera, mut digsite_camera] = cameras;
+        let [mut flying_camera, mut follow_camera] = cameras;
 
         match self.active {
             ActiveCamera::Flying => {
@@ -74,9 +74,9 @@ impl CameraEntities {
             ActiveCamera::Follow => {
                 follow_camera.is_active = true;
             },
-            ActiveCamera::Digsite => {
-                digsite_camera.is_active = true;
-            },
+            // ActiveCamera::Digsite => {
+            //     digsite_camera.is_active = true;
+            // },
         }
 
         if follow_camera.is_active {
@@ -91,11 +91,11 @@ impl CameraEntities {
             commands.entity(self.flying).remove::<Actions<FlyingCamera>>();
         }
 
-        if digsite_camera.is_active {
-            commands.entity(self.digsite).insert_if_new(Actions::<DigsiteCamera>::default());
-        } else {
-            commands.entity(self.digsite).remove::<Actions<DigsiteCamera>>();
-        }
+        // if digsite_camera.is_active {
+        //     commands.entity(self.digsite).insert_if_new(Actions::<DigsiteCamera>::default());
+        // } else {
+        //     commands.entity(self.digsite).remove::<Actions<DigsiteCamera>>();
+        // }
     }
 }
 
@@ -122,10 +122,11 @@ pub fn switch_cameras(
             camera_entities.active = ActiveCamera::Follow;
         },
         ActiveCamera::Follow => {
-            camera_entities.active = ActiveCamera::Digsite;
+            // camera_entities.active = ActiveCamera::Digsite;
+             camera_entities.active = ActiveCamera::Flying;
         },
-        ActiveCamera::Digsite => {
-            camera_entities.active = ActiveCamera::Flying;
-        },
+        // ActiveCamera::Digsite => {
+        //     camera_entities.active = ActiveCamera::Flying;
+        // },
     }
 }

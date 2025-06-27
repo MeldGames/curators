@@ -18,10 +18,10 @@ pub fn apply_movement(
         &Actions<PlayerInput>,
     )>,
     time: Res<Time>,
-) {
+) -> Result<()> {
     for (mut controller, grounded, mut transform, actions) in &mut players {
-        let move_input = actions.get::<Move>().unwrap().value().as_axis2d();
-        let dig = actions.get::<Dig>().unwrap().value().as_bool();
+        let move_input = actions.value::<Move>()?;
+        let dig = actions.value::<Dig>()?;
 
         let speed = 5.0;
 
@@ -63,4 +63,6 @@ pub fn apply_movement(
             transform.rotation = transform.rotation.slerp(target, time.delta_secs() * 20.0);
         }
     }
+
+    Ok(())
 }

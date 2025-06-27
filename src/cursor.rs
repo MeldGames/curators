@@ -36,7 +36,7 @@ pub fn spawn_cursor_input(mut commands: Commands) {
     commands.spawn((Name::new("Cursor Input"), Actions::<Cursor>::default()));
 }
 
-pub fn cursor_binding(trigger: Trigger<Binding<Cursor>>, mut cursor: Query<&mut Actions<Cursor>>) {
+pub fn cursor_binding(trigger: Trigger<Bind<Cursor>>, mut cursor: Query<&mut Actions<Cursor>>) {
     let Ok(mut actions) = cursor.get_mut(trigger.target()) else {
         return;
     };
@@ -57,11 +57,11 @@ pub fn cursor_grab(
     cursor: Query<&Actions<Cursor>>,
     grabbers: Query<(), Or<(With<Actions<FlyingCamera>>, With<Actions<PlayerInput>>)>>,
     mut toggle: ResMut<CursorGrabToggle>,
-) {
+) -> Result<()> {
     let cursor = cursor.single().unwrap();
     let grabbers = grabbers.iter().count();
 
-    if cursor.get::<ToggleCursor>().unwrap().state() == ActionState::Fired {
+    if cursor.state::<ToggleCursor>()? == ActionState::Fired {
         toggle.0 = !toggle.0;
         info!("toggled cursor: {:?}", toggle.0);
     }
@@ -74,7 +74,7 @@ pub fn cursor_grab(
                 grab = true;
             }
 
-            if cursor.get::<FreeCursor>().unwrap().value().as_bool() {
+            if cursor.value::<FreeCursor>()? {
                 grab = false;
             }
         }
@@ -102,4 +102,6 @@ pub fn cursor_grab(
             window.cursor_options.visible = true;
         }
     }
+
+    Ok(())
 }
