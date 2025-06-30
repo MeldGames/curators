@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
 use bgm::Face;
-use binary_greedy_meshing as bgm;
+use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
 use crate::voxel::{Voxel, VoxelChunk, Voxels};
@@ -233,16 +233,17 @@ pub trait BinaryGreedyMeshing {
     fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher) -> ColliderMesh;
 }
 
-pub fn pos_uvs(quad: &u64, face: Face) -> [([f32; 3], [f32; 2]); 4] {
-    let voxel_i = (quad >> 32) as usize;
-
+pub fn pos_uvs(quad: Quad, face: Face) -> [([f32; 3], [f32; 2]); 4] {
     // UV coordinates (0..64, 0..64)
-    let w = ((MASK_6 & (quad >> 18)) as u32) as f32;
-    let h = ((MASK_6 & (quad >> 24)) as u32) as f32;
-    let xyz = (MASK_XYZ & quad) as u32;
-    let x = (MASK_6 as u32 & xyz) as f32;
-    let y = (MASK_6 as u32 & (xyz >> 6)) as f32;
-    let z = (MASK_6 as u32 & (xyz >> 12)) as f32;
+    let w = quad.width() as f32;
+    let h = quad.height() as f32;
+    let [x, y, z] = quad.xyz().map(|i| i as f32);
+    // let w = ((MASK_6 & (quad >> 18)) as u32) as f32;
+    // let h = ((MASK_6 & (quad >> 24)) as u32) as f32;
+    // let xyz = (MASK_XYZ & quad) as u32;
+    // let x = (MASK_6 as u32 & xyz) as f32;
+    // let y = (MASK_6 as u32 & (xyz >> 6)) as f32;
+    // let z = (MASK_6 as u32 & (xyz >> 12)) as f32;
 
     trait ArrAdd {
         fn add(self, other: Self) -> Self;
@@ -313,8 +314,8 @@ impl BinaryGreedyMeshing for VoxelChunk {
             let face: Face = (face_n as u8).into();
             let n = face.n();
             for quad in quads {
-                let voxel_i = (quad >> 32) as usize;
-                for (pos, uv) in pos_uvs(quad, face) {
+                let voxel_i = quad.voxel_id() as usize;
+                for (pos, uv) in pos_uvs(*quad, face) {
                     positions[voxel_i].push(pos);
                     normals[voxel_i].push(n.clone());
                     uvs[voxel_i].push(uv);
@@ -365,8 +366,8 @@ impl BinaryGreedyMeshing for VoxelChunk {
             let face: Face = (face_n as u8).into();
             let n = face.n();
             for quad in quads {
-                let voxel_i = self.voxel_id() as usize;
-                for (pos, uv) in pos_uvs(quad, face) {
+                let voxel_i = quad.voxel_id() as usize;
+                for (pos, uv) in pos_uvs(*quad, face) {
                     collider_mesh.positions.push(pos);
                     collider_mesh.normals.push(n.clone());
                 }
