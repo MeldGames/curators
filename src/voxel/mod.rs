@@ -1,10 +1,10 @@
-use bevy::pbr::light_consts::lux;
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
 use bevy::render::camera::Exposure;
 pub use chunk::{VoxelChunk, Voxels};
 pub use mesh::UpdateVoxelMeshSet;
 pub use voxel::Voxel;
+pub use voxel_aabb::VoxelAabb;
 
 use crate::character;
 
@@ -14,6 +14,7 @@ pub mod mesh;
 pub mod pick;
 pub mod raycast;
 pub mod voxel;
+pub mod voxel_aabb;
 
 pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
 // pub const GRID_SCALE: Vec3 = Vec3::splat(0.1);

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use rand::Rng;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Aabb {
@@ -34,6 +35,18 @@ impl Aabb {
         self.min.cmpge(container.min).all() && self.max.cmple(container.max).all()
     }
 
+    /// Zone within the container that this aabb can be panned inside and still fit inside the container.
+    pub fn fitting_zone(&self, container: &Aabb) -> Option<Aabb> {
+        if !self.fits_inside(container) {
+            return None;
+        }
+        let half_size = self.size() / 2.0;
+        Some(Aabb {
+            min: container.min + half_size,
+            max: container.max - half_size,
+        })
+    }
+
     pub fn rotate(self, rotation: Quat) -> Self {
         let center = self.center();
         let corners = [
@@ -59,5 +72,31 @@ impl Aabb {
         }
 
         Self { min, max }
+    }
+
+    pub fn intersects(&self, other: &Aabb) -> bool {
+        self.min.x < other.max.x && self.max.x > other.min.x &&
+        self.min.y < other.max.y && self.max.y > other.min.y &&
+        self.min.z < other.max.z && self.max.z > other.min.z
+    }
+
+    pub fn intersection_depth(&self, other: &Aabb) -> Option<Vec3> {
+        if !self.intersects(other) {
+            return None;
+        }
+
+        let dx = (self.max.x - other.min.x).min(other.max.x - self.min.x);
+        let dy = (self.max.y - other.min.y).min(other.max.y - self.min.y);
+        let dz = (self.max.z - other.min.z).min(other.max.z - self.min.z);
+
+        Some(Vec3::new(dx, dy, dz))
+    }
+
+    pub fn random_point(&self, rng: &mut impl Rng) -> Vec3 {
+        Vec3::new(
+            rng.random_range(self.min.x..=self.max.x),
+            rng.random_range(self.min.y..=self.max.y),
+            rng.random_range(self.min.z..=self.max.z),
+        )
     }
 }

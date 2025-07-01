@@ -1,7 +1,6 @@
-use bevy::input::keyboard::KeyboardInput;
 use bevy::prelude::*;
 
-use crate::voxel::raycast::{Hit, VoxelHit};
+use crate::voxel::raycast::VoxelHit;
 use crate::voxel::{Voxel, Voxels};
 
 pub struct VoxelPickPlugin;

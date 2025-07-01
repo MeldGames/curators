@@ -4,9 +4,12 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_rand::prelude::*;
 use bevy_prng::WyRand;
+use rand::distr::weighted::WeightedIndex;
+use rand::distr::Distribution;
+use rand::seq::WeightError;
 use rand::Rng;
 
-use crate::map::{Aabb, Digsite, VoxelAabb, WorldGenSet};
+use crate::map::{Aabb, Digsite, DigsiteObject, VoxelAabb, WorldGenSet};
 use crate::voxel::GRID_SCALE;
 
 #[derive(Event)]
@@ -19,14 +22,18 @@ pub fn plugin(app: &mut App) {
     app.add_event::<GenerateObjects>();
 
     app.add_systems(PreUpdate, generate_objects.in_set(WorldGenSet::Objects));
-    app.add_systems(Startup, create_digsite);
+    app.add_systems(Startup, create_test_digsite);
 }
 
-pub fn create_digsite(mut commands: Commands, mut writer: EventWriter<GenerateObjects>) {
+pub fn create_test_digsite(mut commands: Commands, mut writer: EventWriter<GenerateObjects>) {
     let digsite = commands
         .spawn(
             (Digsite {
-                voxel_aabbs: vec![VoxelAabb::from_size(IVec3::ONE, IVec3::new(10, 10, 10))],
+                voxel_aabbs: vec![VoxelAabb {
+                    min: IVec3::new(0, 30, 0),
+                    max: IVec3::new(10, 48, 10)
+                }],
+                ..default()
             }),
         )
         .id();
@@ -59,72 +66,43 @@ pub fn by_volume(a: &Aabb, b: &Aabb) -> Ordering {
     a.volume().partial_cmp(&b.volume()).unwrap_or(Ordering::Less)
 }
 
-pub struct VolumeWeights {
-    weights: Vec<(i32, VoxelAabb)>,
-    max_volume: i32,
-}
-
-impl VolumeWeights {
-    pub fn pick_volume(&self, size: Vec3, mut rng: impl Rng + Copy) -> VoxelAabb {
-        // TODO: Filter volumes that are too small for the object.
-        let volume_pick = rng.random_range(0..self.max_volume);
-
-        for (starting_volume, aabb) in &self.weights {
-            if volume_pick >= *starting_volume {
-                return *aabb;
-            }
-        }
-
-        unreachable!("volume was outside range: {volume_pick:?}");
-    }
-
-    pub fn pick_point(&self, size: Vec3, mut rng: impl Rng + Copy) -> Vec3 {
-        let volume = self.pick_volume(size, rng).as_vec3();
-
-        // Calculate the inner area that keeps the object inside the volume.
-        let volume_size = volume.size();
-        let variance = (volume_size - size).max(Vec3::ZERO);
-        let min = volume.center() - variance / 2.0;
-        let max = volume.center() + variance / 2.0;
-
-        // Pick a random point in that variance.
-        Vec3::new(
-            rng.random_range(min.x..max.x),
-            rng.random_range(min.y..max.y),
-            rng.random_range(min.z..max.z),
-        )
-    }
-}
-
 impl Digsite {
     /// Randomly sample a position for an object's aabb.
     ///
     /// Make sure to rotate the object's aabb to what it will be before calling
     /// this.
-    pub fn volume_weights(&self) -> VolumeWeights {
-        let mut volume_weights = Vec::new();
-        let mut volume_sum = 0;
+    pub fn volume_weighted_index(&self) -> Result<WeightedIndex<i32>, WeightError> {
+        let mut weights = Vec::new();
         for aabb in &self.voxel_aabbs {
-            volume_weights.push((volume_sum + aabb.volume(), *aabb));
-            volume_sum += aabb.volume();
+            weights.push(aabb.volume());
         }
 
-        VolumeWeights { weights: volume_weights, max_volume: volume_sum }
+        WeightedIndex::new(weights)
     }
 
-    pub fn place_aabbs(&self, sizes: Vec<Vec3>, rng: impl Rng + Copy) -> Vec<Vec3> {
-        let mut sorted_sizes = sizes.iter().enumerate().collect::<Vec<_>>();
+    pub fn random_volume(&self, rng: &mut impl Rng) -> VoxelAabb {
+        let index = self.volume_weighted_index().unwrap();
+        self.voxel_aabbs[index.sample(rng)]
+    }
+
+    pub fn place_objects(&self, objects: Vec<DigsiteObject>, rng: &mut impl Rng) -> Vec<Vec3> {
+        let mut sorted_sizes = objects.iter().enumerate().collect::<Vec<_>>();
         sorted_sizes.sort_by(|(_, a), (_, b)| {
-            a.length_squared().partial_cmp(&b.length_squared()).unwrap_or(Ordering::Less)
+            a.volume().partial_cmp(&b.volume()).unwrap_or(Ordering::Less)
         });
 
-        let weights = self.volume_weights();
+        let mut placed = vec![Vec3::ZERO; objects.len()];
+        for (index, object) in sorted_sizes {
+            for _ in 0..3 {
+                let volume = self.random_volume(&mut *rng).as_vec3();
+                let object_aabb = object.local_aabb();
+                let Some(fitting_zone) = object_aabb.fitting_zone(&volume) else { continue; };
 
-        let mut placed = vec![Vec3::ZERO; sizes.len()];
-        for (index, size) in sorted_sizes {
-            let point = weights.pick_point(*size, rng);
-            placed[index] = point;
-            // TODO: check for collision
+                let point = fitting_zone.random_point(&mut *rng);
+                // TODO: check for collision?
+                placed[index] = point;
+                break;
+            }
         }
 
         placed

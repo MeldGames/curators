@@ -9,14 +9,14 @@ use crate::map::WorldGenSet;
 use crate::voxel::pick::CursorVoxel;
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 
-pub fn plugin(mut app: &mut App) {
+pub fn plugin(app: &mut App) {
     app.register_type::<Fence>().register_type::<BoardParams>();
 
     app.add_systems(PreUpdate, spawn_fence.in_set(WorldGenSet::SurfaceDetails));
     app.add_systems(PreUpdate, update_board);
 
     // app.add_systems(PreUpdate, paint_fence);
-    // app.add_systems(PreUpdate, test_fence.in_set(WorldGenSet::SurfaceDetails));
+    app.add_systems(PreUpdate, test_fence.in_set(WorldGenSet::SurfaceDetails));
 }
 
 #[derive(Component, Debug, Reflect)]
@@ -44,7 +44,7 @@ impl Fence {
 
             enclosed: false,
             offset: Vec3::new(0.0, 0.0, 0.0),
-            post_size: Vec3::new(0.25, 1.25, 0.25),
+            post_size: Vec3::new(0.25, 1.5, 0.25),
             post_size_variance: Vec3::new(0.05, 0.05, 0.0),
             boards: vec![
                 BoardParams { offset: Vec3::new(0.0, 0.2, 0.0), ..BoardParams::wooden() },

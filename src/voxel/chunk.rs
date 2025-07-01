@@ -4,8 +4,8 @@ use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use super::raycast::Hit;
-use crate::voxel::Voxel;
-use crate::voxel::raycast::{BoundingVolume3, VoxelHit, VoxelRay3Iterator};
+use crate::voxel::{Voxel, VoxelAabb};
+use crate::voxel::raycast::VoxelHit;
 
 pub type Scalar = i32;
 
@@ -172,7 +172,7 @@ impl Voxels {
         let local_ray = Ray3d { origin: local_origin, direction: local_direction };
 
         let (min, max) = self.chunk_bounds();
-        let volume = BoundingVolume3 { min, max };
+        let volume = VoxelAabb { min, max };
         // info!("chunk bounds: {:?}", self.chunk_size());chunk
         volume.traverse_ray(local_ray, length)
     }
@@ -196,7 +196,7 @@ impl Voxels {
 
         let min = chunk_pos * unpadded::SIZE as i32;
         let max = min + IVec3::splat(unpadded::SIZE as i32);
-        let volume = BoundingVolume3 { min, max };
+        let volume = VoxelAabb { min, max };
         volume.traverse_ray(local_ray, length).into_iter().map(move |hit| {
             // translate hit back to world space
             let local_distance = hit.distance;
@@ -534,20 +534,6 @@ impl VoxelChunk {
 
         None
     }
-
-    // Cast a ray in the localspace of the voxel grid.
-    // pub fn cast_local_ray(&self, ray: Ray3d, length: f32, _gizmos:
-    // Option<Gizmos>) -> Option<Hit> {     let volume =
-    //         BoundingVolume3 { size: IVec3::new(self.x_size(), self.y_size(),
-    // self.z_size()) };     for hit in volume.traverse_ray(ray, length) {
-    //         let voxel = self.voxel(hit.voxel.into());
-    //         if voxel.pickable() {
-    //             return Some(hit);
-    //         }
-    //     }
-
-    //     None
-    // }
 }
 
 pub fn memory_human_readable(bytes: usize) -> String {

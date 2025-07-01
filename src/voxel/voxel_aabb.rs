@@ -8,6 +8,12 @@ pub struct VoxelAabb {
     pub max: IVec3, // inclusive because voxels/integer lattice
 }
 
+impl Default for VoxelAabb {
+    fn default() -> Self {
+        Self { min: IVec3::ZERO, max: IVec3::ZERO }
+    }
+}
+
 impl VoxelAabb {
     /// Directly construct VoxelAabb
     pub fn new(min: IVec3, max: IVec3) -> Self {
@@ -224,6 +230,26 @@ impl VoxelAabb {
         }
 
         list
+    }
+
+    pub fn remove_overlaps(mut list: Vec<VoxelAabb>) -> Vec<VoxelAabb> {
+        let mut result: Vec<VoxelAabb> = Vec::new();
+
+        // Remove overlaps among the list
+        for current in list.drain(..) {
+            let mut fragments = vec![current];
+
+            // Remove overlaps with all boxes already in result
+            for existing in &result {
+                fragments =
+                    fragments.into_iter().flat_map(|frag| frag.subtract(existing)).collect();
+            }
+
+            // Add non-overlapping fragments to result
+            result.extend(fragments);
+        }
+
+        result
     }
 }
 

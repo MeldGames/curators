@@ -3,24 +3,16 @@
 //! Just adapted to work directly with our types
 use bevy::prelude::*;
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct BoundingVolume3 {
-    pub min: IVec3,
-    pub max: IVec3,
-}
+use crate::voxel::voxel_aabb::VoxelAabb;
 
-impl BoundingVolume3 {
-    pub fn traverse_ray(&self, ray: Ray3d, length: f32) -> VoxelRay3Iterator {
-        VoxelRay3Iterator::new(self.clone(), ray, length)
+impl VoxelAabb {
+    pub fn traverse_ray(&self, ray: Ray3d, length: f32) -> VoxelRayIterator {
+        VoxelRayIterator::new(self.clone(), ray, length)
     }
 
     #[inline(always)]
     pub(crate) fn contains_point(&self, point: IVec3) -> bool {
         point.cmpge(self.min).all() && point.cmplt(self.max).all()
-    }
-
-    pub fn size(&self) -> IVec3 {
-        self.max - self.min + IVec3::ONE
     }
 }
 
@@ -42,9 +34,9 @@ pub struct Hit {
 }
 
 #[derive(Debug, Default, Clone, Copy)]
-pub struct VoxelRay3Iterator {
+pub struct VoxelRayIterator {
     /// Bounding volume we are checking against. Each 1 unit is a voxel.
-    volume: BoundingVolume3,
+    volume: VoxelAabb,
     /// Maximum distance we can travel.
     max_distance: f32,
     /// Voxel we are currently at.
@@ -63,8 +55,8 @@ pub struct VoxelRay3Iterator {
 }
 
 // Based on https://github.com/fenomas/fast-voxel-raycast/blob/master/index.js
-impl VoxelRay3Iterator {
-    pub fn new(volume: BoundingVolume3, ray: Ray3d, ray_length: f32) -> Self {
+impl VoxelRayIterator {
+    pub fn new(volume: VoxelAabb, ray: Ray3d, ray_length: f32) -> Self {
         let mut position = ray.origin;
 
         // Normalize direction vector
@@ -149,7 +141,7 @@ impl VoxelRay3Iterator {
     }
 }
 
-impl Iterator for VoxelRay3Iterator {
+impl Iterator for VoxelRayIterator {
     type Item = Hit;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -206,7 +198,7 @@ impl Iterator for VoxelRay3Iterator {
 }
 
 fn aabb_intersections(
-    volume: BoundingVolume3,
+    volume: VoxelAabb,
     from: Vec3,
     direction: Vec3,
     distance: f32,

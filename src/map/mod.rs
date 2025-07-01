@@ -1,17 +1,19 @@
+use std::cmp::Ordering;
+
 use bevy::ecs::schedule::SystemSet;
 use bevy::prelude::*;
+
+use rand::Rng;
 
 pub mod aabb;
 pub mod object;
 pub mod terrain;
-pub mod voxel_aabb;
 
 pub use aabb::Aabb;
 pub use object::GenerateObjects;
 pub use terrain::{Layers, TerrainParams};
-pub use voxel_aabb::VoxelAabb;
 
-use crate::{map::terrain::TerrainKind, voxel::Voxel};
+use crate::{map::terrain::TerrainKind, voxel::{Voxel, VoxelAabb}};
 
 pub fn plugin(app: &mut App) {
     app.configure_sets(
@@ -97,30 +99,32 @@ pub struct DigsiteParams {
 #[derive(Component, Debug, Clone)]
 pub struct Digsite {
     voxel_aabbs: Vec<VoxelAabb>,
+    objects: Vec<DigsiteObject>,
+}
+
+impl Default for Digsite {
+    fn default() -> Self {
+        Self { voxel_aabbs: Vec::new(), objects: Vec::new() }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DigsiteObject {
+    pub size: Vec3,
+}
+
+impl DigsiteObject {
+    pub fn volume(&self) -> f32 {
+        (self.size.x * self.size.y * self.size.z).abs()
+    }
+
+    pub fn local_aabb(&self) -> Aabb {
+        Aabb::from_min_size(Vec3::ZERO, self.size)
+    }
 }
 
 impl Digsite {
     pub fn voxel_aabbs(&self) -> &[VoxelAabb] {
         &self.voxel_aabbs
-    }
-
-    pub fn remove_aabb_overlaps(&mut self) {
-        let mut result: Vec<VoxelAabb> = Vec::new();
-
-        // Remove overlaps among the list
-        for current in self.voxel_aabbs.drain(..) {
-            let mut fragments = vec![current];
-
-            // Remove overlaps with all boxes already in result
-            for existing in &result {
-                fragments =
-                    fragments.into_iter().flat_map(|frag| frag.subtract(existing)).collect();
-            }
-
-            // Add non-overlapping fragments to result
-            result.extend(fragments);
-        }
-
-        self.voxel_aabbs = result;
     }
 }
