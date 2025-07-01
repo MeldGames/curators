@@ -15,8 +15,8 @@ pub fn plugin(mut app: &mut App) {
     app.add_systems(PreUpdate, spawn_fence.in_set(WorldGenSet::SurfaceDetails));
     app.add_systems(PreUpdate, update_board);
 
-    app.add_systems(PreUpdate, paint_fence);
-    app.add_systems(PreUpdate, test_fence.in_set(WorldGenSet::SurfaceDetails));
+    // app.add_systems(PreUpdate, paint_fence);
+    // app.add_systems(PreUpdate, test_fence.in_set(WorldGenSet::SurfaceDetails));
 }
 
 #[derive(Component, Debug, Reflect)]

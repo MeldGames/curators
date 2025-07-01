@@ -839,9 +839,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_enhanced_input"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1de620edaf609614a7f2dc8dacd7c928a8400e15f8b36a37e2b0555a6cb8874"
+checksum = "41a363bb40bfcf499006ea25a24a2bd751f5b036506f69abfbc3803ecdcc6ab0"
 dependencies = [
  "bevy",
  "bevy_enhanced_input_macros",
@@ -853,9 +853,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_enhanced_input_macros"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63736a0eb049bceeb85afcf74a4136e50ab0c644c1300dd9ebdeb16ea63d3191"
+checksum = "8dc822dee1e63af3229e07fdd21a8525072a51b8861329c07d7f2896016f1bc1"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -1255,9 +1255,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_prng"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41c76ebff351c2123628086ccef32fb9ae476519dc13f605d3680c17da5c40fb"
+checksum = "66d0dd1d227a4a7a7e418db81999ee0642e80231970852d8ccd5c55f5240d520"
 dependencies = [
  "bevy_reflect",
  "rand_chacha 0.9.0",
@@ -1277,9 +1277,9 @@ checksum = "df7370d0e46b60e071917711d0860721f5347bc958bf325975ae6913a5dfcf01"
 
 [[package]]
 name = "bevy_rand"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ae51425b1886ff7c5a4a74fe2f4d0191b8e59f6409e3c84a3fccdbc8b63a93"
+checksum = "b1e8adac6caf22f60f74a9f23ff22003f7789f71561dc0f53db9eecb1bfcae19"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -1691,6 +1691,7 @@ dependencies = [
 [[package]]
 name = "binary-greedy-meshing"
 version = "0.4.1"
+source = "git+https://github.com/Aceeri/binary-greedy-meshing?branch=main#3a04be4440ff6df2b130ef0db9a1443c361c591a"
 
 [[package]]
 name = "bindgen"

@@ -11,7 +11,7 @@ pub use object::GenerateObjects;
 pub use terrain::{Layers, TerrainParams};
 pub use voxel_aabb::VoxelAabb;
 
-use crate::voxel::Voxel;
+use crate::{map::terrain::TerrainKind, voxel::Voxel};
 
 pub fn plugin(app: &mut App) {
     app.configure_sets(
@@ -71,7 +71,8 @@ pub fn create_basic_map(mut commands: Commands) {
     commands.spawn(
         (MapParams {
             terrain: TerrainParams {
-                aabb: VoxelAabb { min: IVec3::new(-300, 0, -300), max: IVec3::new(300, 64, 300) },
+                aabb: VoxelAabb { min: IVec3::new(-100, 0, -100), max: IVec3::new(100, 48, 100) },
+                kind: TerrainKind::Flat,
                 layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
             },
             digsite: DigsiteParams { count: 1 },

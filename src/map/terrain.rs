@@ -56,6 +56,14 @@ pub struct TerrainParams {
     /// Layers starting from bottom up
     /// Second param is how many blocks thick the layer is.
     pub layers: Layers,
+
+    pub kind: TerrainKind,
+}
+
+#[derive(Clone, Debug)]
+pub enum TerrainKind {
+    Flat,
+    Hilly,
 }
 
 #[derive(Error, Debug)]
@@ -66,8 +74,37 @@ pub enum GenError {
 
 impl TerrainParams {
     pub fn apply(&self, voxels: &mut Voxels) -> Result<(), Vec<GenError>> {
-        info!("generating digsite !!!");
+        info!("generating digsite: {self:?}");
 
+        match &self.kind {
+            TerrainKind::Flat => self.flat(voxels),
+            TerrainKind::Hilly => self.hilly(voxels),
+        }
+    }
+
+    pub fn flat(&self, voxels: &mut Voxels) -> Result<(), Vec<GenError>> {
+        let min = self.aabb.min;
+        let max = self.aabb.max;
+
+        for x in min.x..max.x {
+            for z in min.z..max.z {
+                let bounds_height = max.y - min.y;
+                let coord_height = bounds_height;
+
+                for y in min.y..coord_height {
+                    let range_height = y as f32 / (coord_height - min.y) as f32;
+                    let voxel = self.layers.sample_height(range_height);
+                    voxels.set_voxel(IVec3::new(x, y, z), voxel);
+                }
+
+                voxels.set_voxel(IVec3::new(x, min.y, z), Voxel::Base);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn hilly(&self, voxels: &mut Voxels) -> Result<(), Vec<GenError>> {
         let min = self.aabb.min;
         let max = self.aabb.max;
 

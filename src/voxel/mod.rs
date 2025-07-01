@@ -43,10 +43,8 @@ impl Plugin for VoxelPlugin {
 }
 
 pub fn spawn_voxel_grid(mut commands: Commands) {
-    let mut grid = Voxels::new();
-
     commands.spawn((
-        grid,
+        Voxels::new(),
         Transform { scale: GRID_SCALE, ..default() },
         // mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,

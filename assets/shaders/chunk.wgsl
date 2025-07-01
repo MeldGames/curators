@@ -41,10 +41,7 @@ struct CustomVertexOutput {
     @location(1) world_normal: vec3<f32>,
     @location(2) uv: vec2<f32>,
     @location(3) color: vec4<f32>,
-    @location(4) texture_layer: u32,
-    @location(5) face_light: vec4<f32>,
 };
-
 
 fn normal_from_id(id: u32) -> vec3<f32> {
     var n: vec3<f32>;
@@ -72,26 +69,6 @@ fn normal_from_id(id: u32) -> vec3<f32> {
         }
     }
     return n;
-}
-
-fn light_from_id(id: u32) -> vec4<f32> {
-    switch id {
-        case 0u {
-            return vec4(1.0, 1.0, 1.0, 1.0); // top
-        }
-        case 2u, 3u {
-            return vec4(0.7, 0.7, 0.7, 1.0); // right left
-        }
-        case 4u, 5u {
-            return vec4(0.5, 0.5, 0.5, 1.0); // front back
-        }
-        case 1u {
-            return vec4(0.3, 0.3, 0.3, 1.0); // bottom
-        }
-        default {
-            return vec4(0.0, 0.0, 0.0, 1.0);
-        }
-    }
 }
 
 fn color_from_id(id: u32) -> vec4<f32> {

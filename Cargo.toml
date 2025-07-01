@@ -19,7 +19,7 @@ tracing = { version = "0.1", features = [
 ] }
 
 # Bevy crates
-bevy_enhanced_input = "0.14.0"
+bevy_enhanced_input = "0.14.1"
 avian3d = "0.3.1"
 #avian3d = { git = "https://github.com/Jondolf/avian", rev = "8a6953298" }
 bevy_replicon = "0.34.1"
@@ -29,14 +29,15 @@ bevy_edge_detection = { git = "https://github.com/aceeri/bevy_edge_detection", b
 
 # Randomness
 rand_core = "0.9"
-bevy_rand = { version = "0.11", features = ["rand_chacha", "wyrand"] }
-bevy_prng = { version = "0.11", features = ["rand_chacha", "wyrand"] }
+bevy_rand = { version = "0.11.1", features = ["rand_chacha", "wyrand"] }
+bevy_prng = { version = "0.11.1", features = ["rand_chacha", "wyrand"] }
 noiz = "0.2.0"
 
 # Meshing
 fast-surface-nets = "0.2.1"
 # binary-greedy-meshing = "0.4.1"
-binary-greedy-meshing = { path = "../binary-greedy-meshing" }
+binary-greedy-meshing = { git = "https://github.com/Aceeri/binary-greedy-meshing", branch = "main" }
+# binary-greedy-meshing = { path = "../binary-greedy-meshing" }
 bevy_meshem = { git = "https://github.com/aceeri/Meshem", branch = "bevy-0.16" }
 #bevy_meshem = { path = "../Meshem" }
 
