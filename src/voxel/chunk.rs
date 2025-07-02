@@ -13,6 +13,7 @@ pub mod unpadded {
     use super::Scalar;
 
     pub const SIZE: usize = 62;
+    pub const SIZE_SCALAR: Scalar = SIZE as Scalar;
     pub const Z_STRIDE: usize = 1;
     pub const X_STRIDE: usize = SIZE;
     pub const Y_STRIDE: usize = SIZE * SIZE;
@@ -84,25 +85,86 @@ impl Voxels {
     }
 
     /// Given a voxel position, find the chunk it is in.
+    #[inline]
     pub fn find_chunk(point: IVec3) -> IVec3 {
         point.div_euclid(IVec3::splat(unpadded::SIZE as Scalar))
     }
 
-    pub fn relative_point(point: IVec3) -> IVec3 {
-        point.rem_euclid(IVec3::splat(unpadded::SIZE as Scalar))
+    fn chunks_overlapping_voxel(voxel_pos: IVec3) -> Vec<IVec3> {
+            let min_chunk = IVec3::new(
+                ((voxel_pos.x - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
+                ((voxel_pos.y - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
+                ((voxel_pos.z - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
+            );
+        
+            let max_chunk = IVec3::new(
+                ((voxel_pos.x + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
+                ((voxel_pos.y + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
+                ((voxel_pos.z + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
+            );
+        
+            let mut chunks = Vec::new();
+        
+            for x in min_chunk.x..=max_chunk.x {
+                for y in min_chunk.y..=max_chunk.y {
+                    for z in min_chunk.z..=max_chunk.z {
+                        chunks.push(IVec3::new(x, y, z));
+                    }
+                }
+            }
+        
+            chunks
+    }
+
+    #[inline]
+    pub fn relative_points(point: IVec3) -> [Option<(IVec3, IVec3)>; 8] {
+        let base = Voxels::find_chunk(point);
+
+        let relative_point = Self::relative_point(base, point);
+
+        // Need to search for 8 chunks based on the boundaries of the point and give the relative points for each
+
+        todo!()
+    }
+
+    pub fn relative_point(chunk: IVec3, world_point: IVec3) -> IVec3 {
+        let chunk_origin = chunk * unpadded::SIZE as Scalar;
+        world_point - chunk_origin
+    }
+
+    pub fn relative_point_with_boundary(chunk: IVec3, world_point: IVec3) -> IVec3 {
+        Self::relative_point(chunk, world_point) + IVec3::ONE
+    }
+
+    // pub fn relative_point(point: IVec3) -> IVec3 {
+    //     point.rem_euclid(IVec3::splat(unpadded::SIZE as Scalar))
+    // }
+
+    pub fn relative_point_padded(point: IVec3) -> IVec3 {
+        point.rem_euclid(IVec3::splat(unpadded::SIZE as Scalar)) + IVec3::ONE
     }
 
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
-        let chunk_point = Self::find_chunk(point);
-        let chunk = self.chunks.entry(chunk_point).or_default();
-        let relative_point = Self::relative_point(point);
-        self.changed_chunks.insert(chunk_point);
-        chunk.set(relative_point.into(), voxel);
+        for chunk_point in Self::chunks_overlapping_voxel(point) {
+            let chunk = self.chunks.entry(chunk_point).or_default();
+            let relative_point = Self::relative_point_with_boundary(chunk_point, point);
+            if chunk.in_chunk_bounds_unpadded(relative_point) {
+                self.changed_chunks.insert(chunk_point);
+                chunk.set_unpadded(relative_point.into(), voxel);
+            }
+        }
+
+        // let chunk_point = Self::find_chunk(point);
+        // let chunk = self.chunks.entry(chunk_point).or_default();
+        // let relative_point = Self::relative_point(chunk_point, point);
+        // self.changed_chunks.insert(chunk_point);
+        // chunk.set(relative_point.into(), voxel);
     }
 
     pub fn get_voxel(&self, point: IVec3) -> Option<Voxel> {
-        if let Some(chunk) = self.chunks.get(&Self::find_chunk(point)) {
-            chunk.get_voxel(Self::relative_point(point).into())
+        let chunk_point = Self::find_chunk(point);
+        if let Some(chunk) = self.chunks.get(&chunk_point) {
+            chunk.get_voxel(Self::relative_point(chunk_point, point).into())
         } else {
             None
         }
@@ -115,8 +177,9 @@ impl Voxels {
     }
 
     pub fn health(&self, point: IVec3) -> Option<i16> {
-        if let Some(chunk) = self.chunks.get(&Self::find_chunk(point)) {
-            Some(chunk.health(Self::relative_point(point).into()))
+        let chunk_point = Self::find_chunk(point);
+        if let Some(chunk) = self.chunks.get(&chunk_point) {
+            Some(chunk.health(Self::relative_point(chunk_point, point).into()))
         } else {
             None
         }
@@ -363,7 +426,7 @@ impl VoxelChunk {
     }
 
     pub fn get_voxel(&self, point: [Scalar; 3]) -> Option<Voxel> {
-        if !self.in_chunk_bounds(point) {
+        if !self.in_chunk_bounds(point.into()) {
             return None;
         }
 
@@ -371,7 +434,7 @@ impl VoxelChunk {
     }
 
     pub fn voxel(&self, point: [Scalar; 3]) -> Voxel {
-        if !self.in_chunk_bounds(point) {
+        if !self.in_chunk_bounds(point.into()) {
             panic!("Point out of bounds: {:?}", point);
         }
 
@@ -384,7 +447,7 @@ impl VoxelChunk {
     }
 
     pub fn set(&mut self, point: [Scalar; 3], voxel: Voxel) {
-        if !self.in_chunk_bounds(point) {
+        if !self.in_chunk_bounds(point.into()) {
             panic!("Point out of bounds: {:?}", point);
         }
         let padded_point = point.map(|p| p + 1);
@@ -392,6 +455,10 @@ impl VoxelChunk {
     }
 
     pub fn set_unpadded(&mut self, point: [Scalar; 3], voxel: Voxel) {
+        if !self.in_chunk_bounds_unpadded(point.into()) {
+            panic!("Point out of bounds: {:?}", point);
+        }
+
         let index = padded::linearize(point);
 
         self.clear_health(point);
@@ -477,13 +544,23 @@ impl VoxelChunk {
 
     /// Is this point within the bounds of this grid?
     #[inline]
-    pub fn in_chunk_bounds(&self, point: [Scalar; 3]) -> bool {
-        point[0] >= 0
-            && point[1] >= 0
-            && point[2] >= 0
-            && point[0] < self.x_size()
-            && point[1] < self.y_size()
-            && point[2] < self.z_size()
+    pub fn in_chunk_bounds(&self, point: IVec3) -> bool {
+        point.x >= 0
+            && point.y >= 0
+            && point.z >= 0
+            && point.x < self.x_size()
+            && point.y < self.y_size()
+            && point.z < self.z_size()
+    }
+
+    #[inline]
+    pub fn in_chunk_bounds_unpadded(&self, point: IVec3) -> bool {
+        point.x >= 0
+            && point.y >= 0
+            && point.z >= 0
+            && point.x < padded::SIZE as Scalar
+            && point.y < padded::SIZE as Scalar
+            && point.z < padded::SIZE as Scalar
     }
 
     #[inline]
@@ -588,18 +665,23 @@ pub mod tests {
     #[test]
     pub fn in_chunk_bounds() {
         let chunk = VoxelChunk::new();
-        assert!(chunk.in_chunk_bounds([0, 0, 0]));
-        assert!(chunk.in_chunk_bounds([4, 4, 4]));
+        assert!(chunk.in_chunk_bounds(ivec3(0, 0, 0)));
+        assert!(chunk.in_chunk_bounds(ivec3(4, 4, 4)));
 
-        assert!(!chunk.in_chunk_bounds([63, 63, 63]));
+        assert!(!chunk.in_chunk_bounds(ivec3(62, 62, 62)));
+        assert!(chunk.in_chunk_bounds(ivec3(61, 61, 61)));
 
-        assert!(!chunk.in_chunk_bounds([63, 0, 0]));
-        assert!(!chunk.in_chunk_bounds([0, 63, 0]));
-        assert!(!chunk.in_chunk_bounds([0, 0, 63]));
+        assert!(!chunk.in_chunk_bounds(ivec3(62, 0, 0)));
+        assert!(!chunk.in_chunk_bounds(ivec3(0, 62, 0)));
+        assert!(!chunk.in_chunk_bounds(ivec3(0, 0, 62)));
 
-        assert!(!chunk.in_chunk_bounds([-1, 0, 0]));
-        assert!(!chunk.in_chunk_bounds([0, -1, 0]));
-        assert!(!chunk.in_chunk_bounds([0, 0, -1]));
+        assert!(chunk.in_chunk_bounds(ivec3(61, 0, 0)));
+        assert!(chunk.in_chunk_bounds(ivec3(0, 61, 0)));
+        assert!(chunk.in_chunk_bounds(ivec3(0, 0, 61)));
+
+        assert!(!chunk.in_chunk_bounds(ivec3(-1, 0, 0)));
+        assert!(!chunk.in_chunk_bounds(ivec3(0, -1, 0)));
+        assert!(!chunk.in_chunk_bounds(ivec3(0, 0, -1)));
     }
 
     #[test]
@@ -679,6 +761,45 @@ pub mod tests {
 
     #[test]
     fn find_chunk() {
-        println!("{:?}", Voxels::find_chunk(IVec3::new(62, 0, 0)));
+        assert_eq!(Voxels::find_chunk(ivec3(0, 0, 0)), ivec3(0, 0, 0));
+        assert_eq!(Voxels::find_chunk(ivec3(63, 0, 0)), ivec3(1, 0, 0));
+        assert_eq!(Voxels::find_chunk(ivec3(-1, 0, 0)), ivec3(-1, 0, 0));
+        assert_eq!(Voxels::find_chunk(ivec3(-62, 0, 0)), ivec3(-1, 0, 0));
+        assert_eq!(Voxels::find_chunk(ivec3(-63, 0, 0)), ivec3(-2, 0, 0));
+    }
+
+    #[test]
+    fn find_chunk_relative() {
+        assert_eq!(Voxels::relative_point(ivec3(0, 0, 0), ivec3(0, 0, 0)), ivec3(0, 0, 0));
+        assert_eq!(Voxels::relative_point(ivec3(0, 0, 0), ivec3(61, 0, 0)), ivec3(61, 0, 0));
+        assert_eq!(Voxels::relative_point(ivec3(0, 0, 0), ivec3(62, 0, 0)), ivec3(62, 0, 0)); // oob
+        assert_eq!(Voxels::relative_point(ivec3(0, 0, 0), ivec3(63, 0, 0)), ivec3(63, 0, 0)); // oob
+        assert_eq!(Voxels::relative_point(ivec3(1, 0, 0), ivec3(62, 0, 0)), ivec3(0, 0, 0));
+        assert_eq!(Voxels::relative_point(ivec3(1, 0, 0), ivec3(63, 0, 0)), ivec3(1, 0, 0));
+
+        // negative handling
+        assert_eq!(Voxels::relative_point(ivec3(0, 0, 0), ivec3(-1, -1, -1)), ivec3(-1, -1, -1));
+        assert_eq!(Voxels::relative_point(ivec3(-1, -1, -1), ivec3(0, 0, 0)), ivec3(62, 62, 62)); // oob
+        assert_eq!(Voxels::relative_point(ivec3(-1, -1, -1), ivec3(-1, -1, -1)), ivec3(61, 61, 61));
+        assert_eq!(Voxels::relative_point(ivec3(-1, -1, -1), ivec3(-62, -62, -62)), ivec3(0, 0, 0));
+    }
+
+    #[test]
+    fn find_chunk_relative_unpadded() {
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(0, 0, 0)), ivec3(1, 1, 1));
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(62, 0, 0)), ivec3(63, 1, 1)); // oob
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(63, 0, 0)), ivec3(64, 1, 1)); // oob
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(1, 0, 0), ivec3(61, 0, 0)), ivec3(0, 1, 1));
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(1, 0, 0), ivec3(62, 0, 0)), ivec3(1, 1, 1));
+
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(61, 61, 61)), ivec3(62, 62, 62));
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(1, 1, 1), ivec3(61, 61, 61)), ivec3(0, 0, 0));
+
+        // negative handling
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(-1, -1, -1)), ivec3(0, 0, 0));
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(0, 0, 0)), ivec3(63, 63, 63));
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-1, -1, -1)), ivec3(62, 62, 62));
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-62, -62, -62)), ivec3(1, 1, 1));
+        assert_eq!(Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-63, -63, -63)), ivec3(0, 0, 0));
     }
 }
