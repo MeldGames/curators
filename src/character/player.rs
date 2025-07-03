@@ -35,11 +35,10 @@ pub fn spawn_player(
     let mesh = meshes.add(Mesh::from(Capsule3d::new(0.4, 0.8)));
 
     let hold_entity = commands
-        .spawn((Name::new("Hold position"), Transform {
-            translation: Vec3::NEG_Z,
-            scale: Vec3::splat(0.5),
-            ..default()
-        }))
+        .spawn((
+            Name::new("Hold position"),
+            Transform { translation: Vec3::NEG_Z, scale: Vec3::splat(0.5), ..default() },
+        ))
         .id();
 
     let player = commands
@@ -99,7 +98,6 @@ pub fn spawn_player(
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
             constant_object_thickness: 4.0,
         },
-
         EdgeDetection {
             depth_threshold: 0.3,
             normal_threshold: 1.0,
@@ -113,9 +111,7 @@ pub fn spawn_player(
             uv_distortion_strength: Vec2::new(0.0, 0.0),
             ..default()
         },
-        Smaa {
-            preset: SmaaPreset::Ultra,
-        },
+        Smaa { preset: SmaaPreset::Ultra },
         // Fxaa::default(),
     );
 

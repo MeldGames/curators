@@ -2,12 +2,12 @@ use std::cmp::Ordering;
 
 use avian3d::prelude::*;
 use bevy::prelude::*;
-use bevy_rand::prelude::*;
 use bevy_prng::WyRand;
-use rand::distr::weighted::WeightedIndex;
-use rand::distr::Distribution;
-use rand::seq::WeightError;
+use bevy_rand::prelude::*;
 use rand::Rng;
+use rand::distr::Distribution;
+use rand::distr::weighted::WeightedIndex;
+use rand::seq::WeightError;
 
 use crate::map::{Aabb, Digsite, DigsiteObject, VoxelAabb, WorldGenSet};
 use crate::voxel::GRID_SCALE;
@@ -31,7 +31,7 @@ pub fn create_test_digsite(mut commands: Commands, mut writer: EventWriter<Gener
             (Digsite {
                 voxel_aabbs: vec![VoxelAabb {
                     min: IVec3::new(0, 30, 0),
-                    max: IVec3::new(10, 48, 10)
+                    max: IVec3::new(10, 48, 10),
                 }],
                 ..default()
             }),
@@ -44,7 +44,7 @@ pub fn create_test_digsite(mut commands: Commands, mut writer: EventWriter<Gener
 pub fn generate_objects(
     mut rng: GlobalEntropy<WyRand>,
     mut generate_objects: EventReader<GenerateObjects>,
-    digsites: Query<(&Digsite, )>,
+    digsites: Query<(&Digsite,)>,
     name: Query<NameOrEntity>,
 ) {
     for mut event in generate_objects.read() {
@@ -96,7 +96,9 @@ impl Digsite {
             for _ in 0..3 {
                 let volume = self.random_volume(&mut *rng).as_vec3();
                 let object_aabb = object.local_aabb();
-                let Some(fitting_zone) = object_aabb.fitting_zone(&volume) else { continue; };
+                let Some(fitting_zone) = object_aabb.fitting_zone(&volume) else {
+                    continue;
+                };
 
                 let point = fitting_zone.random_point(&mut *rng);
                 // TODO: check for collision?

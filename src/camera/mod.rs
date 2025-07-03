@@ -123,7 +123,7 @@ pub fn switch_cameras(
         },
         ActiveCamera::Follow => {
             // camera_entities.active = ActiveCamera::Digsite;
-             camera_entities.active = ActiveCamera::Flying;
+            camera_entities.active = ActiveCamera::Flying;
         },
         // ActiveCamera::Digsite => {
         //     camera_entities.active = ActiveCamera::Flying;

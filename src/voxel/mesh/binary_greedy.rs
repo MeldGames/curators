@@ -8,7 +8,7 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
-use crate::voxel::{Voxel, VoxelChunk, Voxels};
+use crate::voxel::{ChangedChunks, Voxel, VoxelChunk, Voxels};
 
 const MASK_6: u64 = 0b111111;
 const MASK_XYZ: u64 = 0b111111_111111_111111;
@@ -82,7 +82,7 @@ pub fn spawn_chunk_entities(
 
 pub fn update_binary_mesh(
     mut commands: Commands,
-    mut grids: Query<(Entity, &Voxels, &mut Chunks), Changed<Voxels>>,
+    mut grids: Query<(&Voxels, &mut Chunks), Changed<Voxels>>,
     mut chunk_mesh_entities: Query<(&mut ChunkMeshes, &mut ChunkCollider)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
@@ -90,8 +90,15 @@ pub fn update_binary_mesh(
 
     mut mesher: Local<BgmMesher>,
     mut collider_mesh_buffer: Local<ColliderMesh>,
+    mut changed_chunks: EventReader<ChangedChunks>,
 ) {
-    for (voxels_entity, voxels, voxel_chunks) in &mut grids {
+    for ChangedChunks {
+        voxel_entity, changed_chunks
+    } in changed_chunks.read() {
+        let Ok((voxels, voxel_chunks)) = grids.get_mut(*voxel_entity) else {
+            warn!("No voxels for entity {voxel_entity:?}");
+            continue;
+        };
         // collider_mesh_buffer.clear();
 
         let count = voxels.changed_chunk_iter().count();
@@ -99,19 +106,24 @@ pub fn update_binary_mesh(
             warn!("updating {} chunks render/collider meshes", count);
         }
 
-        for (chunk_pos, chunk) in voxels.changed_chunk_iter() {
-            //info!("chunk {:?} changed, updating binary mesh", chunk_pos);
-            let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
-            let mut collider_mesh = chunk.generate_collider_mesh(&mut mesher.0);
-            /*collider_mesh
-                .translate(chunk_pos.as_vec3() * crate::voxel::chunk::unpadded::SIZE as f32);
-            collider_mesh_buffer.combine(&collider_mesh);*/
-
-            let Some(chunk_entity) = voxel_chunks.get(&chunk_pos) else {
+        for chunk_pos in changed_chunks {
+            let Some(chunk) = voxels.get_chunk(*chunk_pos) else {
+                warn!("No chunk at {chunk_pos:?}");
                 continue;
             };
 
-            let Ok((mut chunk_meshes, mut chunk_collider)) = chunk_mesh_entities.get_mut(*chunk_entity) else {
+            info!("chunk {:?} changed, updating binary mesh", chunk_pos);
+            let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
+            let collider_mesh = chunk.generate_collider_mesh(&mut mesher.0);
+            // collider_mesh_buffer.combine(&collider_mesh);
+
+            let Some(chunk_entity) = voxel_chunks.get(chunk_pos) else {
+                continue;
+            };
+
+            let Ok((mut chunk_meshes, mut chunk_collider)) =
+                chunk_mesh_entities.get_mut(*chunk_entity)
+            else {
                 continue;
             };
 
@@ -146,8 +158,7 @@ pub fn update_binary_mesh(
 
             let collider_mesh = collider_mesh.to_mesh();
 
-            let flags = TrimeshFlags::MERGE_DUPLICATE_VERTICES
-                | TrimeshFlags::FIX_INTERNAL_EDGES
+            let flags = TrimeshFlags::FIX_INTERNAL_EDGES
                 | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
                 | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
 
@@ -156,7 +167,8 @@ pub fn update_binary_mesh(
                 continue;
             }
 
-            let Some(mut new_collider) = Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
+            let Some(mut new_collider) =
+                Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
             else {
                 info!("cannot create trimesh from mesh");
                 continue;

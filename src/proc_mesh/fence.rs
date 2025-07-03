@@ -1,8 +1,8 @@
 //! Generate a mesh of a fence given a line and voxel heights
 
 use bevy::prelude::*;
-use bevy_rand::prelude::*;
 use bevy_prng::WyRand;
+use bevy_rand::prelude::*;
 use rand::Rng;
 
 use crate::map::WorldGenSet;
@@ -196,29 +196,15 @@ pub fn update_board(
             continue;
         };
 
-
         let from = from.translation
             + board_params.connection_point_variance
-                * Vec3::new(
-                    rng.random(),
-                    rng.random(),
-                    rng.random(),
-                );
+                * Vec3::new(rng.random(), rng.random(), rng.random());
         let to = to.translation
             + board_params.connection_point_variance
-                * Vec3::new(
-                    rng.random(),
-                    rng.random(),
-                    rng.random(),
-                );
+                * Vec3::new(rng.random(), rng.random(), rng.random());
 
         let size = board_params.size
-            + board_params.size_variance
-                * Vec3::new(
-                    rng.random(),
-                    rng.random(),
-                    rng.random(),
-                );
+            + board_params.size_variance * Vec3::new(rng.random(), rng.random(), rng.random());
 
         let distance = from.distance(to);
         let midpoint = from.midpoint(to);
@@ -257,12 +243,7 @@ pub fn spawn_fence(
             let next_point = fence.points[next_point_index];
 
             let post_size = fence.post_size
-                + fence.post_size_variance
-                    * Vec3::new(
-                        rng.random(),
-                        rng.random(),
-                        rng.random(),
-                    );
+                + fence.post_size_variance * Vec3::new(rng.random(), rng.random(), rng.random());
 
             let prev = Vec2::new(prev_point.x, prev_point.z);
             let next = Vec2::new(next_point.x, next_point.z);

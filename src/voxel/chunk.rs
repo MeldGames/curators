@@ -4,8 +4,8 @@ use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use super::raycast::Hit;
-use crate::voxel::{Voxel, VoxelAabb};
 use crate::voxel::raycast::VoxelHit;
+use crate::voxel::{Voxel, VoxelAabb};
 
 pub type Scalar = i32;
 
@@ -91,29 +91,29 @@ impl Voxels {
     }
 
     fn chunks_overlapping_voxel(voxel_pos: IVec3) -> Vec<IVec3> {
-            let min_chunk = IVec3::new(
-                ((voxel_pos.x - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
-                ((voxel_pos.y - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
-                ((voxel_pos.z - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
-            );
-        
-            let max_chunk = IVec3::new(
-                ((voxel_pos.x + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
-                ((voxel_pos.y + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
-                ((voxel_pos.z + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
-            );
-        
-            let mut chunks = Vec::new();
-        
-            for x in min_chunk.x..=max_chunk.x {
-                for y in min_chunk.y..=max_chunk.y {
-                    for z in min_chunk.z..=max_chunk.z {
-                        chunks.push(IVec3::new(x, y, z));
-                    }
+        let min_chunk = IVec3::new(
+            ((voxel_pos.x - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
+            ((voxel_pos.y - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
+            ((voxel_pos.z - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
+        );
+
+        let max_chunk = IVec3::new(
+            ((voxel_pos.x + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
+            ((voxel_pos.y + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
+            ((voxel_pos.z + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
+        );
+
+        let mut chunks = Vec::new();
+
+        for x in min_chunk.x..=max_chunk.x {
+            for y in min_chunk.y..=max_chunk.y {
+                for z in min_chunk.z..=max_chunk.z {
+                    chunks.push(IVec3::new(x, y, z));
                 }
             }
-        
-            chunks
+        }
+
+        chunks
     }
 
     #[inline]
@@ -168,6 +168,10 @@ impl Voxels {
         } else {
             None
         }
+    }
+
+    pub fn get_chunk(&self, point: IVec3) -> Option<&VoxelChunk> {
+        self.chunks.get(&point)
     }
 
     pub fn set_health(&mut self, point: IVec3, health: i16) {
@@ -314,6 +318,10 @@ impl Voxels {
 
     pub fn chunk_iter(&self) -> impl Iterator<Item = (IVec3, &VoxelChunk)> {
         self.chunks.iter().map(|(p, c)| (*p, c))
+    }
+
+    pub fn changed_chunk_pos_iter(&self) -> impl Iterator<Item = IVec3> {
+        self.changed_chunks.iter().copied()
     }
 
     pub fn changed_chunk_iter(&self) -> impl Iterator<Item = (IVec3, &VoxelChunk)> {
@@ -786,20 +794,56 @@ pub mod tests {
 
     #[test]
     fn find_chunk_relative_unpadded() {
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(0, 0, 0)), ivec3(1, 1, 1));
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(62, 0, 0)), ivec3(63, 1, 1)); // oob
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(63, 0, 0)), ivec3(64, 1, 1)); // oob
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(1, 0, 0), ivec3(61, 0, 0)), ivec3(0, 1, 1));
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(1, 0, 0), ivec3(62, 0, 0)), ivec3(1, 1, 1));
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(0, 0, 0)),
+            ivec3(1, 1, 1)
+        );
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(62, 0, 0)),
+            ivec3(63, 1, 1)
+        ); // oob
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(63, 0, 0)),
+            ivec3(64, 1, 1)
+        ); // oob
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(1, 0, 0), ivec3(61, 0, 0)),
+            ivec3(0, 1, 1)
+        );
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(1, 0, 0), ivec3(62, 0, 0)),
+            ivec3(1, 1, 1)
+        );
 
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(61, 61, 61)), ivec3(62, 62, 62));
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(1, 1, 1), ivec3(61, 61, 61)), ivec3(0, 0, 0));
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(61, 61, 61)),
+            ivec3(62, 62, 62)
+        );
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(1, 1, 1), ivec3(61, 61, 61)),
+            ivec3(0, 0, 0)
+        );
 
         // negative handling
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(-1, -1, -1)), ivec3(0, 0, 0));
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(0, 0, 0)), ivec3(63, 63, 63));
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-1, -1, -1)), ivec3(62, 62, 62));
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-62, -62, -62)), ivec3(1, 1, 1));
-        assert_eq!(Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-63, -63, -63)), ivec3(0, 0, 0));
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(0, 0, 0), ivec3(-1, -1, -1)),
+            ivec3(0, 0, 0)
+        );
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(0, 0, 0)),
+            ivec3(63, 63, 63)
+        );
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-1, -1, -1)),
+            ivec3(62, 62, 62)
+        );
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-62, -62, -62)),
+            ivec3(1, 1, 1)
+        );
+        assert_eq!(
+            Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-63, -63, -63)),
+            ivec3(0, 0, 0)
+        );
     }
 }

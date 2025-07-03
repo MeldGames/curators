@@ -187,7 +187,9 @@ pub fn handle_rotation(
     windows: Query<&Window>,
     mut cursor_grab_offset: ResMut<CursorGrabOffset>,
 ) -> Result<()> {
-    let Ok((mut transform, mut state, settings, actions)) = camera.single_mut() else { return Ok(()); };
+    let Ok((mut transform, mut state, settings, actions)) = camera.single_mut() else {
+        return Ok(());
+    };
 
     // If the cursor grab setting caused this, prevent it from doing anything.
     let mut rotation = actions.value::<CameraRotate>()?;
@@ -227,7 +229,9 @@ pub fn handle_movement(
 ) -> Result<()> {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, actions, settings, mut state)) = query.single_mut() else { return Ok(()); };
+    let Ok((mut transform, actions, settings, mut state)) = query.single_mut() else {
+        return Ok(());
+    };
     let movement = actions.value::<CameraMove>()?;
 
     // Apply movement update

@@ -27,6 +27,7 @@ impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Voxel>();
         app.register_type::<Exposure>();
+        app.add_event::<ChangedChunks>();
 
         app.add_plugins(pick::VoxelPickPlugin);
         app.add_plugins(collider::plugin)
@@ -39,7 +40,7 @@ impl Plugin for VoxelPlugin {
         app.add_systems(Startup, spawn_voxel_grid);
         app.add_systems(Startup, spawn_directional_lights);
         app.add_systems(Update, dynamic_scene);
-        app.add_systems(First, clear_changed_chunks);
+        app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet));
     }
 }
 
@@ -54,12 +55,25 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     ));
 }
 
-pub fn clear_changed_chunks(mut voxels: Query<&mut Voxels>) {
-    let Ok(mut voxels) = voxels.single_mut() else {
-        return;
-    };
+#[derive(Event, Debug)]
+pub struct ChangedChunks {
+    pub voxel_entity: Entity,
+    pub changed_chunks: Vec<IVec3>,
+}
 
-    voxels.clear_changed_chunks();
+pub fn clear_changed_chunks(
+    mut voxels: Query<(Entity, &mut Voxels)>,
+    mut writer: EventWriter<ChangedChunks>,
+) {
+    for (voxel_entity, mut voxels) in &mut voxels {
+        writer.write(
+            ChangedChunks {
+                voxel_entity: voxel_entity,
+                changed_chunks: voxels.changed_chunk_pos_iter().collect::<Vec<_>>(),
+            }
+        );
+        voxels.clear_changed_chunks();
+    }
 }
 
 fn dynamic_scene(mut suns: Query<&mut Transform, With<Sun>>, time: Res<Time>) {

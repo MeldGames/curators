@@ -41,10 +41,7 @@ impl Aabb {
             return None;
         }
         let half_size = self.size() / 2.0;
-        Some(Aabb {
-            min: container.min + half_size,
-            max: container.max - half_size,
-        })
+        Some(Aabb { min: container.min + half_size, max: container.max - half_size })
     }
 
     pub fn rotate(self, rotation: Quat) -> Self {
@@ -75,9 +72,12 @@ impl Aabb {
     }
 
     pub fn intersects(&self, other: &Aabb) -> bool {
-        self.min.x < other.max.x && self.max.x > other.min.x &&
-        self.min.y < other.max.y && self.max.y > other.min.y &&
-        self.min.z < other.max.z && self.max.z > other.min.z
+        self.min.x < other.max.x
+            && self.max.x > other.min.x
+            && self.min.y < other.max.y
+            && self.max.y > other.min.y
+            && self.min.z < other.max.z
+            && self.max.z > other.min.z
     }
 
     pub fn intersection_depth(&self, other: &Aabb) -> Option<Vec3> {
