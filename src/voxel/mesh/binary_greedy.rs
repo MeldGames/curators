@@ -112,7 +112,7 @@ pub fn update_binary_mesh(
                 continue;
             };
 
-            info!("chunk {:?} changed, updating binary mesh", chunk_pos);
+            // info!("chunk {:?} changed, updating binary mesh", chunk_pos);
             let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
             let collider_mesh = chunk.generate_collider_mesh(&mut mesher.0);
             // collider_mesh_buffer.combine(&collider_mesh);
@@ -129,30 +129,39 @@ pub fn update_binary_mesh(
 
             for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
                 let voxel = Voxel::from_id(voxel_id as u16).unwrap();
-                let Some(mesh) = render_mesh else {
-                    continue;
-                };
-                let new_aabb = mesh.compute_aabb();
-                let mesh_handle = meshes.add(mesh);
 
                 if let Some(entity) = chunk_meshes.get(&voxel) {
                     let mut entity_commands = commands.entity(*entity);
-                    entity_commands.insert(Mesh3d(mesh_handle));
-                    if let Some(new_aabb) = new_aabb {
-                        entity_commands.insert(new_aabb);
-                    }
-                } else {
-                    let material = materials.add(voxel.material());
-                    let id = commands
-                        .spawn((
-                            Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
-                            Mesh3d(mesh_handle),
-                            MeshMaterial3d(material),
-                            ChildOf(*chunk_entity),
-                        ))
-                        .id();
+                    match render_mesh {
+                        Some(mesh) => {
+                            let new_aabb = mesh.compute_aabb();
+                            let mesh_handle = meshes.add(mesh);
+                            entity_commands.insert(Mesh3d(mesh_handle));
 
-                    chunk_meshes.insert(voxel, id);
+                            if let Some(new_aabb) = new_aabb {
+                                entity_commands.insert(new_aabb);
+                            }
+                        }
+                        None => {
+                            entity_commands.remove::<Mesh3d>();
+                        }
+                    }
+
+                } else {
+                    if let Some(mesh) = render_mesh {
+                        let mesh_handle = meshes.add(mesh);
+                        let material = materials.add(voxel.material());
+                        let id = commands
+                            .spawn((
+                                Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
+                                Mesh3d(mesh_handle),
+                                MeshMaterial3d(material),
+                                ChildOf(*chunk_entity),
+                            ))
+                            .id();
+
+                        chunk_meshes.insert(voxel, id);
+                    }
                 }
             }
 
