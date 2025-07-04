@@ -1,10 +1,12 @@
 use bevy::asset::RenderAssetUsages;
+use bevy::ecs::error::warn;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy::render::render_resource::{PrimitiveTopology};
-use fast_surface_nets::ndshape::{RuntimeShape, Shape};
+use fast_surface_nets::ndshape::{ConstPow2Shape2i32, ConstPow2Shape3i32, ConstPow2Shape3u32, ConstShape, RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
+use crate::voxel::chunk::padded;
 use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
 
 pub struct SurfaceNetPlugin;
@@ -98,37 +100,42 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
     mesh
 }
 
+pub type ChunkShape = ConstPow2Shape3u32<{ padded::SIZE as u32 }, {padded::SIZE as u32} , {padded::SIZE as u32 }>; // 62^3 with 1 padding
+
 impl VoxelChunk {
     pub fn update_surface_net(&self, buffer: &mut SurfaceNetsBuffer) {
-        let grid_array = self.array();
-        let padded_grid_array =
-            [(grid_array[0] + 3) as u32, (grid_array[1] + 3) as u32, (grid_array[2] + 3) as u32];
+        let mut samples = vec![1.0; padded::ARR_STRIDE];
 
-        let shape = VoxelShape::new(padded_grid_array);
-
-        let mut samples = vec![1.0; shape.usize()];
-        // unpadded
-        for i in 0..self.size() {
-            let point = self.delinearize(i);
-
-            let sample = match self.voxel(point) {
+        let chunk_shape = ChunkShape {};
+        for (i, voxel) in self.voxels.iter().enumerate() {
+            let sample = match self.voxel_from_index(i) {
                 Voxel::Air => 1.0,
                 _ => -1.0,
             };
-
-            let padded_point =
-                [(point[0] + 1) as u32, (point[1] + 1) as u32, (point[2] + 1) as u32];
-            let padded_linear = shape.linearize(padded_point);
-            samples[padded_linear as usize] = sample;
+            samples[i] = sample;
         }
+        // // unpadded
+        // for i in 0..self.size() {
+        //     let point = self.delinearize(i);
+
+        //     let sample = match self.voxel(point) {
+        //         Voxel::Air => 1.0,
+        //         _ => -1.0,
+        //     };
+
+        //     let padded_point =
+        //         [(point[0] + 1) as u32, (point[1] + 1) as u32, (point[2] + 1) as u32];
+        //     let padded_linear = shape.linearize(padded_point);
+        //     samples[padded_linear as usize] = sample;
+        // }
         // info!("SIZES {:?} < {:?}", shape.linearize(padded_grid_array),
         // shape.usize());
 
         surface_nets(
             &samples,
-            &shape,
+            &ChunkShape {},
             [0; 3],
-            [(grid_array[0] + 2) as u32, (grid_array[1] + 2) as u32, (grid_array[2] + 2) as u32],
+            [padded::SIZE as u32 - 1; 3],
             buffer,
         );
     }

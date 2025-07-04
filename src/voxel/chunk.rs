@@ -14,6 +14,7 @@ pub mod unpadded {
 
     pub const SIZE: usize = 62;
     pub const SIZE_SCALAR: Scalar = SIZE as Scalar;
+    pub const USIZE: usize = SIZE as usize;
     pub const Z_STRIDE: usize = 1;
     pub const X_STRIDE: usize = SIZE;
     pub const Y_STRIDE: usize = SIZE * SIZE;
@@ -45,6 +46,7 @@ pub mod padded {
     use super::Scalar;
 
     pub const SIZE: usize = super::unpadded::SIZE + 2;
+    pub const USIZE: usize = SIZE as usize;
     pub const Z_STRIDE: usize = 1;
     pub const X_STRIDE: usize = SIZE;
     pub const Y_STRIDE: usize = SIZE * SIZE;
@@ -153,12 +155,6 @@ impl Voxels {
                 chunk.set_unpadded(relative_point.into(), voxel);
             }
         }
-
-        // let chunk_point = Self::find_chunk(point);
-        // let chunk = self.chunks.entry(chunk_point).or_default();
-        // let relative_point = Self::relative_point(chunk_point, point);
-        // self.changed_chunks.insert(chunk_point);
-        // chunk.set(relative_point.into(), voxel);
     }
 
     pub fn get_voxel(&self, point: IVec3) -> Option<Voxel> {
