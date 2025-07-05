@@ -16,7 +16,7 @@ impl VoxelAabb {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub struct VoxelHit {
     pub chunk: IVec3,
     pub voxel: IVec3,
@@ -26,7 +26,7 @@ pub struct VoxelHit {
     pub normal: Option<IVec3>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub struct Hit {
     pub distance: f32,
     pub voxel: IVec3,

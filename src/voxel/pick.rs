@@ -6,13 +6,17 @@ use crate::voxel::{Voxel, Voxels};
 pub struct VoxelPickPlugin;
 impl Plugin for VoxelPickPlugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<CursorVoxel>().register_type::<VoxelHit>();
+
         app.insert_resource(CursorVoxel(None));
+
         app.add_systems(First, cursor_voxel);
         app.add_systems(Update, draw_cursor);
     }
 }
 
-#[derive(Resource, Debug, Clone, Deref)]
+#[derive(Resource, Debug, Clone, Deref, Reflect)]
+#[reflect(Resource)]
 pub struct CursorVoxel(Option<VoxelHit>);
 
 impl CursorVoxel {
