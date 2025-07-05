@@ -14,6 +14,7 @@ pub fn plugin(app: &mut App) {
     app.add_observer(add_prefabs);
 
     app.add_systems(Startup, spawn_object_prefabs);
+    app.add_systems(PreUpdate, spawn_at_cursor);
 }
 
 #[derive(Resource, Clone, Debug, Reflect)]
@@ -34,7 +35,7 @@ impl Prefabs {
     pub fn spawn<'a, 'b: 'a>(
         &self,
         commands: &'b mut Commands,
-        tag: impl AsRef<String>,
+        tag: impl AsRef<str>,
     ) -> Option<EntityCommands<'a>> {
         let Some(entity) = self.prefabs.get(tag.as_ref()).copied() else {
             return None;
@@ -75,15 +76,25 @@ pub struct Prefab {
     pub tag: String,
 }
 
-pub fn spawn_object_prefabs(mut commands: Commands) {
+pub fn spawn_object_prefabs(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     // Orb of Pondering.
     commands.spawn((
+        Prefab { tag: "item/orb_of_pondering".to_owned() },
         Name::new("THE GREAT ORB OF PONDERING"),
+        crate::item::Item,
         DigsiteObject { size: Vec3::new(1.0, 1.0, 1.0) },
         Collider::sphere(0.5),
         Transform::default(),
         RigidBody::Dynamic,
-        Prefab { tag: "item/orb_of_pondering".to_owned() },
+        Mesh3d(meshes.add(Sphere::new(0.5))),
+        MeshMaterial3d(
+            materials
+                .add(StandardMaterial { base_color: Color::WHITE.into(), ..Default::default() }),
+        ),
     ));
 }
 
@@ -98,4 +109,23 @@ pub fn add_prefabs(
     };
 
     registry.add_prefab(prefab.tag.clone(), prefab_entity);
+}
+
+pub fn spawn_at_cursor(
+    mut commands: Commands,
+    cursor: Res<crate::voxel::CursorVoxel>,
+    input: Res<ButtonInput<MouseButton>>,
+    prefabs: Res<Prefabs>,
+) {
+    let Some(hit) = cursor.hit() else {
+        return;
+    };
+
+    if input.just_pressed(MouseButton::Left) {
+        info!("spawning orb of pondering");
+        prefabs
+            .spawn(&mut commands, "item/orb_of_pondering")
+            .unwrap()
+            .insert(Transform { translation: hit.world_space + Vec3::Y * 3.0, ..default() });
+    }
 }

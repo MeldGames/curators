@@ -6,8 +6,9 @@ use bevy_mod_outline::{AsyncSceneInheritOutline, OutlineVolume};
 
 pub mod prefab_registry;
 
-#[derive(Component)]
-#[require(SweptCcd, SleepingDisabled)]
+#[derive(Component, Clone, Copy, Debug, Reflect)]
+// #[require(SweptCcd, SleepingDisabled)]
+#[reflect(Component, Clone)]
 pub struct Item;
 
 #[derive(Component, Reflect)]
@@ -37,6 +38,8 @@ pub struct Holding;
 pub struct Drop;
 
 pub fn plugin(app: &mut App) {
+    app.add_plugins(prefab_registry::plugin);
+
     app.add_input_context::<HandsFree>().add_input_context::<Holding>();
 
     app.register_type::<Hold>();

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::render::camera::Exposure;
 pub use chunk::{VoxelChunk, Voxels};
 pub use mesh::UpdateVoxelMeshSet;
+pub use pick::CursorVoxel;
 pub use voxel::Voxel;
 pub use voxel_aabb::VoxelAabb;
 
