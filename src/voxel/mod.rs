@@ -17,7 +17,7 @@ pub mod voxel;
 pub mod voxel_aabb;
 
 pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
-// pub const GRID_SCALE: Vec3 = Vec3::splat(0.1);
+// pub const GRID_SCALE: Vec3 = Vec3::splat(0.4);
 // pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
 
 #[derive(Default)]
@@ -48,10 +48,10 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     commands.spawn((
         Voxels::new(),
         Transform { scale: GRID_SCALE, ..default() },
-        mesh::surface_net::SurfaceNet::default(),
+        // mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
         // mesh::meshem::Meshem,
-        // mesh::binary_greedy::BinaryGreedy,
+        mesh::binary_greedy::BinaryGreedy,
     ));
 }
 
@@ -66,12 +66,10 @@ pub fn clear_changed_chunks(
     mut writer: EventWriter<ChangedChunks>,
 ) {
     for (voxel_entity, mut voxels) in &mut voxels {
-        writer.write(
-            ChangedChunks {
-                voxel_entity: voxel_entity,
-                changed_chunks: voxels.changed_chunk_pos_iter().collect::<Vec<_>>(),
-            }
-        );
+        writer.write(ChangedChunks {
+            voxel_entity,
+            changed_chunks: voxels.changed_chunk_pos_iter().collect::<Vec<_>>(),
+        });
         voxels.clear_changed_chunks();
     }
 }

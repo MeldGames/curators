@@ -3,6 +3,7 @@ use bevy::color::palettes::css::GRAY;
 use bevy::core_pipeline::bloom::Bloom;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasing;
 use bevy::core_pipeline::fxaa::Fxaa;
+use bevy::core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass};
 use bevy::core_pipeline::smaa::{Smaa, SmaaPreset};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::{
@@ -35,10 +36,11 @@ pub fn spawn_player(
     let mesh = meshes.add(Mesh::from(Capsule3d::new(0.4, 0.8)));
 
     let hold_entity = commands
-        .spawn((
-            Name::new("Hold position"),
-            Transform { translation: Vec3::NEG_Z, scale: Vec3::splat(0.5), ..default() },
-        ))
+        .spawn((Name::new("Hold position"), Transform {
+            translation: Vec3::NEG_Z,
+            scale: Vec3::splat(0.5),
+            ..default()
+        }))
         .id();
 
     let player = commands
@@ -78,6 +80,14 @@ pub fn spawn_player(
         Camera { hdr: true, ..default() },
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection::default()),
+
+        // This will write the depth buffer to a texture that you can use in the main pass
+        DepthPrepass,
+        // This will generate a texture containing world normals (with normal maps applied)
+        NormalPrepass,
+        // This will generate a texture containing screen space pixel motion vectors
+        MotionVectorPrepass,
+
         Tonemapping::default(),
         Atmosphere::EARTH,
         // Exposure::SUNLIGHT,
@@ -121,8 +131,8 @@ pub fn spawn_player(
             FlyingSettings::default(),
             FlyingState::default(),
             camera_components.clone(),
-            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+            Transform::from_translation(Vec3::new(8., 30.0, 8.0))
+                .looking_at(Vec3::new(100.0, 0.0, 0.0), Vec3::Y),
         ))
         .id();
 
@@ -152,6 +162,6 @@ pub fn spawn_player(
     commands.spawn((
         Name::new("Camera toggle"),
         Actions::<CameraToggle>::default(),
-        CameraEntities { flying, follow, /*digsite,*/ active: ActiveCamera::Flying },
+        CameraEntities { flying, follow, /* digsite, */ active: ActiveCamera::Flying },
     ));
 }

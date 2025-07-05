@@ -1,3 +1,4 @@
+use avian3d::parry::bounding_volume::Aabb;
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
 use bevy::platform::collections::HashMap;
@@ -92,9 +93,7 @@ pub fn update_binary_mesh(
     mut collider_mesh_buffer: Local<ColliderMesh>,
     mut changed_chunks: EventReader<ChangedChunks>,
 ) {
-    for ChangedChunks {
-        voxel_entity, changed_chunks
-    } in changed_chunks.read() {
+    for ChangedChunks { voxel_entity, changed_chunks } in changed_chunks.read() {
         let Ok((voxels, voxel_chunks)) = grids.get_mut(*voxel_entity) else {
             warn!("No voxels for entity {voxel_entity:?}");
             continue;
@@ -134,19 +133,18 @@ pub fn update_binary_mesh(
                     let mut entity_commands = commands.entity(*entity);
                     match render_mesh {
                         Some(mesh) => {
-                            let new_aabb = mesh.compute_aabb();
+                            let aabb = mesh.compute_aabb();
                             let mesh_handle = meshes.add(mesh);
                             entity_commands.insert(Mesh3d(mesh_handle));
-
-                            if let Some(new_aabb) = new_aabb {
-                                entity_commands.insert(new_aabb);
+                            if let Some(aabb) = aabb {
+                                entity_commands.insert(aabb);
                             }
-                        }
+                        },
                         None => {
+                            // info!("removing mesh: {:?} {:?}", chunk_pos, voxel);
                             entity_commands.remove::<Mesh3d>();
-                        }
+                        },
                     }
-
                 } else {
                     if let Some(mesh) = render_mesh {
                         let mesh_handle = meshes.add(mesh);

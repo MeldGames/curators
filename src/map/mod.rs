@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 
 use bevy::ecs::schedule::SystemSet;
 use bevy::prelude::*;
-
 use rand::Rng;
 
 pub mod aabb;
@@ -13,7 +12,8 @@ pub use aabb::Aabb;
 pub use object::GenerateObjects;
 pub use terrain::{Layers, TerrainParams};
 
-use crate::{map::terrain::TerrainKind, voxel::{Voxel, VoxelAabb}};
+use crate::map::terrain::TerrainKind;
+use crate::voxel::{Voxel, VoxelAabb};
 
 pub fn plugin(app: &mut App) {
     app.configure_sets(
@@ -73,9 +73,9 @@ pub fn create_basic_map(mut commands: Commands) {
     commands.spawn(
         (MapParams {
             terrain: TerrainParams {
-                // aabb: VoxelAabb { min: IVec3::new(-100, 0, -100), max: IVec3::new(100, 48, 100) },
-                 aabb: VoxelAabb { min: IVec3::new(0, 0, 0), max: IVec3::new(1, 4, 1) },
-                kind: TerrainKind::Flat,
+                aabb: VoxelAabb { min: IVec3::new(-100, 0, -100), max: IVec3::new(100, 48, 100) },
+                // aabb: VoxelAabb::from_size(IVec3::new(3, 3, 3), IVec3::new(2, 4, 2)),
+                kind: TerrainKind::Hilly,
                 layers: Layers { layers: vec![(0.0, Voxel::Dirt), (0.9, Voxel::Grass)] },
             },
             digsite: DigsiteParams { count: 1 },
