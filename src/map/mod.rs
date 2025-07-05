@@ -109,7 +109,8 @@ impl Default for Digsite {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Component, Debug, Clone)]
+#[require(Name::new("Digsite object (unknown)"))]
 pub struct DigsiteObject {
     pub size: Vec3,
 }

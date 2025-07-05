@@ -4,6 +4,8 @@ use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 use bevy_mod_outline::{AsyncSceneInheritOutline, OutlineVolume};
 
+pub mod prefab_registry;
+
 #[derive(Component)]
 #[require(SweptCcd, SleepingDisabled)]
 pub struct Item;
