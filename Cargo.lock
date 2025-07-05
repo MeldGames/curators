@@ -787,6 +787,7 @@ dependencies = [
 [[package]]
 name = "bevy_edge_detection"
 version = "0.15.4"
+source = "git+https://github.com/aceeri/bevy_edge_detection?branch=fixes#96b14c9eaf18c71c34176e5d131101a2be96f75c"
 dependencies = [
  "bevy",
 ]
