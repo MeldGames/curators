@@ -124,7 +124,8 @@ impl Voxels {
 
         let relative_point = Self::relative_point(base, point);
 
-        // Need to search for 8 chunks based on the boundaries of the point and give the relative points for each
+        // Need to search for 8 chunks based on the boundaries of the point and give the
+        // relative points for each
 
         todo!()
     }
@@ -202,9 +203,19 @@ impl Voxels {
         (min, max)
     }
 
+    pub fn chunk_aabb(&self) -> VoxelAabb {
+        let (min, max) = self.chunk_bounds();
+        VoxelAabb::new(min, max)
+    }
+
     pub fn voxel_bounds(&self) -> (IVec3, IVec3) {
         let (min, max) = self.chunk_bounds();
         (min * unpadded::SIZE as Scalar, max * unpadded::SIZE as Scalar)
+    }
+
+    pub fn voxel_aabb(&self) -> VoxelAabb {
+        let (min, max) = self.voxel_bounds();
+        VoxelAabb::new(min, max)
     }
 
     pub fn chunk_size(&self) -> IVec3 {
