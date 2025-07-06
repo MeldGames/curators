@@ -28,7 +28,7 @@ impl VoxelAabb {
     pub fn as_vec3(self) -> crate::map::Aabb {
         crate::map::Aabb {
             min: self.min.as_vec3() * crate::voxel::GRID_SCALE,
-            max: self.max.as_vec3() * crate::voxel::GRID_SCALE,
+            max: (self.max + IVec3::ONE).as_vec3() * crate::voxel::GRID_SCALE,
         }
     }
 

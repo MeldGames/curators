@@ -12,6 +12,12 @@ impl Aabb {
         Self { min, max: min + size }
     }
 
+    pub fn correct(self) -> Self {
+        let min = self.min.min(self.max);
+        let max = self.min.max(self.max);
+        Self { min, max }
+    }
+
     pub fn size(&self) -> Vec3 {
         self.max - self.min
     }
@@ -35,7 +41,8 @@ impl Aabb {
         self.min.cmpge(container.min).all() && self.max.cmple(container.max).all()
     }
 
-    /// Zone within the container that this aabb can be panned inside and still fit inside the container.
+    /// Zone within the container that this aabb can be panned inside and still
+    /// fit inside the container.
     pub fn fitting_zone(&self, container: &Aabb) -> Option<Aabb> {
         if !self.fits_inside(container) {
             return None;

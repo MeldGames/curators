@@ -41,8 +41,10 @@ pub fn rebuild_borders(
 
     // Create new borders around voxels
     const PADDING: f32 = 20.0;
-    let aabb = aabb.as_vec3();
+    let aabb = aabb.as_vec3().correct();
     info!("aabb: {:?}", aabb);
+    info!("aabb.center: {:?}", aabb.center());
+    info!("aabb.size: {:?}", aabb.size());
 
     let ground_level = 16.0 * GRID_SCALE.y;
     let y_pos = ground_level / 2.0;
@@ -69,13 +71,13 @@ pub fn rebuild_borders(
     let ground_catch_aabb = Aabb {
         min: aabb.min - Vec3::Y * PADDING,
         max: Vec3::new(aabb.max.x, aabb.min.y, aabb.max.z),
-    };
+    }
+    .correct();
 
     const GROUND_CATCH_HEIGHT: f32 = PADDING;
     // ground catch
-    // commands.spawn((Border, Name::new("Ground catch"),
-    // from_aabb(ground_catch_aabb)));
-    commands.spawn((Border, Name::new("Ground catch"), from_aabb(aabb)));
+    commands.spawn((Border, Name::new("Ground catch"), from_aabb(ground_catch_aabb)));
+    // commands.spawn((Border, Name::new("Ground catch"), from_aabb(aabb)));
 
     // left ground
     // commands.spawn((
