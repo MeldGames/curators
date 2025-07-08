@@ -12,6 +12,7 @@ use crate::character;
 
 pub mod chunk;
 pub mod collider;
+pub mod brush;
 pub mod mesh;
 pub mod pick;
 pub mod raycast;
