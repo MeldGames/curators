@@ -133,6 +133,8 @@ pub fn spawn_player(
             camera_components.clone(),
             Transform::from_translation(Vec3::new(8., 30.0, 8.0))
                 .looking_at(Vec3::new(100.0, 0.0, 0.0), Vec3::Y),
+            //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
+            //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ))
         .id();
 

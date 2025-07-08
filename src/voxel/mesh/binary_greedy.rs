@@ -126,6 +126,8 @@ pub fn update_binary_mesh(
                 continue;
             };
 
+            // 몰리
+
             for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
                 let voxel = Voxel::from_id(voxel_id as u16).unwrap();
 

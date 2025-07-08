@@ -38,8 +38,8 @@ pub fn shared(app: &mut App) {
     let seed: u64 = 1;
     app.add_plugins(EntropyPlugin::<WyRand>::with_seed(seed.to_be_bytes()));
 
-    app.insert_resource(PointLightShadowMap { size: 8192 });
-    app.insert_resource(DirectionalLightShadowMap { size: 8192 });
+    // app.insert_resource(PointLightShadowMap { size: 8192 });
+    // app.insert_resource(DirectionalLightShadowMap { size: 8192 });
     app.add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin::default()));
 
     app.add_plugins(voxel::VoxelPlugin::default())

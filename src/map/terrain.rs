@@ -110,7 +110,7 @@ impl TerrainParams {
 
         let mut layer_noise = basic_noise();
         layer_noise.set_seed(1);
-        layer_noise.set_period(100.0);
+        layer_noise.set_period(800.0);
 
         // Set up layers
         for x in min.x..max.x {
