@@ -113,9 +113,10 @@ impl VoxelChunk {
     }
 
     pub fn voxel(&self, point: [Scalar; 3]) -> Voxel {
-        if !self.in_chunk_bounds(point.into()) {
-            panic!("Point out of bounds: {:?}", point);
-        }
+        debug_assert!(self.in_chunk_bounds(point.into()));
+        // if !self.in_chunk_bounds(point.into()) {
+        //     panic!("Point out of bounds: {:?}", point);
+        // }
 
         self.voxel_from_index(padded::pad_linearize(point))
     }
@@ -167,38 +168,14 @@ impl VoxelChunk {
 
     /// Iterate over all points in this grid.
     pub fn point_iter(&self) -> impl Iterator<Item = [Scalar; 3]> {
-        // iterate x -> z -> y, same as stored because cache
-        struct PointIter {
-            current: [Scalar; 3],
-            done: bool,
-        }
-        impl Iterator for PointIter {
-            type Item = [Scalar; 3];
-
-            fn next(&mut self) -> Option<Self::Item> {
-                if self.done {
-                    None
-                } else {
-                    let next = self.current;
-                    self.current[0] += 1;
-                    if self.current[0] >= unpadded::SIZE as Scalar {
-                        self.current[0] = 0;
-                        self.current[2] += 1;
-                        if self.current[2] >= unpadded::SIZE as Scalar {
-                            self.current[2] = 0;
-                            self.current[1] += 1;
-                            if self.current[1] >= unpadded::SIZE as Scalar {
-                                self.done = true;
-                            }
-                        }
-                    }
-
-                    Some(next)
-                }
-            }
-        }
-
-        PointIter { current: [0; 3], done: false }
+        // iterate z -> x -> y, same as stored because cache
+        (0..unpadded::SIZE as Scalar).flat_map(move |y| {
+            (0..unpadded::SIZE as Scalar).flat_map(move |x| {
+                (0..unpadded::SIZE as Scalar).map(move |z| {
+                    [x, y, z]
+                })
+            })
+        })
     }
 
     #[inline]
@@ -368,11 +345,11 @@ pub mod tests {
         let chunk = VoxelChunk::new();
         let mut iter = chunk.point_iter();
         assert_eq!(iter.next(), Some([0, 0, 0]));
-        assert_eq!(iter.next(), Some([1, 0, 0]));
+        assert_eq!(iter.next(), Some([0, 0, 1]));
         for _ in 0..60 {
             iter.next();
         }
-        assert_eq!(iter.next(), Some([0, 0, 1]));
+        assert_eq!(iter.next(), Some([1, 0, 0]));
         assert_eq!(iter.last(), Some([unpadded::SIZE as Scalar - 1; 3]));
     }
 
