@@ -2,7 +2,6 @@ use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
 
-
 // Helper functions
 fn clamp(value: f32, min: f32, max: f32) -> f32 {
     value.max(min).min(max)
@@ -49,7 +48,6 @@ impl<P: Sdf> Sdf for Isometry<P> {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Twist<P: Sdf> {
     pub strength: f32,
@@ -60,29 +58,19 @@ impl<P: Sdf> Sdf for Twist<P> {
     fn sdf(&self, point: Vec3) -> f32 {
         let c = (self.strength * point.y).cos();
         let s = (self.strength * point.y).sin();
-        
+
         let m = mat2(vec2(c, -s), vec2(s, c));
-        
+
         let rotated_xz = m.mul_vec2(vec2(point.x, point.z));
         let rotated_point = Vec3::new(rotated_xz.x, point.y, rotated_xz.y);
-        
+
         self.primitive.sdf(rotated_point)
     }
 
     fn aabb(&self) -> Option<bevy_math::bounding::Aabb3d> {
-        self.primitive.aabb().map(|aabb| {
-            Aabb3d {
-                min: Vec3A::new(
-                    aabb.min.x.min(aabb.min.z),
-                    aabb.min.y,
-                    aabb.min.x.min(aabb.min.z),
-                ),
-                max: Vec3A::new(
-                    aabb.max.x.max(aabb.max.z),
-                    aabb.max.y,
-                    aabb.max.x.max(aabb.max.z),
-                ),
-            }
+        self.primitive.aabb().map(|aabb| Aabb3d {
+            min: Vec3A::new(aabb.min.x.min(aabb.min.z), aabb.min.y, aabb.min.x.min(aabb.min.z)),
+            max: Vec3A::new(aabb.max.x.max(aabb.max.z), aabb.max.y, aabb.max.x.max(aabb.max.z)),
         })
     }
 }
@@ -103,10 +91,7 @@ impl<A: Sdf, B: Sdf> Sdf for Union<A, B> {
 
     fn aabb(&self) -> Option<Aabb3d> {
         match (self.a.aabb(), self.b.aabb()) {
-            (Some(a), Some(b)) => Some(Aabb3d {
-                min: a.min.min(b.min),
-                max: a.max.max(b.max),
-            }),
+            (Some(a), Some(b)) => Some(Aabb3d { min: a.min.min(b.min), max: a.max.max(b.max) }),
             (Some(a), None) | (None, Some(a)) => Some(a),
             (None, None) => None,
         }
@@ -157,7 +142,7 @@ impl<A: Sdf, B: Sdf> Sdf for Intersection<A, B> {
                 } else {
                     None // No intersection
                 }
-            }
+            },
             _ => None,
         }
     }
@@ -180,10 +165,7 @@ impl<A: Sdf, B: Sdf> Sdf for Xor<A, B> {
     fn aabb(&self) -> Option<Aabb3d> {
         // XOR bounds are complex, use union as approximation
         match (self.a.aabb(), self.b.aabb()) {
-            (Some(a), Some(b)) => Some(Aabb3d {
-                min: a.min.min(b.min),
-                max: a.max.max(b.max),
-            }),
+            (Some(a), Some(b)) => Some(Aabb3d { min: a.min.min(b.min), max: a.max.max(b.max) }),
             (Some(a), None) | (None, Some(a)) => Some(a),
             (None, None) => None,
         }
@@ -215,7 +197,7 @@ impl<A: Sdf, B: Sdf> Sdf for SmoothUnion<A, B> {
                     min: a.min.min(b.min) - expansion,
                     max: a.max.max(b.max) + expansion,
                 })
-            }
+            },
             (Some(a), None) | (None, Some(a)) => Some(a),
             (None, None) => None,
         }
@@ -271,11 +253,11 @@ impl<A: Sdf, B: Sdf> Sdf for SmoothIntersection<A, B> {
                 let max = a.max.min(b.max);
                 if min.x <= max.x && min.y <= max.y && min.z <= max.z {
                     let expansion = Vec3A::splat(self.k);
-                    Some(Aabb3d { min: min - expansion, max: max + expansion})
+                    Some(Aabb3d { min: min - expansion, max: max + expansion })
                 } else {
                     None // No intersection
                 }
-            }
+            },
             _ => None,
         }
     }
@@ -318,7 +300,7 @@ mod tests {
             primitive: Sphere { radius: 1.0 },
         };
         let union = Union { a: sphere1, b: sphere2 };
-        
+
         // Test point between spheres
         let distance = union.sdf(Vec3::new(0.0, 0.0, 0.0));
         assert!(distance < 0.0); // Should be inside the union
@@ -337,7 +319,7 @@ mod tests {
             primitive: Sphere { radius: 1.0 },
         };
         let union = Union { a: sphere1, b: sphere2 };
-        
+
         let aabb = union.aabb().unwrap();
         assert_eq!(aabb.min, Vec3A::new(-2.0, -1.0, -1.0));
         assert_eq!(aabb.max, Vec3A::new(2.0, 1.0, 1.0));

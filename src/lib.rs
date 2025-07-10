@@ -18,10 +18,10 @@ pub mod cursor;
 pub mod item;
 pub mod map;
 pub mod proc_mesh;
+pub mod sdf;
 pub mod ssao;
 pub mod tool;
 pub mod voxel;
-pub mod sdf;
 
 pub fn server(app: &mut App) {}
 

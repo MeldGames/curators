@@ -1,25 +1,25 @@
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
 use bevy::render::camera::Exposure;
-pub use chunk::{VoxelChunk, unpadded, padded, Scalar};
+pub use chunk::{Scalar, VoxelChunk, padded, unpadded};
 pub use mesh::UpdateVoxelMeshSet;
 pub use pick::CursorVoxel;
 pub use voxel::Voxel;
-pub use voxels::{Voxels, ChangedChunks};
 pub use voxel_aabb::VoxelAabb;
+pub use voxels::{ChangedChunks, Voxels};
 
 use crate::character;
 
+pub mod brush;
 pub mod chunk;
 pub mod collider;
-pub mod simulation;
-pub mod brush;
 pub mod mesh;
 pub mod pick;
 pub mod raycast;
+pub mod simulation;
 pub mod voxel;
-pub mod voxels;
 pub mod voxel_aabb;
+pub mod voxels;
 
 // pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
 pub const GRID_SCALE: Vec3 = Vec3::splat(0.35);

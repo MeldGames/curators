@@ -35,14 +35,12 @@ pub fn camera_components() -> impl Bundle {
         Camera { hdr: true, ..default() },
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection::default()),
-
         // This will write the depth buffer to a texture that you can use in the main pass
         DepthPrepass,
         // This will generate a texture containing world normals (with normal maps applied)
         NormalPrepass,
         // This will generate a texture containing screen space pixel motion vectors
         MotionVectorPrepass,
-
         Tonemapping::default(),
         Atmosphere::EARTH,
         // Exposure::SUNLIGHT,

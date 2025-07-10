@@ -45,7 +45,6 @@ pub fn rasterize<S: Sdf>(
         })
         .unwrap_or(config.clip_bounds);
 
-
     let min = (Vec3::from(aabb.min) / config.grid_scale).floor().as_ivec3();
     let max = (Vec3::from(aabb.max) / config.grid_scale).ceil().as_ivec3();
 

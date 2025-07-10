@@ -185,11 +185,8 @@ impl VoxelChunk {
     pub fn point_iter(&self) -> impl Iterator<Item = [Scalar; 3]> {
         // iterate z -> x -> y, same as stored because cache
         (0..unpadded::SIZE as Scalar).flat_map(move |y| {
-            (0..unpadded::SIZE as Scalar).flat_map(move |x| {
-                (0..unpadded::SIZE as Scalar).map(move |z| {
-                    [x, y, z]
-                })
-            })
+            (0..unpadded::SIZE as Scalar)
+                .flat_map(move |x| (0..unpadded::SIZE as Scalar).map(move |z| [x, y, z]))
         })
     }
 
@@ -429,5 +426,4 @@ pub mod tests {
             assert_eq!(chunk.opaque_mask[index], mask[index]);
         }
     }
-
 }

@@ -2,8 +2,10 @@ use bevy::asset::RenderAssetUsages;
 use bevy::ecs::error::warn;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
-use bevy::render::render_resource::{PrimitiveTopology};
-use fast_surface_nets::ndshape::{ConstPow2Shape2i32, ConstPow2Shape3i32, ConstPow2Shape3u32, ConstShape, RuntimeShape, Shape};
+use bevy::render::render_resource::PrimitiveTopology;
+use fast_surface_nets::ndshape::{
+    ConstPow2Shape2i32, ConstPow2Shape3i32, ConstPow2Shape3u32, ConstShape, RuntimeShape, Shape,
+};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
 use crate::voxel::chunk::padded;
@@ -59,10 +61,7 @@ pub fn update_surface_net_mesh(
         } else {
             let new_mesh_entity = commands
                 .spawn((
-                    Transform {
-                        translation: -Vec3::new(0.5, 0.5, 0.5),
-                        ..default()
-                    },
+                    Transform { translation: -Vec3::new(0.5, 0.5, 0.5), ..default() },
                     SurfaceNetMesh,
                     Name::new("Surface nets mesh"),
                 ))
@@ -100,7 +99,8 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
     mesh
 }
 
-pub type ChunkShape = ConstPow2Shape3u32<{ padded::SIZE as u32 }, {padded::SIZE as u32} , {padded::SIZE as u32 }>; // 62^3 with 1 padding
+pub type ChunkShape =
+    ConstPow2Shape3u32<{ padded::SIZE as u32 }, { padded::SIZE as u32 }, { padded::SIZE as u32 }>; // 62^3 with 1 padding
 
 impl VoxelChunk {
     pub fn update_surface_net(&self, buffer: &mut SurfaceNetsBuffer) {
@@ -131,12 +131,6 @@ impl VoxelChunk {
         // info!("SIZES {:?} < {:?}", shape.linearize(padded_grid_array),
         // shape.usize());
 
-        surface_nets(
-            &samples,
-            &ChunkShape {},
-            [0; 3],
-            [padded::SIZE as u32 - 1; 3],
-            buffer,
-        );
+        surface_nets(&samples, &ChunkShape {}, [0; 3], [padded::SIZE as u32 - 1; 3], buffer);
     }
 }

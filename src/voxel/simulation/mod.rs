@@ -7,7 +7,8 @@ use crate::voxel::{Voxel, Voxels};
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(FixedPreUpdate, falling_sands);
+    // app.add_systems(FixedPreUpdate, falling_sands);
+    app.add_systems(Update, falling_sands);
 }
 
 pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3>>) {
@@ -16,22 +17,15 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
 
     for mut grid in &mut grids {
         updates.extend(grid.update_voxels.drain(..));
-        updates.sort_by(|a, b| {
-            b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z))
-        });
+        updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
 
         while let Some(point) = updates.pop() {
             match grid.get_voxel(point) {
                 Voxel::Sand => {
                     counter += 1;
 
-                    const SWAP_POINTS: [[i32; 3]; 5] = [
-                        [0, -1, 0],
-                        [1, -1, 0],
-                        [0, -1, 1],
-                        [-1, -1, 0],
-                        [0, -1, -1],
-                    ];
+                    const SWAP_POINTS: [[i32; 3]; 5] =
+                        [[0, -1, 0], [1, -1, 0], [0, -1, 1], [-1, -1, 0], [0, -1, -1]];
 
                     let adjacent = grid.get_nearby_voxels(point, SWAP_POINTS);
                     for (swap_point, voxel) in SWAP_POINTS.iter().zip(adjacent) {

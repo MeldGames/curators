@@ -48,7 +48,16 @@ impl Voxel {
 
 impl Voxel {
     pub fn iter() -> impl Iterator<Item = Voxel> {
-        [Voxel::Air, Voxel::Dirt, Voxel::Sand, Voxel::Grass, Voxel::Stone, Voxel::Water, Voxel::Base].into_iter()
+        [
+            Voxel::Air,
+            Voxel::Dirt,
+            Voxel::Sand,
+            Voxel::Grass,
+            Voxel::Stone,
+            Voxel::Water,
+            Voxel::Base,
+        ]
+        .into_iter()
     }
 
     pub fn type_count() -> usize {

@@ -21,7 +21,7 @@ impl<S: Sdf> Sdf for Box<S> {
     }
 }
 
-impl Sdf for &dyn Sdf { 
+impl Sdf for &dyn Sdf {
     fn sdf(&self, point: Vec3) -> f32 {
         (*self).sdf(point)
     }
@@ -29,7 +29,6 @@ impl Sdf for &dyn Sdf {
         (*self).aabb()
     }
 }
-
 
 // impl Sdf for Box<dyn Sdf> {
 //     fn sdf(&self, point: Vec3) -> f32 {

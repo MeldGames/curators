@@ -5,7 +5,7 @@ use bevy::prelude::*;
 
 use super::raycast::Hit;
 use crate::voxel::raycast::VoxelHit;
-use crate::voxel::{Voxel, VoxelAabb, VoxelChunk, unpadded, padded, Scalar, UpdateVoxelMeshSet};
+use crate::voxel::{Scalar, UpdateVoxelMeshSet, Voxel, VoxelAabb, VoxelChunk, padded, unpadded};
 
 pub fn plugin(app: &mut App) {
     app.add_event::<ChangedChunks>();
@@ -14,7 +14,6 @@ pub fn plugin(app: &mut App) {
 
     app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet));
 }
-
 
 #[derive(Event, Debug)]
 pub struct ChangedChunks {
@@ -44,6 +43,7 @@ pub struct Voxels {
 }
 
 const CHUNK_SIZE: IVec3 = IVec3::splat(unpadded::SIZE as Scalar);
+const CHUNK_SIZE_FLOAT: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
 impl Voxels {
     pub fn new() -> Self {
@@ -56,30 +56,14 @@ impl Voxels {
         point.div_euclid(CHUNK_SIZE)
     }
 
-    fn chunks_overlapping_voxel(voxel_pos: IVec3) -> Vec<IVec3> {
-        let min_chunk = IVec3::new(
-            ((voxel_pos.x - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
-            ((voxel_pos.y - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
-            ((voxel_pos.z - unpadded::SIZE_SCALAR) as f32 / unpadded::SIZE as f32).floor() as i32,
-        );
+    fn chunks_overlapping_voxel(voxel_pos: IVec3) -> impl Iterator<Item = IVec3> {
+        let min_chunk = ((voxel_pos - CHUNK_SIZE).as_vec3() / CHUNK_SIZE_FLOAT).floor().as_ivec3();
+        let max_chunk = ((voxel_pos + IVec3::ONE).as_vec3() / CHUNK_SIZE_FLOAT).ceil().as_ivec3();
 
-        let max_chunk = IVec3::new(
-            ((voxel_pos.x + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
-            ((voxel_pos.y + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
-            ((voxel_pos.z + 1) as f32 / unpadded::SIZE as f32).ceil() as i32,
-        );
-
-        let mut chunks = Vec::new();
-
-        for x in min_chunk.x..=max_chunk.x {
-            for y in min_chunk.y..=max_chunk.y {
-                for z in min_chunk.z..=max_chunk.z {
-                    chunks.push(IVec3::new(x, y, z));
-                }
-            }
-        }
-
-        chunks
+        (min_chunk.y..max_chunk.y).flat_map(move |y| {
+            (min_chunk.x..max_chunk.x)
+                .flat_map(move |x| (min_chunk.z..max_chunk.z).map(move |z| IVec3::new(x, y, z)))
+        })
     }
 
     #[inline]
@@ -107,12 +91,12 @@ impl Voxels {
             let chunk = self.chunks.entry(chunk_point).or_default();
             let relative_point = Self::relative_point_with_boundary(chunk_point, point);
             if chunk.in_chunk_bounds_unpadded(relative_point) {
-                self.changed_chunks.insert(chunk_point);
+                self.changed_chunks.insert(chunk_point); // negligible
                 chunk.set_unpadded(relative_point.into(), voxel);
             }
         }
 
-        self.set_update_voxels(point);
+        self.set_update_voxels(point); // 18-22%
     }
 
     // Push point and adjacent 26 points into voxels to check simulation on.
@@ -135,17 +119,22 @@ impl Voxels {
             Voxel::Air
         }
     }
-    
+
     #[inline]
-    pub fn get_nearby_voxels<const N: usize>(&self, point: IVec3, offsets: [[Scalar; 3]; N]) -> [Voxel; N] {
+    pub fn get_nearby_voxels<const N: usize>(
+        &self,
+        point: IVec3,
+        offsets: [[Scalar; 3]; N],
+    ) -> [Voxel; N] {
         let center = Self::relative_point_unoriented(point);
-        if center.x == 0 || center.x == unpadded::SIZE_SCALAR ||
-            center.y == 0 || center.y == unpadded::SIZE_SCALAR ||
-            center.z == 0 || center.z == unpadded::SIZE_SCALAR
+        if center.x == 0
+            || center.x == unpadded::SIZE_SCALAR
+            || center.y == 0
+            || center.y == unpadded::SIZE_SCALAR
+            || center.z == 0
+            || center.z == unpadded::SIZE_SCALAR
         {
-            offsets.map(|offset|{
-                self.get_voxel(point + IVec3::from(offset))
-            })
+            offsets.map(|offset| self.get_voxel(point + IVec3::from(offset)))
         } else {
             // assume we are in the same chunk
             let chunk_point = Self::find_chunk(point);
@@ -167,9 +156,12 @@ impl Voxels {
     // 4. otherwise fall back to `get_voxel`
     pub fn get_adjacent_voxels(&self, point: IVec3) -> [Voxel; 27] {
         let center = Self::relative_point_unoriented(point);
-        if center.x == 0 || center.x == unpadded::SIZE_SCALAR ||
-            center.y == 0 || center.y == unpadded::SIZE_SCALAR ||
-            center.z == 0 || center.z == unpadded::SIZE_SCALAR
+        if center.x == 0
+            || center.x == unpadded::SIZE_SCALAR
+            || center.y == 0
+            || center.y == unpadded::SIZE_SCALAR
+            || center.z == 0
+            || center.z == unpadded::SIZE_SCALAR
         {
             // fallback to `get_voxel`
             // IVec offsets
@@ -178,45 +170,35 @@ impl Voxels {
                 IVec3::new(-1, -1, -1),
                 IVec3::new(-1, -1, 0),
                 IVec3::new(-1, -1, 1),
-
                 IVec3::new(0, -1, -1),
                 IVec3::new(0, -1, 0),
                 IVec3::new(0, -1, 1),
-
                 IVec3::new(1, -1, -1),
                 IVec3::new(1, -1, 0),
                 IVec3::new(1, -1, 1),
-
                 // 3x3 sandwiched/center
                 IVec3::new(-1, 0, -1),
                 IVec3::new(-1, 0, 0),
                 IVec3::new(-1, 0, 1),
-
                 IVec3::new(0, 0, -1),
                 IVec3::new(0, 0, 0),
                 IVec3::new(0, 0, 1),
-
                 IVec3::new(1, 0, -1),
                 IVec3::new(1, 0, 0),
                 IVec3::new(1, 0, 1),
-
                 // 3x3 above
                 IVec3::new(-1, 1, -1),
                 IVec3::new(-1, 1, 0),
                 IVec3::new(-1, 1, 1),
-
                 IVec3::new(0, 1, -1),
                 IVec3::new(0, 1, 0),
                 IVec3::new(0, 1, 1),
-
                 IVec3::new(1, 1, -1),
                 IVec3::new(1, 1, 0),
                 IVec3::new(1, 1, 1),
             ];
 
-            ADJACENCY_IVECS.map(|offset|{
-                self.get_voxel(point + offset)
-            })
+            ADJACENCY_IVECS.map(|offset| self.get_voxel(point + offset))
         } else {
             // assume we are in the same chunk
             let chunk_point = Self::find_chunk(point);
@@ -232,37 +214,29 @@ impl Voxels {
                 -padded::Y_STRIDE_I - padded::X_STRIDE_I - padded::Z_STRIDE_I,
                 -padded::Y_STRIDE_I - padded::X_STRIDE_I,
                 -padded::Y_STRIDE_I - padded::X_STRIDE_I + padded::Z_STRIDE_I,
-
                 -padded::Y_STRIDE_I - padded::Z_STRIDE_I,
                 -padded::Y_STRIDE_I,
                 -padded::Y_STRIDE_I + padded::Z_STRIDE_I,
-
                 -padded::Y_STRIDE_I + padded::X_STRIDE_I - padded::Z_STRIDE_I,
                 -padded::Y_STRIDE_I + padded::X_STRIDE_I,
                 -padded::Y_STRIDE_I + padded::X_STRIDE_I + padded::Z_STRIDE_I,
-
                 // 3x3 sandwiched/center
                 padded::X_STRIDE_I - padded::Z_STRIDE_I,
                 padded::X_STRIDE_I,
                 padded::X_STRIDE_I + padded::Z_STRIDE_I,
-
                 padded::Z_STRIDE_I,
                 0,
                 padded::Z_STRIDE_I,
-
                 padded::X_STRIDE_I - padded::Z_STRIDE_I,
                 padded::X_STRIDE_I,
                 padded::X_STRIDE_I + padded::Z_STRIDE_I,
-
                 // 3x3 below
                 padded::Y_STRIDE_I - padded::X_STRIDE_I - padded::Z_STRIDE_I,
                 padded::Y_STRIDE_I - padded::X_STRIDE_I,
                 padded::Y_STRIDE_I - padded::X_STRIDE_I + padded::Z_STRIDE_I,
-
                 padded::Y_STRIDE_I - padded::Z_STRIDE_I,
                 padded::Y_STRIDE_I,
                 padded::Y_STRIDE_I + padded::Z_STRIDE_I,
-
                 padded::Y_STRIDE_I + padded::X_STRIDE_I - padded::Z_STRIDE_I,
                 padded::Y_STRIDE_I + padded::X_STRIDE_I,
                 padded::Y_STRIDE_I + padded::X_STRIDE_I + padded::Z_STRIDE_I,

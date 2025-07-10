@@ -1,6 +1,5 @@
-
-use bevy::prelude::*;
 use bevy::math::primitives::*;
+use bevy::prelude::*;
 
 use crate::sdf::Sdf;
 use crate::voxel::Voxels;

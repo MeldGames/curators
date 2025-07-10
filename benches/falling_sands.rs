@@ -15,23 +15,11 @@ criterion_main!(benches);
 
 fn falling_sand_torus(c: &mut Criterion) {
     let mut group = c.benchmark_group("falling_sand");
+    group.sample_size(10);
+    group.measurement_time(std::time::Duration::from_secs(30));
 
-    group.bench_function("sequential_systems", |b| {
+    group.bench_function("torus_falling", |b| {
         let mut voxels = Voxels::new();
-
-        let torus = sdf::Torus { minor_radius: 2.0, major_radius: 3.0 };
-        for raster_voxel in rasterize(
-            torus,
-            RasterConfig {
-                clip_bounds: Aabb3d::new(Vec3::ZERO, Vec3::splat(100.0)),
-                grid_scale: arch::voxel::GRID_SCALE,
-                pad_bounds: Vec3::ZERO,
-            },
-        ) {
-            if raster_voxel.distance <= 0.0 {
-                voxels.set_voxel(raster_voxel.point, Voxel::Sand);
-            }
-        }
 
         let floor = -10;
         for x in -15..15 {
@@ -44,41 +32,49 @@ fn falling_sand_torus(c: &mut Criterion) {
             || {
                 let mut app = plugin_setup();
                 app.world_mut().spawn((voxels.clone(),));
+                for _ in 0..5 {
+                    app.update();
+                } // let settle.
+
+                let mut world = app.world_mut();
+                let mut query = world.query::<&mut Voxels>();
+                let mut voxels = query.single_mut(&mut world).unwrap();
+
+                let torus = sdf::Torus { minor_radius: 2.0, major_radius: 3.0 };
+                for raster_voxel in rasterize(
+                    torus,
+                    RasterConfig {
+                        clip_bounds: Aabb3d::new(Vec3::ZERO, Vec3::splat(100.0)),
+                        grid_scale: arch::voxel::GRID_SCALE,
+                        pad_bounds: Vec3::ZERO,
+                    },
+                ) {
+                    if raster_voxel.distance <= 0.0 {
+                        voxels.set_voxel(raster_voxel.point, Voxel::Sand);
+                    }
+                }
+
+                for _ in 0..50 {
+                    app.update();
+                } // let settle.
+
                 app
             },
-            |mut app: App| app.update(),
-            BatchSize::LargeInput,
+            |mut app: App| {
+                for _ in 0..5 {
+                    app.update();
+                }
+            },
+            BatchSize::SmallInput,
         );
     });
 }
 
 fn plugin_setup() -> App {
     let mut app = App::new();
-    app.add_plugins(
-        DefaultPlugins
-            .build()
-            .disable::<bevy::log::LogPlugin>()
-            .disable::<bevy::app::TerminalCtrlCHandlerPlugin>()
-            // Render plugins
-            .disable::<bevy::winit::WinitPlugin>()
-            .disable::<bevy::window::WindowPlugin>()
-            .disable::<bevy::render::RenderPlugin>()
-            .disable::<bevy::render::texture::ImagePlugin>()
-            .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>()
-            .disable::<bevy::core_pipeline::CorePipelinePlugin>()
-            .disable::<bevy::sprite::SpritePlugin>()
-            .disable::<bevy::text::TextPlugin>()
-            .disable::<bevy::ui::UiPlugin>()
-            .disable::<bevy::gizmos::GizmoPlugin>()
-            .disable::<bevy::picking::PickingPlugin>()
-            .disable::<bevy::picking::InteractionPlugin>()
-            .disable::<bevy::picking::input::PointerInputPlugin>()
-            .disable::<bevy::pbr::PbrPlugin>(),
-    );
-    // .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(std::time::Duration::from_secs_f64(
-    //     1.0 / 60.0 as f64,
-    // )))
-    // .add_plugins(voxel::voxels::plugin)
-    // .add_plugins(voxel::simulation::plugin);
+
+    app.add_plugins(MinimalPlugins)
+        .add_plugins(voxel::voxels::plugin)
+        .add_systems(Update, voxel::simulation::falling_sands);
     app
 }

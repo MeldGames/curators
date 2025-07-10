@@ -91,3 +91,7 @@ type_complexity = "allow"
 [[bench]]
 name = "falling_sands"
 harness = false
+
+[[bench]]
+name = "voxels"
+harness = false
