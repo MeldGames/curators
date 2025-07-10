@@ -10,15 +10,21 @@ pub fn plugin(app: &mut App) {
     app.add_systems(FixedPreUpdate, falling_sands);
 }
 
-pub fn falling_sands(mut grids: Query<&mut Voxels>, mut points: Local<Vec<IVec3>>) {
-    for mut grid in &mut grids {
-        for point in grid.update_voxels.drain(..) {
-            points.push(point);
-        }
+pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3>>) {
+    const MAX_UPDATE: usize = 10_000;
+    let mut counter = 0;
 
-        for point in points.drain(..) {
+    for mut grid in &mut grids {
+        updates.extend(grid.update_voxels.drain(..));
+        updates.sort_by(|a, b| {
+            b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z))
+        });
+
+        while let Some(point) = updates.pop() {
             match grid.get_voxel(point) {
                 Voxel::Sand => {
+                    counter += 1;
+
                     const SWAP_POINTS: [IVec3; 5] = [
                         ivec3(0, -1, 0),
                         ivec3(1, -1, 0),
@@ -35,6 +41,10 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut points: Local<Vec<IVec3>
                     }
                 },
                 _ => {}, // no-op
+            }
+
+            if counter > MAX_UPDATE {
+                break;
             }
         }
     }
