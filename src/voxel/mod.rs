@@ -12,6 +12,7 @@ use crate::character;
 
 pub mod chunk;
 pub mod collider;
+pub mod simulation;
 pub mod brush;
 pub mod mesh;
 pub mod pick;
@@ -37,7 +38,8 @@ impl Plugin for VoxelPlugin {
         app.add_plugins(pick::VoxelPickPlugin);
         app.add_plugins(collider::plugin)
             .add_plugins(mesh::plugin)
-            .add_plugins(raycast::plugin);
+            .add_plugins(raycast::plugin)
+            .add_plugins(simulation::plugin);
 
         app.insert_resource(WireframeConfig { global: false, ..default() });
 

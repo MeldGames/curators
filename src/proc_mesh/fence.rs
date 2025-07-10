@@ -58,13 +58,8 @@ impl Fence {
             while point.y < 64. * GRID_SCALE.y {
                 let voxel_space = (*point / GRID_SCALE).as_ivec3();
                 let voxel = voxels.get_voxel(voxel_space);
-                if let Some(voxel) = voxel {
-                    if !voxel.pickable() {
-                        // info!("pickable voxel here? {:?}", voxel_space);
-                        break;
-                    }
-                } else {
-                    // info!("no voxel here? {:?}", voxel_space);
+                if !voxel.pickable() {
+                    // info!("pickable voxel here? {:?}", voxel_space);
                     break;
                 }
 

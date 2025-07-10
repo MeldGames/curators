@@ -12,11 +12,12 @@ use crate::voxel::{Voxel, VoxelAabb, VoxelChunk, unpadded, padded, Scalar};
 pub struct Voxels {
     chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
     changed_chunks: HashSet<IVec3>,
+    pub(crate) update_voxels: Vec<IVec3>,
 }
 
 impl Voxels {
     pub fn new() -> Self {
-        Self { chunks: HashMap::new(), changed_chunks: HashSet::new() }
+        Self { chunks: default(), changed_chunks: default(), update_voxels: default() }
     }
 
     /// Given a voxel position, find the chunk it is in.
@@ -63,11 +64,13 @@ impl Voxels {
         todo!()
     }
 
+    #[inline]
     pub fn relative_point(chunk: IVec3, world_point: IVec3) -> IVec3 {
         let chunk_origin = chunk * unpadded::SIZE as Scalar;
         world_point - chunk_origin
     }
 
+    #[inline]
     pub fn relative_point_with_boundary(chunk: IVec3, world_point: IVec3) -> IVec3 {
         Self::relative_point(chunk, world_point) + IVec3::ONE
     }
@@ -76,6 +79,7 @@ impl Voxels {
     //     point.rem_euclid(IVec3::splat(unpadded::SIZE as Scalar))
     // }
 
+    #[inline]
     pub fn relative_point_padded(point: IVec3) -> IVec3 {
         point.rem_euclid(IVec3::splat(unpadded::SIZE as Scalar)) + IVec3::ONE
     }
@@ -89,14 +93,28 @@ impl Voxels {
                 chunk.set_unpadded(relative_point.into(), voxel);
             }
         }
+
+        self.set_update_voxels(point);
     }
 
-    pub fn get_voxel(&self, point: IVec3) -> Option<Voxel> {
+    // Push point and adjacent 26 points into voxels to check simulation on.
+    #[inline]
+    pub fn set_update_voxels(&mut self, point: IVec3) {
+        for x in -1..=1 {
+            for y in -1..=1 {
+                for z in -1..=1 {
+                    self.update_voxels.push(point + IVec3::new(x, y, z));
+                }
+            }
+        }
+    }
+
+    pub fn get_voxel(&self, point: IVec3) -> Voxel {
         let chunk_point = Self::find_chunk(point);
         if let Some(chunk) = self.chunks.get(&chunk_point) {
-            chunk.get_voxel(Self::relative_point(chunk_point, point).into())
+            chunk.voxel(Self::relative_point(chunk_point, point).into())
         } else {
-            None
+            Voxel::Air
         }
     }
 
@@ -247,10 +265,9 @@ impl Voxels {
     ) -> Option<VoxelHit> {
         for hit in self.ray_iter(grid_transform, ray, length) {
             // info!("hit: {hit:?}");
-            if let Some(voxel) = self.get_voxel(hit.voxel) {
-                if voxel.pickable() {
-                    return Some(hit);
-                }
+            let voxel = self.get_voxel(hit.voxel);
+            if voxel.pickable() {
+                return Some(hit);
             }
         }
         None
@@ -294,10 +311,10 @@ impl Voxels {
             let voxel = pos + relative;
 
             match self.get_voxel(voxel) {
-                Some(Voxel::Air) | None => {
+                Voxel::Air => {
                     while heights[index] > *height_range.start() {
                         match self.get_voxel(voxel + IVec3::Y * heights[index]) {
-                            Some(Voxel::Air) | None => {},
+                            Voxel::Air => {},
                             _ => break,
                         }
 
@@ -307,7 +324,7 @@ impl Voxels {
                 _ => {
                     while heights[index] < *height_range.end() {
                         match self.get_voxel(voxel + IVec3::Y * heights[index]) {
-                            Some(Voxel::Air) | None => break,
+                            Voxel::Air => break,
                             _ => {},
                         }
 
@@ -327,11 +344,7 @@ impl Voxels {
         // lower.
         let mut gradient = Vec::new();
         for height in *height_range.start()..new_height.max(0) {
-            let voxel = match self.get_voxel(pos + IVec3::Y * height) {
-                Some(voxel) => voxel,
-                None => Voxel::Air,
-            };
-
+            let voxel = self.get_voxel(pos + IVec3::Y * height);
             gradient.push(voxel);
         }
 

@@ -12,6 +12,34 @@ pub trait Sdf {
     fn aabb(&self) -> Option<Aabb3d>;
 }
 
+impl<S: Sdf> Sdf for Box<S> {
+    fn sdf(&self, point: Vec3) -> f32 {
+        S::sdf(&*self, point)
+    }
+    fn aabb(&self) -> Option<Aabb3d> {
+        S::aabb(&*self)
+    }
+}
+
+impl Sdf for &dyn Sdf { 
+    fn sdf(&self, point: Vec3) -> f32 {
+        (*self).sdf(point)
+    }
+    fn aabb(&self) -> Option<Aabb3d> {
+        (*self).aabb()
+    }
+}
+
+
+// impl Sdf for Box<dyn Sdf> {
+//     fn sdf(&self, point: Vec3) -> f32 {
+//         (&*self).sdf(point)
+//     }
+//     fn aabb(&self) -> Option<Aabb3d> {
+//         (&*self).aabb()
+//     }
+// }
+
 impl Sdf for Sphere {
     fn sdf(&self, point: Vec3) -> f32 {
         point.length() - self.radius

@@ -347,10 +347,9 @@ pub fn debug_raycast(
             );
         }
 
-        if let Some(voxel) = voxels.get_voxel(hit.voxel) {
-            if voxel.pickable() {
-                break;
-            }
+        let voxel = voxels.get_voxel(hit.voxel);
+        if voxel.pickable() {
+            break;
         }
     }
 }

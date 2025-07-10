@@ -59,6 +59,9 @@ approx = "0.5.1"
 [patch.crates-io]
 #bevy_enhanced_input = { git = "https://github.com/projectharmonia/bevy_enhanced_input", rev = "21ddc08755" }
 
+[profile.release]
+debug = true
+
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
 opt-level = 1

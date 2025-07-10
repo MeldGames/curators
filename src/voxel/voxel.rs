@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 pub enum Voxel {
     Air,
     Dirt,
+    Sand,
     Grass,
     Stone,
     Water,
@@ -32,6 +33,7 @@ impl Voxel {
         match self {
             Voxel::Air => 0,
             Voxel::Dirt => 10,
+            Voxel::Sand => 10,
             Voxel::Grass => 10,
             Voxel::Stone => 100,
             Voxel::Water => 0,
@@ -42,7 +44,7 @@ impl Voxel {
 
 impl Voxel {
     pub fn iter() -> impl Iterator<Item = Voxel> {
-        [Voxel::Air, Voxel::Dirt, Voxel::Grass, Voxel::Stone, Voxel::Water, Voxel::Base].into_iter()
+        [Voxel::Air, Voxel::Dirt, Voxel::Sand, Voxel::Grass, Voxel::Stone, Voxel::Water, Voxel::Base].into_iter()
     }
 
     pub fn type_count() -> usize {
@@ -61,6 +63,7 @@ impl Voxel {
         match name.to_ascii_lowercase().trim() {
             "air" => Some(Voxel::Air),
             "dirt" => Some(Voxel::Dirt),
+            "sand" => Some(Voxel::Sand),
             "grass" => Some(Voxel::Grass),
             "water" => Some(Voxel::Water),
             "stone" => Some(Voxel::Stone),
@@ -73,6 +76,7 @@ impl Voxel {
         match self {
             Voxel::Air => "air",
             Voxel::Dirt => "dirt",
+            Voxel::Sand => "sand",
             Voxel::Grass => "grass",
             Voxel::Water => "water",
             Voxel::Stone => "stone",
