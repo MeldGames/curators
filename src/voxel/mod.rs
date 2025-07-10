@@ -22,6 +22,7 @@ pub mod voxel_aabb;
 
 // pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
 pub const GRID_SCALE: Vec3 = Vec3::splat(0.35);
+// pub const GRID_SCALE: Vec3 = Vec3::splat(0.15);
 // pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
 
 #[derive(Default)]

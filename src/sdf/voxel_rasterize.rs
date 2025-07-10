@@ -51,7 +51,7 @@ pub fn rasterize<S: Sdf>(
     });
 
     RasterIterator {
-        sdf: ops::Scale { primitive: sdf, scale: config.grid_scale }, // might need to invert this scale?
+        sdf: ops::Scale { primitive: sdf, scale: 1.0 / config.grid_scale }, // might need to invert this scale?
         sample_points: point_iter,
         config,
     }
