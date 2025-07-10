@@ -76,61 +76,12 @@ pub fn spawn_player(
 
     let metering_mask: Handle<Image> = asset_server.load("basic_metering_mask.png");
 
-    let camera_components = (
-        Camera { hdr: true, ..default() },
-        Camera3d::default(),
-        Projection::Perspective(PerspectiveProjection::default()),
-
-        // This will write the depth buffer to a texture that you can use in the main pass
-        DepthPrepass,
-        // This will generate a texture containing world normals (with normal maps applied)
-        NormalPrepass,
-        // This will generate a texture containing screen space pixel motion vectors
-        MotionVectorPrepass,
-
-        Tonemapping::default(),
-        Atmosphere::EARTH,
-        // Exposure::SUNLIGHT,
-        // Bloom::NATURAL,
-        /*bevy::core_pipeline::auto_exposure::AutoExposure {
-            range: -3.0..=3.0,
-            // range: -9.0..=1.0,
-            filter: 0.10..=0.90,
-            speed_brighten: 3.0, // 3.0 default
-            speed_darken: 1.0,   // 1.0 default
-            // metering_mask: metering_mask.clone(),
-            ..default()
-        },*/
-        // ShadowFilteringMethod::Temporal,
-        Msaa::Off,
-        // TemporalAntiAliasing::default(),
-        ScreenSpaceAmbientOcclusion {
-            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
-            constant_object_thickness: 4.0,
-        },
-        EdgeDetection {
-            depth_threshold: 0.3,
-            normal_threshold: 1.0,
-            depth_thickness: 1.0,
-            edge_color: Color::srgba(0.0, 0.0, 0.0, 0.5),
-            enable_depth: true,
-            enable_normal: true,
-            enable_color: false,
-
-            uv_distortion_frequency: Vec2::new(1.0, 1.0),
-            uv_distortion_strength: Vec2::new(0.0, 0.0),
-            ..default()
-        },
-        Smaa { preset: SmaaPreset::Ultra },
-        // Fxaa::default(),
-    );
-
     let flying = commands
         .spawn((
             Name::new("Flying camera"),
             FlyingSettings::default(),
             FlyingState::default(),
-            camera_components.clone(),
+            camera_components(),
             Transform::from_translation(Vec3::new(8., 30.0, 8.0))
                 .looking_at(Vec3::new(100.0, 0.0, 0.0), Vec3::Y),
             //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
@@ -144,7 +95,7 @@ pub fn spawn_player(
             FollowSettings::default(),
             FollowState::default(),
             FollowPlayer(player),
-            camera_components.clone(),
+            camera_components(),
             Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
                 .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ))
@@ -155,7 +106,7 @@ pub fn spawn_player(
     //         Name::new("Digsite camera"),
     //         DigsiteSettings::default(),
     //         DigsiteState::default(),
-    //         camera_components.clone(),
+            // camera_components(),
     //         Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
     //             .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
     //     ))

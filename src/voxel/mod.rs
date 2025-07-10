@@ -35,7 +35,6 @@ impl Plugin for VoxelPlugin {
 
         app.add_plugins(pick::VoxelPickPlugin);
         app.add_plugins(collider::plugin)
-            .add_plugins(character::plugin)
             .add_plugins(mesh::plugin)
             .add_plugins(raycast::plugin);
 

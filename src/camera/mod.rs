@@ -1,5 +1,17 @@
 use bevy::prelude::*;
+use bevy_edge_detection::EdgeDetection;
 use bevy_enhanced_input::prelude::*;
+
+use bevy::core_pipeline::bloom::Bloom;
+use bevy::core_pipeline::experimental::taa::TemporalAntiAliasing;
+use bevy::core_pipeline::fxaa::Fxaa;
+use bevy::core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass};
+use bevy::core_pipeline::smaa::{Smaa, SmaaPreset};
+use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::pbr::{
+    Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel,
+    ShadowFilteringMethod,
+};
 
 pub mod digsite;
 pub mod flying;
@@ -16,6 +28,57 @@ pub fn plugin(app: &mut App) {
     app.add_plugins(follow::plugin).add_plugins(flying::plugin).add_plugins(digsite::plugin);
     app.add_systems(Update, changed_camera_toggle);
     app.add_observer(toggle_binding).add_observer(switch_cameras);
+}
+
+pub fn camera_components() -> impl Bundle {
+    (
+        Camera { hdr: true, ..default() },
+        Camera3d::default(),
+        Projection::Perspective(PerspectiveProjection::default()),
+
+        // This will write the depth buffer to a texture that you can use in the main pass
+        DepthPrepass,
+        // This will generate a texture containing world normals (with normal maps applied)
+        NormalPrepass,
+        // This will generate a texture containing screen space pixel motion vectors
+        MotionVectorPrepass,
+
+        Tonemapping::default(),
+        Atmosphere::EARTH,
+        // Exposure::SUNLIGHT,
+        // Bloom::NATURAL,
+        /*bevy::core_pipeline::auto_exposure::AutoExposure {
+            range: -3.0..=3.0,
+            // range: -9.0..=1.0,
+            filter: 0.10..=0.90,
+            speed_brighten: 3.0, // 3.0 default
+            speed_darken: 1.0,   // 1.0 default
+            // metering_mask: metering_mask.clone(),
+            ..default()
+        },*/
+        // ShadowFilteringMethod::Temporal,
+        Msaa::Off,
+        // TemporalAntiAliasing::default(),
+        ScreenSpaceAmbientOcclusion {
+            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
+            constant_object_thickness: 4.0,
+        },
+        EdgeDetection {
+            depth_threshold: 0.3,
+            normal_threshold: 1.0,
+            depth_thickness: 1.0,
+            edge_color: Color::srgba(0.0, 0.0, 0.0, 0.5),
+            enable_depth: true,
+            enable_normal: true,
+            enable_color: false,
+
+            uv_distortion_frequency: Vec2::new(1.0, 1.0),
+            uv_distortion_strength: Vec2::new(0.0, 0.0),
+            ..default()
+        },
+        Smaa { preset: SmaaPreset::Ultra },
+        // Fxaa::default(),
+    )
 }
 
 #[derive(InputContext)]

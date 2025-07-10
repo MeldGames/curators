@@ -21,6 +21,7 @@ pub mod proc_mesh;
 pub mod ssao;
 pub mod tool;
 pub mod voxel;
+pub mod sdf;
 
 pub fn server(app: &mut App) {}
 
@@ -46,6 +47,7 @@ pub fn shared(app: &mut App) {
         .add_plugins(item::plugin)
         .add_plugins(map::plugin)
         .add_plugins(proc_mesh::plugin)
+        .add_plugins(character::plugin)
         .add_plugins(EdgeDetectionPlugin {
             // If you wish to apply Smaa anti-aliasing after edge detection,
             // please ensure that the rendering order of [`EdgeDetectionNode`] is set before
