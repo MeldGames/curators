@@ -5,7 +5,7 @@ pub use chunk::{VoxelChunk, unpadded, padded, Scalar};
 pub use mesh::UpdateVoxelMeshSet;
 pub use pick::CursorVoxel;
 pub use voxel::Voxel;
-pub use voxels::Voxels;
+pub use voxels::{Voxels, ChangedChunks};
 pub use voxel_aabb::VoxelAabb;
 
 use crate::character;
@@ -31,22 +31,17 @@ pub struct VoxelPlugin;
 
 impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Voxel>();
-        app.register_type::<Exposure>();
-        app.add_event::<ChangedChunks>();
-
-        app.add_plugins(pick::VoxelPickPlugin);
-        app.add_plugins(collider::plugin)
+        app.add_plugins(pick::VoxelPickPlugin)
+            .add_plugins(voxel::plugin)
+            .add_plugins(voxels::plugin)
+            .add_plugins(collider::plugin)
             .add_plugins(mesh::plugin)
             .add_plugins(raycast::plugin)
             .add_plugins(simulation::plugin);
 
-        app.insert_resource(WireframeConfig { global: false, ..default() });
-
         app.add_systems(Startup, spawn_voxel_grid);
         app.add_systems(Startup, spawn_directional_lights);
         app.add_systems(Update, dynamic_scene);
-        app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet));
     }
 }
 
@@ -60,26 +55,6 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         mesh::binary_greedy::BinaryGreedy,
     ));
 }
-
-#[derive(Event, Debug)]
-pub struct ChangedChunks {
-    pub voxel_entity: Entity,
-    pub changed_chunks: Vec<IVec3>,
-}
-
-pub fn clear_changed_chunks(
-    mut voxels: Query<(Entity, &mut Voxels)>,
-    mut writer: EventWriter<ChangedChunks>,
-) {
-    for (voxel_entity, mut voxels) in &mut voxels {
-        writer.write(ChangedChunks {
-            voxel_entity,
-            changed_chunks: voxels.changed_chunk_pos_iter().collect::<Vec<_>>(),
-        });
-        voxels.clear_changed_chunks();
-    }
-}
-
 fn dynamic_scene(mut suns: Query<&mut Transform, With<Sun>>, time: Res<Time>) {
     suns.iter_mut()
         .for_each(|mut tf| tf.rotate_z(-time.delta_secs() * std::f32::consts::PI / 1000.0));

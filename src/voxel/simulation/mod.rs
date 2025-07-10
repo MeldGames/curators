@@ -25,16 +25,18 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
                 Voxel::Sand => {
                     counter += 1;
 
-                    const SWAP_POINTS: [IVec3; 5] = [
-                        ivec3(0, -1, 0),
-                        ivec3(1, -1, 0),
-                        ivec3(0, -1, 1),
-                        ivec3(-1, -1, 0),
-                        ivec3(0, -1, -1),
+                    const SWAP_POINTS: [[i32; 3]; 5] = [
+                        [0, -1, 0],
+                        [1, -1, 0],
+                        [0, -1, 1],
+                        [-1, -1, 0],
+                        [0, -1, -1],
                     ];
-                    for swap_point in SWAP_POINTS {
-                        if let Voxel::Air = grid.get_voxel(point + swap_point) {
-                            grid.set_voxel(point + swap_point, Voxel::Sand);
+
+                    let adjacent = grid.get_nearby_voxels(point, SWAP_POINTS);
+                    for (swap_point, voxel) in SWAP_POINTS.iter().zip(adjacent) {
+                        if let Voxel::Air = voxel {
+                            grid.set_voxel(point + IVec3::from(*swap_point), Voxel::Sand);
                             grid.set_voxel(point, Voxel::Air);
                             break;
                         }

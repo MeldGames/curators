@@ -52,15 +52,30 @@ pub mod padded {
     pub const Y_STRIDE: usize = SIZE * SIZE;
     pub const ARR_STRIDE: usize = SIZE * SIZE * SIZE;
 
+    pub const Z_STRIDE_I: isize = Z_STRIDE as isize;
+    pub const X_STRIDE_I: isize = X_STRIDE as isize;
+    pub const Y_STRIDE_I: isize = Y_STRIDE as isize;
+    pub const ARR_STRIDE_I: isize = ARR_STRIDE as isize;
+
     // Padded linearize point into a 64^3 XZY array
     #[inline]
-    pub fn linearize([x, y, z]: [Scalar; 3]) -> usize {
+    pub const fn linearize([x, y, z]: [Scalar; 3]) -> usize {
         z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
     }
 
     #[inline]
-    pub fn pad_linearize([x, y, z]: [Scalar; 3]) -> usize {
+    pub const fn linearize_offset([x, y, z]: [Scalar; 3]) -> isize {
+        z as isize + x as isize * X_STRIDE_I + y as isize * Y_STRIDE_I
+    }
+
+    #[inline]
+    pub const fn pad_linearize([x, y, z]: [Scalar; 3]) -> usize {
         (z + 1) as usize + (x + 1) as usize * X_STRIDE + (y + 1) as usize * Y_STRIDE
+    }
+
+    #[inline]
+    pub const fn pad_linearize_offset([x, y, z]: [Scalar; 3]) -> isize {
+        (z + 1) as isize + (x + 1) as isize * X_STRIDE_I + (y + 1) as isize * Y_STRIDE_I
     }
 
     // Delinearize point into a 64^3 array
@@ -75,7 +90,7 @@ pub mod padded {
 }
 
 /// Single voxel chunk, 64^3 (1 padding on the edges for meshing)
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Clone)]
 #[require(Name::new("Voxel Chunk"))]
 pub struct VoxelChunk {
     pub voxels: Vec<u16>,           // padded::ARR_STRIDE length

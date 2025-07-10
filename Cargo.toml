@@ -59,6 +59,10 @@ approx = "0.5.1"
 [patch.crates-io]
 #bevy_enhanced_input = { git = "https://github.com/projectharmonia/bevy_enhanced_input", rev = "21ddc08755" }
 
+[dev-dependencies]
+criterion = { version = "0.6.0", features = ["html_reports"] }
+pprof = { version = "0.15.0", features = ["flamegraph", "criterion"] }
+
 [profile.release]
 debug = true
 
@@ -82,3 +86,8 @@ debug-assertions = false
 too_many_arguments = "allow"
 # Queries that access many components may trigger this lint.
 type_complexity = "allow"
+
+
+[[bench]]
+name = "falling_sands"
+harness = false

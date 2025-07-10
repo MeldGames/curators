@@ -3,6 +3,10 @@ use num_derive::*;
 use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
+pub fn plugin(app: &mut App) {
+    app.register_type::<Voxel>();
+}
+
 #[derive(
     Reflect,
     Hash,
