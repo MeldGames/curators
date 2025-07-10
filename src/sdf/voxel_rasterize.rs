@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_math::bounding::Aabb3d;
+use bevy_math::bounding::{Aabb3d, BoundingVolume};
 
 use crate::sdf::{Sdf, ops};
 use crate::voxel::{Voxel, Voxels};
@@ -13,6 +13,7 @@ pub struct RasterVoxel {
 pub struct RasterConfig {
     pub clip_bounds: Aabb3d,
     pub grid_scale: Vec3,
+    pub pad_bounds: Vec3,
 }
 
 pub struct RasterIterator<S: Sdf, I: Iterator<Item = IVec3>> {
@@ -37,11 +38,13 @@ pub fn rasterize<S: Sdf>(
 ) -> RasterIterator<ops::Scale<S>, impl Iterator<Item = IVec3>> {
     let aabb = sdf
         .aabb()
+        .map(|aabb| aabb.grow(Vec3A::from(config.pad_bounds)))
         .map(|aabb| Aabb3d {
             min: aabb.min.max(config.clip_bounds.min),
             max: aabb.max.min(config.clip_bounds.max),
         })
         .unwrap_or(config.clip_bounds);
+
 
     let min = (Vec3::from(aabb.min) / config.grid_scale).floor().as_ivec3();
     let max = (Vec3::from(aabb.max) / config.grid_scale).ceil().as_ivec3();
