@@ -11,9 +11,12 @@ pub fn plugin(app: &mut App) {
     app.add_systems(Update, falling_sands);
 }
 
+// Make islands of voxels fall if unsupported.
+pub fn islands(mut grids: Query<&mut Voxels>) {}
+
 pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3>>) {
-    const MAX_UPDATE: usize = 10_000;
-    let mut counter = 0;
+    // const MAX_UPDATE: usize = 1_000_000;
+    // let mut counter = 0;
 
     for mut grid in &mut grids {
         updates.extend(grid.update_voxels.drain(..));
@@ -23,7 +26,7 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
         while let Some(point) = updates.pop() {
             match grid.get_voxel(point) {
                 Voxel::Sand => {
-                    counter += 1;
+                    // counter += 1;
 
                     const SWAP_POINTS: [[i32; 3]; 5] =
                         [[0, -1, 0], [1, -1, 0], [0, -1, 1], [-1, -1, 0], [0, -1, -1]];
@@ -38,12 +41,38 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
                         }
                     }
                 },
+                Voxel::Dirt => {
+                    // counter += 1;
+
+                    if let Voxel::Air = grid.get_voxel(point + IVec3::new(0, -1, 0)) {
+                        const SURROUNDING: [IVec3; 5] = [
+                            ivec3(-1, 0, 0),
+                            ivec3(1, 0, 0),
+                            ivec3(0, 0, -1),
+                            ivec3(0, 0, 1),
+                            ivec3(0, 1, 0),
+                        ];
+
+                        let mut structured = false;
+                        for check in SURROUNDING {
+                            if grid.get_voxel(point + check) != Voxel::Air {
+                                structured = true;
+                                break;
+                            }
+                        }
+
+                        if structured {
+                            grid.set_voxel(point + IVec3::new(0, -1, 0), Voxel::Dirt);
+                            grid.set_voxel(point, Voxel::Air);
+                        }
+                    }
+                },
                 _ => {}, // no-op
             }
 
-            if counter > MAX_UPDATE {
-                break;
-            }
+            // if counter > MAX_UPDATE {
+            //     break;
+            // }
         }
     }
 }

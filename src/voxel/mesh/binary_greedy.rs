@@ -1,7 +1,9 @@
+use std::collections::VecDeque;
+
 use avian3d::parry::bounding_volume::Aabb;
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
-use bevy::platform::collections::HashMap;
+use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
@@ -92,114 +94,125 @@ pub fn update_binary_mesh(
     mut mesher: Local<BgmMesher>,
     mut collider_mesh_buffer: Local<ColliderMesh>,
     mut changed_chunks: EventReader<ChangedChunks>,
+
+    mut queue: Local<VecDeque<(Entity, IVec3)>>,
+    mut dedup: Local<HashSet<(Entity, IVec3)>>,
 ) {
     for ChangedChunks { voxel_entity, changed_chunks } in changed_chunks.read() {
-        let Ok((voxels, voxel_chunks)) = grids.get_mut(*voxel_entity) else {
+        for chunk in changed_chunks {
+            let new_entry = (*voxel_entity, *chunk);
+            if !dedup.contains(&new_entry) {
+                queue.push_back(new_entry);
+                dedup.insert(new_entry);
+            }
+        }
+    }
+
+    const PER_FRAME: usize = 1;
+    let mut pop_count = 0;
+
+    while pop_count < PER_FRAME {
+        pop_count += 1;
+        let Some((voxel_entity, chunk_point)) = queue.pop_front() else { break; };
+        dedup.remove(&(voxel_entity, chunk_point));
+
+        let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
             warn!("No voxels for entity {voxel_entity:?}");
             continue;
         };
         // collider_mesh_buffer.clear();
 
-        let count = voxels.changed_chunk_iter().count();
-        if count > 10 {
-            warn!("updating {} chunks render/collider meshes", count);
-        }
+        let Some(chunk) = voxels.get_chunk(chunk_point) else {
+            warn!("No chunk at {chunk_point:?}");
+            continue;
+        };
 
-        for chunk_pos in changed_chunks {
-            let Some(chunk) = voxels.get_chunk(*chunk_pos) else {
-                warn!("No chunk at {chunk_pos:?}");
-                continue;
-            };
+        // info!("chunk {:?} changed, updating binary mesh", chunk_pos);
+        let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
+        let collider_mesh = chunk.generate_collider_mesh(&mut mesher.0);
+        // collider_mesh_buffer.combine(&collider_mesh);
 
-            // info!("chunk {:?} changed, updating binary mesh", chunk_pos);
-            let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
-            let collider_mesh = chunk.generate_collider_mesh(&mut mesher.0);
-            // collider_mesh_buffer.combine(&collider_mesh);
+        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
+            continue;
+        };
 
-            let Some(chunk_entity) = voxel_chunks.get(chunk_pos) else {
-                continue;
-            };
+        let Ok((mut chunk_meshes, mut chunk_collider)) = chunk_mesh_entities.get_mut(*chunk_entity)
+        else {
+            continue;
+        };
 
-            let Ok((mut chunk_meshes, mut chunk_collider)) =
-                chunk_mesh_entities.get_mut(*chunk_entity)
-            else {
-                continue;
-            };
+        // 몰리
 
-            // 몰리
+        for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
+            let voxel = Voxel::from_id(voxel_id as u16).unwrap();
 
-            for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
-                let voxel = Voxel::from_id(voxel_id as u16).unwrap();
-
-                if let Some(entity) = chunk_meshes.get(&voxel) {
-                    let mut entity_commands = commands.entity(*entity);
-                    match render_mesh {
-                        Some(mesh) => {
-                            let aabb = mesh.compute_aabb();
-                            let mesh_handle = meshes.add(mesh);
-                            entity_commands.insert(Mesh3d(mesh_handle));
-                            if let Some(aabb) = aabb {
-                                entity_commands.insert(aabb);
-                            }
-                        },
-                        None => {
-                            // info!("removing mesh: {:?} {:?}", chunk_pos, voxel);
-                            entity_commands.remove::<Mesh3d>();
-                        },
-                    }
-                } else {
-                    if let Some(mesh) = render_mesh {
+            if let Some(entity) = chunk_meshes.get(&voxel) {
+                let mut entity_commands = commands.entity(*entity);
+                match render_mesh {
+                    Some(mesh) => {
+                        let aabb = mesh.compute_aabb();
                         let mesh_handle = meshes.add(mesh);
-                        let material = materials.add(voxel.material());
-                        let id = commands
-                            .spawn((
-                                Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
-                                Mesh3d(mesh_handle),
-                                MeshMaterial3d(material),
-                                ChildOf(*chunk_entity),
-                            ))
-                            .id();
-
-                        chunk_meshes.insert(voxel, id);
-                    }
+                        entity_commands.insert(Mesh3d(mesh_handle));
+                        if let Some(aabb) = aabb {
+                            entity_commands.insert(aabb);
+                        }
+                    },
+                    None => {
+                        // info!("removing mesh: {:?} {:?}", chunk_point, voxel);
+                        entity_commands.remove::<Mesh3d>();
+                    },
                 }
-            }
-
-            let collider_mesh = collider_mesh.to_mesh();
-
-            let flags = TrimeshFlags::FIX_INTERNAL_EDGES
-                | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
-                | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
-
-            if collider_mesh.count_vertices() == 0 {
-                // warn!("no vertices in collider mesh");
-                continue;
-            }
-
-            let Some(mut new_collider) =
-                Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
-            else {
-                info!("cannot create trimesh from mesh");
-                continue;
-            };
-            new_collider.set_scale(crate::voxel::GRID_SCALE, 32);
-
-            if let Some(entity) = chunk_collider.0.clone() {
-                commands.entity(entity).insert(new_collider);
             } else {
-                chunk_collider.0 = Some(
-                    commands
+                if let Some(mesh) = render_mesh {
+                    let mesh_handle = meshes.add(mesh);
+                    let material = materials.add(voxel.material());
+                    let id = commands
                         .spawn((
-                            Name::new("Voxel Collider"),
-                            new_collider,
-                            RigidBody::Static,
-                            CollisionMargin(0.05),
-                            Transform::from_translation(Vec3::splat(0.0)),
+                            Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
+                            Mesh3d(mesh_handle),
+                            MeshMaterial3d(material),
                             ChildOf(*chunk_entity),
                         ))
-                        .id(),
-                );
+                        .id();
+
+                    chunk_meshes.insert(voxel, id);
+                }
             }
+        }
+
+        let collider_mesh = collider_mesh.to_mesh();
+
+        let flags = TrimeshFlags::FIX_INTERNAL_EDGES
+            | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
+            | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
+
+        if collider_mesh.count_vertices() == 0 {
+            // warn!("no vertices in collider mesh");
+            continue;
+        }
+
+        let Some(mut new_collider) = Collider::trimesh_from_mesh_with_config(&collider_mesh, flags)
+        else {
+            info!("cannot create trimesh from mesh");
+            continue;
+        };
+        new_collider.set_scale(crate::voxel::GRID_SCALE, 32);
+
+        if let Some(entity) = chunk_collider.0.clone() {
+            commands.entity(entity).insert(new_collider);
+        } else {
+            chunk_collider.0 = Some(
+                commands
+                    .spawn((
+                        Name::new("Voxel Collider"),
+                        new_collider,
+                        RigidBody::Static,
+                        CollisionMargin(0.05),
+                        Transform::from_translation(Vec3::splat(0.0)),
+                        ChildOf(*chunk_entity),
+                    ))
+                    .id(),
+            );
         }
     }
 }

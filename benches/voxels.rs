@@ -35,8 +35,8 @@ fn set_voxel(c: &mut Criterion) {
     let size = 30;
     let len = size * size * size;
     let point_iter = (-size..size).flat_map(move |y| {
-                    (-size..size).flat_map(move |x| (-size..size).map(move |z| IVec3::new(x, y, z)))
-                });
+        (-size..size).flat_map(move |x| (-size..size).map(move |z| IVec3::new(x, y, z)))
+    });
     let voxel_iter = (-len..len).map(|_| Voxel::Sand);
 
     group.bench_function("set_voxel_direct", |b| {
@@ -53,10 +53,7 @@ fn set_voxel(c: &mut Criterion) {
         let mut voxels = Voxels::new();
 
         b.iter(|| {
-            black_box(voxels.set_voxels(
-                point_iter.clone(),
-                voxel_iter.clone(),
-            ));
+            black_box(voxels.set_voxels(point_iter.clone(), voxel_iter.clone()));
         })
     });
 }

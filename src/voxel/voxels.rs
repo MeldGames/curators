@@ -40,6 +40,7 @@ pub struct Voxels {
     chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
     changed_chunks: HashSet<IVec3>,
     pub(crate) update_voxels: Vec<IVec3>,
+    clip: VoxelAabb,
 }
 
 const CHUNK_SIZE: IVec3 = IVec3::splat(unpadded::SIZE as Scalar);
@@ -47,7 +48,15 @@ const CHUNK_SIZE_FLOAT: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
 impl Voxels {
     pub fn new() -> Self {
-        Self { chunks: default(), changed_chunks: default(), update_voxels: default() }
+        Self {
+            chunks: default(),
+            changed_chunks: default(),
+            update_voxels: default(),
+            clip: VoxelAabb {
+                min: IVec3::new(-1000, -100, -1000),
+                max: IVec3::new(1000, 300, 1000),
+            },
+        }
     }
 
     /// Given a voxel position, find the chunk it is in.
@@ -97,15 +106,27 @@ impl Voxels {
     }
 
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
-        for chunk_point in Self::chunks_overlapping_voxel(point) {
-            let chunk = self.chunks.entry(chunk_point).or_default();
-            let relative_point = Self::relative_point_with_boundary(chunk_point, point);
-            if chunk.in_chunk_bounds_unpadded(relative_point) {
-                self.changed_chunks.insert(chunk_point); // negligible
-                chunk.set_unpadded(relative_point.into(), voxel);
-            }
+        if !self.clip.contains_point(point) {
+            warn!("attempted voxel set at clip boundary");
+            return;
         }
 
+        // Set the overlapping chunks boundary voxels as well
+        // for chunk_point in Self::chunks_overlapping_voxel(point) {
+        //     let chunk = self.chunks.entry(chunk_point).or_default();
+        //     let relative_point = Self::relative_point_with_boundary(chunk_point, point);
+        //     if chunk.in_chunk_bounds_unpadded(relative_point) {
+        //         self.changed_chunks.insert(chunk_point); // negligible
+        //         chunk.set_unpadded(relative_point.into(), voxel);
+        //     }
+        // }
+
+        let chunk_point = Self::find_chunk(point);
+        let chunk = self.chunks.entry(chunk_point).or_default();
+        let relative_point = Self::relative_point_unoriented(point);
+        chunk.set(relative_point.into(), voxel);
+
+        self.changed_chunks.insert(chunk_point); // negligible
         self.set_update_voxels(point); // 18-22%
     }
 
@@ -645,8 +666,8 @@ pub mod tests {
         let size = 1;
         let len = size * size * size;
         let point_iter = (-size..=size).flat_map(move |y| {
-                        (-size..=size).flat_map(move |x| (-size..=size).map(move |z| IVec3::new(x, y, z)))
-                    });
+            (-size..=size).flat_map(move |x| (-size..=size).map(move |z| IVec3::new(x, y, z)))
+        });
         let voxel_iter = (-len..len).map(|_| Voxel::Sand);
 
         let mut voxels_direct = Voxels::new();
