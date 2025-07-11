@@ -90,7 +90,7 @@ pub mod padded {
 }
 
 /// Single voxel chunk, 64^3 (1 padding on the edges for meshing)
-#[derive(Debug, Component, Clone)]
+#[derive(Debug, Component, Clone, PartialEq, Eq)]
 #[require(Name::new("Voxel Chunk"))]
 pub struct VoxelChunk {
     pub voxels: Vec<u16>,           // padded::ARR_STRIDE length
@@ -178,11 +178,11 @@ impl VoxelChunk {
     }
 
     pub fn voxel_iter(&self) -> impl Iterator<Item = ([Scalar; 3], Voxel)> {
-        self.point_iter().map(|p| (p, self.voxel(p)))
+        Self::point_iter().map(|p| (p, self.voxel(p)))
     }
 
     /// Iterate over all points in this grid.
-    pub fn point_iter(&self) -> impl Iterator<Item = [Scalar; 3]> {
+    pub fn point_iter() -> impl Iterator<Item = [Scalar; 3]> {
         // iterate z -> x -> y, same as stored because cache
         (0..unpadded::SIZE as Scalar).flat_map(move |y| {
             (0..unpadded::SIZE as Scalar)
@@ -354,8 +354,7 @@ pub mod tests {
 
     #[test]
     pub fn point_iter() {
-        let chunk = VoxelChunk::new();
-        let mut iter = chunk.point_iter();
+        let mut iter = VoxelChunk::point_iter();
         assert_eq!(iter.next(), Some([0, 0, 0]));
         assert_eq!(iter.next(), Some([0, 0, 1]));
         for _ in 0..60 {

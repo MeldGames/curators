@@ -10,7 +10,7 @@ use crate::voxel::{Scalar, UpdateVoxelMeshSet, Voxel, VoxelAabb, VoxelChunk, pad
 pub fn plugin(app: &mut App) {
     app.add_event::<ChangedChunks>();
 
-    app.add_plugins(super::voxel::plugin);
+    // app.add_plugins(super::voxel::plugin);
 
     app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet));
 }
@@ -34,7 +34,7 @@ pub fn clear_changed_chunks(
     }
 }
 
-#[derive(Debug, Component, Clone)]
+#[derive(Debug, Component, Clone, PartialEq, Eq)]
 #[require(Name::new("Voxels"))]
 pub struct Voxels {
     chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
@@ -56,7 +56,7 @@ impl Voxels {
         point.div_euclid(CHUNK_SIZE)
     }
 
-    fn chunks_overlapping_voxel(voxel_pos: IVec3) -> impl Iterator<Item = IVec3> {
+    pub fn chunks_overlapping_voxel(voxel_pos: IVec3) -> impl Iterator<Item = IVec3> {
         let min_chunk = ((voxel_pos - CHUNK_SIZE).as_vec3() / CHUNK_SIZE_FLOAT).floor().as_ivec3();
         let max_chunk = ((voxel_pos + IVec3::ONE).as_vec3() / CHUNK_SIZE_FLOAT).ceil().as_ivec3();
 
@@ -86,6 +86,16 @@ impl Voxels {
         point.rem_euclid(CHUNK_SIZE)
     }
 
+    pub fn get_relative_points(
+        points: impl Iterator<Item = IVec3>,
+    ) -> impl Iterator<Item = (IVec3, IVec3)> {
+        points.flat_map(|point| {
+            Self::chunks_overlapping_voxel(point).map(move |chunk_point| {
+                (chunk_point, Self::relative_point_with_boundary(chunk_point, point))
+            })
+        })
+    }
+
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
         for chunk_point in Self::chunks_overlapping_voxel(point) {
             let chunk = self.chunks.entry(chunk_point).or_default();
@@ -97,6 +107,30 @@ impl Voxels {
         }
 
         self.set_update_voxels(point); // 18-22%
+    }
+
+    pub fn set_voxels(
+        &mut self,
+        voxel_points: impl Iterator<Item = IVec3> + Clone,
+        voxels: impl Iterator<Item = Voxel>,
+    ) {
+        for point in voxel_points.clone() {
+            self.set_update_voxels(point);
+        }
+
+        let iterator = voxel_points.zip(voxels).flat_map(|(point, voxel)| {
+            Self::chunks_overlapping_voxel(point).map(move |chunk_point| {
+                (chunk_point, Self::relative_point_with_boundary(chunk_point, point), voxel)
+            })
+        });
+
+        for (chunk_point, relative_point, voxel) in iterator {
+            let chunk = self.chunks.entry(chunk_point).or_default();
+            if chunk.in_chunk_bounds_unpadded(relative_point) {
+                self.changed_chunks.insert(chunk_point);
+                chunk.set_unpadded(relative_point.into(), voxel);
+            }
+        }
     }
 
     // Push point and adjacent 26 points into voxels to check simulation on.
@@ -302,6 +336,17 @@ impl Voxels {
         max - min
     }
 
+    pub fn chunk_pos_iter(&self) -> impl Iterator<Item = IVec3> {
+        self.chunks.keys().copied()
+    }
+
+    pub fn point_iter(&self) -> impl Iterator<Item = IVec3> {
+        self.chunk_pos_iter().flat_map(move |chunk_point| {
+            let chunk_base = chunk_point * unpadded::SIZE as Scalar;
+            VoxelChunk::point_iter().map(move |point| chunk_base + IVec3::from(point))
+        })
+    }
+
     /// Raycasting in chunk space.
     pub fn chunk_ray_iter(
         &self,
@@ -482,6 +527,30 @@ impl Voxels {
             // stretch the voxels out
         }
     }
+
+    pub fn diff(&self, other: &Voxels, cutoff: usize) -> Vec<VoxelDiff> {
+        let mut diffs = Vec::new();
+
+        for point in self.point_iter() {
+            let v1 = self.get_voxel(point);
+            let v2 = other.get_voxel(point);
+            if v1 != v2 {
+                diffs.push(VoxelDiff { point, v1, v2 });
+                if diffs.len() > cutoff {
+                    break;
+                }
+            }
+        }
+
+        return diffs;
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct VoxelDiff {
+    pub point: IVec3,
+    pub v1: Voxel,
+    pub v2: Voxel,
 }
 
 #[cfg(test)]
@@ -568,5 +637,29 @@ pub mod tests {
             Voxels::relative_point_with_boundary(ivec3(-1, -1, -1), ivec3(-63, -63, -63)),
             ivec3(0, 0, 0)
         );
+    }
+
+    #[test]
+    fn set_voxel_batch() {
+        // just make sure the batch actually does the same thing as setting directly
+        let size = 1;
+        let len = size * size * size;
+        let point_iter = (-size..=size).flat_map(move |y| {
+                        (-size..=size).flat_map(move |x| (-size..=size).map(move |z| IVec3::new(x, y, z)))
+                    });
+        let voxel_iter = (-len..len).map(|_| Voxel::Sand);
+
+        let mut voxels_direct = Voxels::new();
+        for (point, voxel) in point_iter.clone().zip(voxel_iter.clone()) {
+            voxels_direct.set_voxel(point, voxel);
+        }
+
+        let mut voxels_batch = Voxels::new();
+        voxels_batch.set_voxels(point_iter.clone(), voxel_iter.clone());
+
+        let diff = voxels_direct.diff(&voxels_batch, 50);
+        if diff.len() > 0 {
+            panic!("diffs: {:?}", diff);
+        }
     }
 }

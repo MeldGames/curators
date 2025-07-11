@@ -19,7 +19,7 @@ pub fn spawn_box_colliders(
 ) {
     for (entity, global_transform, grid) in &grids {
         let mut colliders: Vec<(Vec3, Quat, Collider)> = Vec::new();
-        for point in grid.point_iter() {
+        for point in VoxelChunk::point_iter() {
             let point_ivec3: IVec3 = point.into();
             if !grid.in_chunk_bounds(point_ivec3) {
                 continue;

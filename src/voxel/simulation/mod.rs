@@ -27,10 +27,11 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
                     const SWAP_POINTS: [[i32; 3]; 5] =
                         [[0, -1, 0], [1, -1, 0], [0, -1, 1], [-1, -1, 0], [0, -1, -1]];
 
-                    let adjacent = grid.get_nearby_voxels(point, SWAP_POINTS);
-                    for (swap_point, voxel) in SWAP_POINTS.iter().zip(adjacent) {
-                        if let Voxel::Air = voxel {
-                            grid.set_voxel(point + IVec3::from(*swap_point), Voxel::Sand);
+                    for swap_point in SWAP_POINTS {
+                        if let Voxel::Air =
+                            grid.get_voxel(IVec3::from(point + IVec3::from(swap_point)))
+                        {
+                            grid.set_voxel(point + IVec3::from(swap_point), Voxel::Sand);
                             grid.set_voxel(point, Voxel::Air);
                             break;
                         }
