@@ -18,6 +18,7 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
     for mut grid in &mut grids {
         updates.extend(grid.update_voxels.drain(..));
         updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
+        updates.dedup();
 
         while let Some(point) = updates.pop() {
             match grid.get_voxel(point) {
