@@ -75,6 +75,7 @@ fn plugin_setup() -> App {
 
     app.add_plugins(MinimalPlugins)
         .add_plugins(voxel::voxels::plugin)
+        .insert_resource(voxel::simulation::FallingSandTick(0))
         .add_systems(Update, voxel::simulation::falling_sands);
     app
 }

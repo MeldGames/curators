@@ -1,6 +1,4 @@
 use bevy::prelude::*;
-use num_derive::*;
-use num_traits::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 pub fn plugin(app: &mut App) {
@@ -19,11 +17,9 @@ pub fn plugin(app: &mut App) {
     Clone,
     Serialize,
     Deserialize,
-    FromPrimitive,
-    ToPrimitive,
 )]
 pub enum Voxel {
-    Air, // special case "nothing"
+    Air = 0, // special case "nothing"
 
     // unbreakable
     Base,
@@ -38,57 +34,176 @@ pub enum Voxel {
     Sand,
 
     // liquids 
-    Water,
+    Water, // TODO: add lateral velocity to remove oscillation?
     Oil,
 }
 
-impl Voxel {
-    pub fn starting_health(&self) -> i16 {
-        match self {
-            Voxel::Air => 0,
-            Voxel::Base => i16::MAX,
-            Voxel::Barrier => i16::MAX,
-
-            Voxel::Sand => 10,
-
-            Voxel::Dirt => 10,
-            Voxel::Grass => 10,
-            Voxel::Stone => 100,
-
-            Voxel::Water => 0,
-            Voxel::Oil => 0,
-        }
-    }
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VoxelDefinition {
+    pub voxel: Voxel,
+    pub name: &'static str,
+    /// How does this interaction with falling sands sim (cellular automaton)?
+    pub simulation_kind: SimKind,
+    /// Should we simulate this voxel?
+    pub simulated: bool,
+    /// Can we generally collide with this voxel?
+    pub collidable: bool,
+    /// Is this transparent? (should the rendering consider this non-filling)
+    pub transparent: bool, 
+    /// Should raycasts pick this?
+    pub pickable: bool, 
+    /// Can we break this?
+    pub breakable: bool, 
+    /// Initial health of the voxel.
+    pub initial_health: i16,
+    /// "Density" of voxel, only really important for liquids/gases
+    pub density: i8,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SimKind {
+    Solid, // No sim
+    SemiSolid,
+    Liquid,
+    Gas,
+}
+
+pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
+    &VoxelDefinition {
+        voxel: Voxel::Air,
+        name: "air",
+        simulation_kind: SimKind::Gas,
+        simulated: false,
+        collidable: false,
+        transparent: true,
+        pickable: false,
+        breakable: false,
+        initial_health: 0,
+        density: 0,
+    },
+    &VoxelDefinition {
+        voxel: Voxel::Base,
+        name: "base",
+        simulation_kind: SimKind::Solid,
+        simulated: false,
+        collidable: true,
+        transparent: false,
+        pickable: true,
+        breakable: false,
+        initial_health: 0,
+        density: 0,
+    },
+    &VoxelDefinition {
+        voxel: Voxel::Barrier, // base but transparent
+        name: "barrier",
+        simulation_kind: SimKind::Solid,
+        simulated: false,
+        collidable: true,
+        transparent: true,
+        pickable: false,
+        breakable: false,
+        initial_health: 0,
+        density: 0,
+    },
+
+    &VoxelDefinition {
+        voxel: Voxel::Dirt,
+        name: "dirt",
+        simulation_kind: SimKind::Solid,
+        simulated: true,
+        collidable: true,
+        transparent: false,
+        pickable: true,
+        breakable: true,
+        initial_health: 10,
+        density: 0,
+    },
+    &VoxelDefinition {
+        voxel: Voxel::Grass,
+        name: "grass",
+        simulation_kind: SimKind::Solid,
+        simulated: false,
+        collidable: true,
+        transparent: false,
+        pickable: true,
+        breakable: true,
+        initial_health: 10,
+        density: 0,
+    },
+    &VoxelDefinition {
+        voxel: Voxel::Stone,
+        name: "stone",
+        simulation_kind: SimKind::Solid,
+        simulated: false,
+        collidable: true,
+        transparent: false,
+        pickable: true,
+        breakable: true,
+        initial_health: 100,
+        density: 0,
+    },
+
+    &VoxelDefinition {
+        voxel: Voxel::Sand,
+        name: "sand",
+        simulation_kind: SimKind::SemiSolid,
+        simulated: true,
+        collidable: true,
+        transparent: false,
+        pickable: true,
+        breakable: true,
+        initial_health: 10,
+        density: 0,
+    },
+
+    &VoxelDefinition {
+        voxel: Voxel::Water,
+        name: "water",
+        simulation_kind: SimKind::Liquid,
+        simulated: true,
+        collidable: false,
+        transparent: true,
+        pickable: false,
+        breakable: true,
+        initial_health: 10,
+        density: 40,
+    },
+    &VoxelDefinition {
+        voxel: Voxel::Oil,
+        name: "oil",
+        simulation_kind: SimKind::Liquid,
+        simulated: true,
+        collidable: false,
+        transparent: true,
+        pickable: false,
+        breakable: true,
+        initial_health: 10,
+        density: 10,
+    },
+];
+
 impl Voxel {
+    #[inline]
     pub fn iter() -> impl Iterator<Item = Voxel> {
-        [
-            Voxel::Air,
-            Voxel::Base,
-            Voxel::Barrier,
-            Voxel::Sand,
-            Voxel::Dirt,
-            Voxel::Grass,
-            Voxel::Stone,
-            Voxel::Water,
-            Voxel::Oil,
-        ]
-        .into_iter()
+        VOXEL_DEFINITIONS.iter().map(|def| def.voxel)
     }
 
+    #[inline]
     pub fn type_count() -> usize {
-        Self::iter().count()
+        VOXEL_DEFINITIONS.len()
     }
 
+    #[inline]
     pub fn id(self) -> u16 {
-        self.to_u16().unwrap()
+        self as u16
     }
 
+    #[inline]
     pub fn from_id(id: u16) -> Option<Self> {
-        Self::from_u16(id)
+        VOXEL_DEFINITIONS.get(id as usize).map(|def| def.voxel)
     }
 
+    #[inline]
     pub fn from_name(name: &str) -> Option<Self> {
         match name.to_ascii_lowercase().trim() {
             "air" => Some(Voxel::Air),
@@ -108,85 +223,72 @@ impl Voxel {
         }
     }
 
+    #[inline]
     pub fn as_name(&self) -> &'static str {
-        match self {
-            Voxel::Air => "air",
-            Voxel::Base => "base",
-            Voxel::Barrier => "barrier",
-
-            Voxel::Sand => "sand",
-
-            Voxel::Dirt => "dirt",
-            Voxel::Grass => "grass",
-            Voxel::Stone => "stone",
-
-            Voxel::Water => "water",
-            Voxel::Oil => "oil",
-        }
+        self.definition().name
     }
 
-    pub fn filling(self) -> bool {
-        match self {
-            Voxel::Air => false,
-            _ => true,
-        }
+    #[inline]
+    pub fn definition(self) -> &'static VoxelDefinition {
+        VOXEL_DEFINITIONS[self as usize]
+    }
+
+    #[inline]
+    pub fn starting_health(&self) -> i16 {
+        self.definition().initial_health
     }
 
     // is this block see-through (rendering)
+    #[inline]
     pub fn transparent(self) -> bool {
-        match self {
-            Voxel::Air | Voxel::Water | Voxel::Oil => true,
-            _ => false,
-        }
+        self.definition().transparent
     }
 
+    #[inline]
     pub fn pickable(self) -> bool {
-        match self {
-            Voxel::Air => false,
-            _ => true,
-        }
+        self.definition().pickable
     }
 
+    #[inline]
     pub fn breakable(self) -> bool {
-        match self {
-            Voxel::Air | Voxel::Base | Voxel::Barrier => false,
-            _ => true,
-        }
+        self.definition().breakable
     }
 
+    #[inline]
     pub fn collidable(self) -> bool {
-        match self {
-            Voxel::Air | Voxel::Water | Voxel::Oil => false,
-            _ => true,
-        }
+        self.definition().collidable
     }
 
+    #[inline]
     pub fn is_liquid(self) -> bool {
-        match self {
-            Voxel::Water | Voxel::Oil => true,
-            _ => false
-        }
+        self.definition().simulation_kind == SimKind::Liquid
     }
 
+    #[inline]
     pub fn density(self) -> i8 {
-        match self {
-            Voxel::Water => 40,
-            Voxel::Oil => 10,
-            _ => 0,
-        }
+        self.definition().density
     }
 
+    #[inline]
     pub fn denser(self, other: Self) -> bool {
         self.density() > other.density()
     }
 
+    #[inline]
     pub fn is_gas(self) -> bool {
+        self.definition().simulation_kind == SimKind::Gas
+    }
+
+    #[inline]
+    pub fn is_simulated(self) -> bool {
+        use Voxel::*;
         match self {
-            Voxel::Air => true,
+            Sand | Dirt | Water | Oil => true,
             _ => false,
         }
     }
 
+    #[inline]
     pub fn material(self) -> StandardMaterial {
         let default_material = StandardMaterial {
             perceptual_roughness: 1.0,
@@ -232,6 +334,14 @@ mod test {
     use super::*;
 
     #[test]
+    fn def_sanity() {
+        for (id, &def) in VOXEL_DEFINITIONS.iter().enumerate() {
+            assert_eq!(def.voxel, Voxel::from_id(id as u16).unwrap());
+            assert_eq!(def.voxel.id(), id as u16);
+        }
+    }
+
+    #[test]
     fn id_sanity() {
         assert_eq!(Voxel::Air.id(), 0);
 
@@ -256,5 +366,4 @@ mod test {
             assert_eq!(from_name, voxel);
         }
     }
-
 }

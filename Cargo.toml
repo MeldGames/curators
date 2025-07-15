@@ -55,6 +55,7 @@ num-derive = "0.4"
 dashmap = "6.1.0"
 thiserror = "2"
 approx = "0.5.1"
+lazy_static = "1"
 
 [patch.crates-io]
 #bevy_enhanced_input = { git = "https://github.com/projectharmonia/bevy_enhanced_input", rev = "21ddc08755" }

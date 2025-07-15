@@ -22,7 +22,13 @@ pub struct FallingSandTick(pub u32);
 
 pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3>>,
     mut sim_tick: ResMut<FallingSandTick>,
+    mut ignore: Local<usize>,
 ) {
+    *ignore = (*ignore + 1) % 4; // 60 / 4 ticks per second
+    if *ignore != 0 {
+        return;
+    }
+
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
     // const MAX_UPDATE: usize = 1_000_000;
@@ -39,13 +45,13 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
                 Voxel::Sand => { // semi-solid
                     // counter += 1;
 
-                    const SWAP_POINTS: [[i32; 3]; 5] =
-                        [[0, -1, 0], [1, -1, 0], [0, -1, 1], [-1, -1, 0], [0, -1, -1]];
+                    const SWAP_POINTS: [IVec3; 5] =
+                    [IVec3::NEG_Y, ivec3(1, -1, 0), ivec3(0, -1, 1), ivec3(-1, -1, 0), ivec3(0, -1, -1)];
 
                     for swap_point in SWAP_POINTS {
-                        let voxel = grid.get_voxel(IVec3::from(point + IVec3::from(swap_point)));
+                        let voxel = grid.get_voxel(point + swap_point);
                         if voxel.is_liquid() || voxel.is_gas() {
-                            grid.set_voxel(point + IVec3::from(swap_point), Voxel::Sand);
+                            grid.set_voxel(point + swap_point, Voxel::Sand);
                             grid.set_voxel(point, voxel);
                             break;
                         }
@@ -71,7 +77,7 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
                         grid.set_voxel(below_point, sim_voxel);
                         grid.set_voxel(point, below_voxel);
                     } else {
-                        for swap_point in SWAP_POINTS.iter().cycle().take(4) {
+                        for swap_point in SWAP_POINTS.iter().cycle().skip((sim_tick.0 % 4) as usize).take(4) {
                             let voxel = grid.get_voxel(IVec3::from(point + swap_point));
                             if swap_criteria(voxel) {
                                 grid.set_voxel(point + swap_point, sim_voxel);

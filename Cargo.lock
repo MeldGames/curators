@@ -283,6 +283,7 @@ dependencies = [
  "dashmap",
  "fast-surface-nets",
  "iyes_perf_ui",
+ "lazy_static",
  "log",
  "mem_dbg",
  "noiz",

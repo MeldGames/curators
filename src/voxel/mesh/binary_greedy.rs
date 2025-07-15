@@ -360,7 +360,7 @@ impl BinaryGreedyMeshing for VoxelChunk {
         let mut meshes = vec![None; max_id + 1];
         for voxel in Voxel::iter() {
             let i = voxel.id() as usize;
-            if voxel.filling() && positions[i].len() > 0 {
+            if !voxel.transparent() && positions[i].len() > 0 {
                 let mut mesh =
                     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
                 mesh.insert_attribute(
