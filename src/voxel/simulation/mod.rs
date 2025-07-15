@@ -7,8 +7,8 @@ use crate::voxel::{Voxel, Voxels};
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
-    // app.add_systems(FixedPreUpdate, falling_sands);
-    app.add_systems(Update, falling_sands);
+    app.add_systems(FixedPreUpdate, falling_sands);
+    // app.add_systems(Update, falling_sands);
 }
 
 // Make islands of voxels fall if unsupported.
@@ -24,19 +24,39 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
         updates.dedup();
 
         while let Some(point) = updates.pop() {
-            match grid.get_voxel(point) {
-                Voxel::Sand => {
+            let sim_voxel = grid.get_voxel(point);
+            match sim_voxel {
+                Voxel::Sand => { // semi-solid
                     // counter += 1;
 
                     const SWAP_POINTS: [[i32; 3]; 5] =
                         [[0, -1, 0], [1, -1, 0], [0, -1, 1], [-1, -1, 0], [0, -1, -1]];
 
                     for swap_point in SWAP_POINTS {
-                        if let Voxel::Air =
-                            grid.get_voxel(IVec3::from(point + IVec3::from(swap_point)))
-                        {
+                        let voxel = grid.get_voxel(IVec3::from(point + IVec3::from(swap_point)));
+                        if voxel.is_liquid() || voxel.is_gas() {
                             grid.set_voxel(point + IVec3::from(swap_point), Voxel::Sand);
-                            grid.set_voxel(point, Voxel::Air);
+                            grid.set_voxel(point, voxel);
+                            break;
+                        }
+                    }
+                },
+                Voxel::Water | Voxel::Oil => { // liquids
+                    // counter += 1;
+
+                    const SWAP_POINTS: [IVec3; 5] =[
+                        IVec3::NEG_Y,
+                        IVec3::NEG_X,
+                        IVec3::X,
+                        IVec3::NEG_Z,
+                        IVec3::Z,
+                    ];
+
+                    for swap_point in SWAP_POINTS {
+                        let voxel = grid.get_voxel(IVec3::from(point + IVec3::from(swap_point)));
+                        if voxel.is_gas() || (voxel.is_liquid() && sim_voxel.denser(voxel)) {
+                            grid.set_voxel(point + IVec3::from(swap_point), sim_voxel);
+                            grid.set_voxel(point, voxel);
                             break;
                         }
                     }
@@ -44,7 +64,8 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
                 Voxel::Dirt => {
                     // counter += 1;
 
-                    if let Voxel::Air = grid.get_voxel(point + IVec3::new(0, -1, 0)) {
+                    let below_voxel = grid.get_voxel(point + IVec3::new(0, -1, 0));
+                    if below_voxel == Voxel::Air {
                         const SURROUNDING: [IVec3; 5] = [
                             ivec3(-1, 0, 0),
                             ivec3(1, 0, 0),
@@ -55,7 +76,9 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
 
                         let mut structured = false;
                         for check in SURROUNDING {
-                            if grid.get_voxel(point + check) != Voxel::Air {
+                            let check_voxel = grid.get_voxel(point + check);
+
+                            if !check_voxel.is_liquid() && !check_voxel.is_gas() {
                                 structured = true;
                                 break;
                             }
@@ -63,7 +86,7 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
 
                         if structured {
                             grid.set_voxel(point + IVec3::new(0, -1, 0), Voxel::Dirt);
-                            grid.set_voxel(point, Voxel::Air);
+                            grid.set_voxel(point, below_voxel);
                         }
                     }
                 },

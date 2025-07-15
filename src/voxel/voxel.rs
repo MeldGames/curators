@@ -23,25 +23,40 @@ pub fn plugin(app: &mut App) {
     ToPrimitive,
 )]
 pub enum Voxel {
-    Air,
+    Air, // special case "nothing"
+
+    // unbreakable
+    Base,
+    Barrier,
+
+    // solids
     Dirt,
-    Sand,
     Grass,
     Stone,
+
+    // semi-solids (falling sand)
+    Sand,
+
+    // liquids 
     Water,
-    Base,
+    Oil,
 }
 
 impl Voxel {
     pub fn starting_health(&self) -> i16 {
         match self {
             Voxel::Air => 0,
-            Voxel::Dirt => 10,
+            Voxel::Base => i16::MAX,
+            Voxel::Barrier => i16::MAX,
+
             Voxel::Sand => 10,
+
+            Voxel::Dirt => 10,
             Voxel::Grass => 10,
             Voxel::Stone => 100,
+
             Voxel::Water => 0,
-            Voxel::Base => i16::MAX,
+            Voxel::Oil => 0,
         }
     }
 }
@@ -50,12 +65,14 @@ impl Voxel {
     pub fn iter() -> impl Iterator<Item = Voxel> {
         [
             Voxel::Air,
-            Voxel::Dirt,
+            Voxel::Base,
+            Voxel::Barrier,
             Voxel::Sand,
+            Voxel::Dirt,
             Voxel::Grass,
             Voxel::Stone,
             Voxel::Water,
-            Voxel::Base,
+            Voxel::Oil,
         ]
         .into_iter()
     }
@@ -75,12 +92,18 @@ impl Voxel {
     pub fn from_name(name: &str) -> Option<Self> {
         match name.to_ascii_lowercase().trim() {
             "air" => Some(Voxel::Air),
-            "dirt" => Some(Voxel::Dirt),
-            "sand" => Some(Voxel::Sand),
-            "grass" => Some(Voxel::Grass),
-            "water" => Some(Voxel::Water),
-            "stone" => Some(Voxel::Stone),
+
             "base" => Some(Voxel::Base),
+            "barrier" => Some(Voxel::Barrier),
+
+            "sand" => Some(Voxel::Sand),
+
+            "dirt" => Some(Voxel::Dirt),
+            "grass" => Some(Voxel::Grass),
+            "stone" => Some(Voxel::Stone),
+
+            "water" => Some(Voxel::Water),
+            "oil" => Some(Voxel::Oil),
             _ => None,
         }
     }
@@ -88,12 +111,17 @@ impl Voxel {
     pub fn as_name(&self) -> &'static str {
         match self {
             Voxel::Air => "air",
-            Voxel::Dirt => "dirt",
-            Voxel::Sand => "sand",
-            Voxel::Grass => "grass",
-            Voxel::Water => "water",
-            Voxel::Stone => "stone",
             Voxel::Base => "base",
+            Voxel::Barrier => "barrier",
+
+            Voxel::Sand => "sand",
+
+            Voxel::Dirt => "dirt",
+            Voxel::Grass => "grass",
+            Voxel::Stone => "stone",
+
+            Voxel::Water => "water",
+            Voxel::Oil => "oil",
         }
     }
 
@@ -104,9 +132,10 @@ impl Voxel {
         }
     }
 
+    // is this block see-through (rendering)
     pub fn transparent(self) -> bool {
         match self {
-            Voxel::Air | Voxel::Water => true,
+            Voxel::Air | Voxel::Water | Voxel::Oil => true,
             _ => false,
         }
     }
@@ -120,15 +149,41 @@ impl Voxel {
 
     pub fn breakable(self) -> bool {
         match self {
-            Voxel::Air | Voxel::Base => false,
+            Voxel::Air | Voxel::Base | Voxel::Barrier => false,
             _ => true,
         }
     }
 
     pub fn collidable(self) -> bool {
         match self {
-            Voxel::Air | Voxel::Water => false,
+            Voxel::Air | Voxel::Water | Voxel::Oil => false,
             _ => true,
+        }
+    }
+
+    pub fn is_liquid(self) -> bool {
+        match self {
+            Voxel::Water | Voxel::Oil => true,
+            _ => false
+        }
+    }
+
+    pub fn density(self) -> i8 {
+        match self {
+            Voxel::Water => 10,
+            Voxel::Oil => 50,
+            _ => 0,
+        }
+    }
+
+    pub fn denser(self, other: Self) -> bool {
+        self.density() > other.density()
+    }
+
+    pub fn is_gas(self) -> bool {
+        match self {
+            Voxel::Air => true,
+            _ => false,
         }
     }
 
@@ -161,6 +216,12 @@ impl Voxel {
                 alpha_mode: AlphaMode::Premultiplied,
                 ..default_material
             },
+            Voxel::Oil => StandardMaterial {
+                perceptual_roughness: 0.5,
+                base_color: Color::srgba(79.0 / 225.0, 55.0 / 255.0, 39.0 / 255.0, 0.2),
+                alpha_mode: AlphaMode::Premultiplied,
+                ..default_material
+            },
             _ => default_material,
         }
     }
@@ -183,10 +244,17 @@ mod test {
 
     #[test]
     fn name_sanity() {
+        let mut unique = std::collections::HashSet::new();
         for voxel in Voxel::iter() {
             let name = voxel.as_name();
+            if unique.contains(name) {
+                panic!("name exists twice: {:?}", name);
+            }
+
+            unique.insert(name);
             let from_name = Voxel::from_name(name).unwrap();
             assert_eq!(from_name, voxel);
         }
     }
+
 }

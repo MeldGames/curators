@@ -834,7 +834,6 @@ dependencies = [
 [[package]]
 name = "bevy_edge_detection"
 version = "0.15.4"
-source = "git+https://github.com/aceeri/bevy_edge_detection?branch=fixes#96b14c9eaf18c71c34176e5d131101a2be96f75c"
 dependencies = [
  "bevy",
 ]
@@ -1445,13 +1444,14 @@ dependencies = [
 
 [[package]]
 name = "bevy_replicon"
-version = "0.34.1"
+version = "0.34.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d4ce1947bc4f59da376589e1b019def816b49ecb9d23ecf0233211d137ac9fe"
+checksum = "a53c0883605628061944d818258c506c12ba316ea02d542fa7de300ef4df5c3d"
 dependencies = [
  "bevy",
  "bitflags 2.9.0",
  "bytes",
+ "fnv",
  "log",
  "petgraph 0.8.1",
  "postcard",

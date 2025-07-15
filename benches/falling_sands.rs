@@ -54,9 +54,9 @@ fn falling_sand_torus(c: &mut Criterion) {
                     }
                 }
 
-                for _ in 0..50 {
-                    app.update();
-                } // let settle.
+                // for _ in 0..50 {
+                //     app.update();
+                // } // let settle.
 
                 app
             },
@@ -65,7 +65,7 @@ fn falling_sand_torus(c: &mut Criterion) {
                     app.update();
                 }
             },
-            BatchSize::SmallInput,
+            BatchSize::LargeInput,
         );
     });
 }

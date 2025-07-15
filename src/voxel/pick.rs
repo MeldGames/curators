@@ -74,6 +74,7 @@ pub fn draw_cursor(
     mut gizmos: Gizmos,
 
     mut brush_index: Local<usize>,
+    mut voxel_index: Local<usize>,
 ) {
     // Calculate if and where the ray is hitting a voxel.
     let Ok((voxel_transform, mut voxels)) = voxels.single_mut() else {
@@ -112,11 +113,23 @@ pub fn draw_cursor(
             &sdf::Sphere { radius: 2.0 },
         ];
 
-        if key_input.just_pressed(KeyCode::KeyL) {
+        let brush_voxels: Vec<Voxel> = vec![
+            Voxel::Dirt,
+            Voxel::Sand,
+            Voxel::Water,
+            Voxel::Oil,
+        ];
+
+        if key_input.just_pressed(KeyCode::KeyB) {
             *brush_index = (*brush_index + 1) % brushes.len();
         }
 
+        if key_input.just_pressed(KeyCode::KeyV) {
+            *voxel_index = (*voxel_index + 1) % brush_voxels.len();
+        }
+
         let brush = brushes[*brush_index];
+        let brush_voxel = brush_voxels[*voxel_index];
 
         if mouse_input.just_pressed(MouseButton::Right)
             || (mouse_input.pressed(MouseButton::Right) && key_input.pressed(KeyCode::ShiftLeft))
@@ -135,7 +148,7 @@ pub fn draw_cursor(
                 let point = normal_block + raster_voxel.point;
                 if raster_voxel.distance < 0.0 {
                     if voxels.get_voxel(point) == Voxel::Air && point.y > -10 {
-                        voxels.set_voxel(point, Voxel::Sand);
+                        voxels.set_voxel(point, brush_voxel);
                     }
                 }
             }
