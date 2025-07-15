@@ -7,6 +7,8 @@ use crate::voxel::{Voxel, Voxels};
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
+    app.register_type::<FallingSandTick>();
+    app.insert_resource(FallingSandTick(0));
     app.add_systems(FixedPreUpdate, falling_sands);
     // app.add_systems(Update, falling_sands);
 }
@@ -14,7 +16,15 @@ pub fn plugin(app: &mut App) {
 // Make islands of voxels fall if unsupported.
 pub fn islands(mut grids: Query<&mut Voxels>) {}
 
-pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3>>) {
+#[derive(Resource, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+#[reflect(Resource)]
+pub struct FallingSandTick(pub u32);
+
+pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3>>,
+    mut sim_tick: ResMut<FallingSandTick>,
+) {
+    sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
+
     // const MAX_UPDATE: usize = 1_000_000;
     // let mut counter = 0;
 
@@ -43,23 +53,34 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
                 },
                 Voxel::Water | Voxel::Oil => { // liquids
                     // counter += 1;
+                    let swap_criteria = |voxel: Voxel| {
+                        voxel.is_gas() || (voxel.is_liquid() && sim_voxel.denser(voxel))
+                    };
 
-                    const SWAP_POINTS: [IVec3; 5] =[
-                        IVec3::NEG_Y,
+                    const SWAP_POINTS: [IVec3; 4] =[
                         IVec3::NEG_X,
                         IVec3::X,
                         IVec3::NEG_Z,
                         IVec3::Z,
                     ];
 
-                    for swap_point in SWAP_POINTS {
-                        let voxel = grid.get_voxel(IVec3::from(point + IVec3::from(swap_point)));
-                        if voxel.is_gas() || (voxel.is_liquid() && sim_voxel.denser(voxel)) {
-                            grid.set_voxel(point + IVec3::from(swap_point), sim_voxel);
-                            grid.set_voxel(point, voxel);
-                            break;
+                    // prioritize negative y
+                    let below_point = IVec3::from(point + IVec3::NEG_Y);
+                    let below_voxel = grid.get_voxel(below_point);
+                    if swap_criteria(below_voxel) {
+                        grid.set_voxel(below_point, sim_voxel);
+                        grid.set_voxel(point, below_voxel);
+                    } else {
+                        for swap_point in SWAP_POINTS.iter().cycle().take(4) {
+                            let voxel = grid.get_voxel(IVec3::from(point + swap_point));
+                            if swap_criteria(voxel) {
+                                grid.set_voxel(point + swap_point, sim_voxel);
+                                grid.set_voxel(point, voxel);
+                                break;
+                            }
                         }
                     }
+
                 },
                 Voxel::Dirt => {
                     // counter += 1;

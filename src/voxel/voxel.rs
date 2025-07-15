@@ -170,8 +170,8 @@ impl Voxel {
 
     pub fn density(self) -> i8 {
         match self {
-            Voxel::Water => 10,
-            Voxel::Oil => 50,
+            Voxel::Water => 40,
+            Voxel::Oil => 10,
             _ => 0,
         }
     }
