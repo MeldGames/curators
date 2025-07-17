@@ -11,6 +11,7 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
+use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{ChangedChunks, Voxel, VoxelChunk, Voxels};
 
 const MASK_6: u64 = 0b111111;
@@ -89,7 +90,7 @@ pub fn update_binary_mesh(
     mut chunk_mesh_entities: Query<(&mut ChunkMeshes, &mut ChunkCollider)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    materials: Res<VoxelMaterials>,
 
     mut mesher: Local<BgmMesher>,
     mut collider_mesh_buffer: Local<ColliderMesh>,
@@ -165,7 +166,7 @@ pub fn update_binary_mesh(
             } else {
                 if let Some(mesh) = render_mesh {
                     let mesh_handle = meshes.add(mesh);
-                    let material = materials.add(voxel.material());
+                    let material = materials.get(voxel);
                     let id = commands
                         .spawn((
                             Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
@@ -360,7 +361,7 @@ impl BinaryGreedyMeshing for VoxelChunk {
         let mut meshes = vec![None; max_id + 1];
         for voxel in Voxel::iter() {
             let i = voxel.id() as usize;
-            if !voxel.transparent() && positions[i].len() > 0 {
+            if voxel.rendered() && positions[i].len() > 0 {
                 let mut mesh =
                     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
                 mesh.insert_attribute(

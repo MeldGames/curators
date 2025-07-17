@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<Voxel>();
+    app.register_type::<VoxelMaterials>();
+    app.add_systems(Startup, VoxelMaterials::setup);
 }
 
 #[derive(
@@ -48,6 +50,8 @@ pub struct VoxelDefinition {
     pub simulated: bool,
     /// Can we generally collide with this voxel?
     pub collidable: bool,
+    /// Should this voxel be rendered?
+    pub rendered: bool, 
     /// Is this transparent? (should the rendering consider this non-filling)
     pub transparent: bool, 
     /// Should raycasts pick this?
@@ -75,6 +79,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         simulation_kind: SimKind::Gas,
         simulated: false,
         collidable: false,
+        rendered: false,
         transparent: true,
         pickable: false,
         breakable: false,
@@ -87,6 +92,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         simulation_kind: SimKind::Solid,
         simulated: false,
         collidable: true,
+        rendered: true,
         transparent: false,
         pickable: true,
         breakable: false,
@@ -99,6 +105,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         simulation_kind: SimKind::Solid,
         simulated: false,
         collidable: true,
+        rendered: false,
         transparent: true,
         pickable: false,
         breakable: false,
@@ -112,6 +119,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         simulation_kind: SimKind::Solid,
         simulated: true,
         collidable: true,
+        rendered: true,
         transparent: false,
         pickable: true,
         breakable: true,
@@ -124,6 +132,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         simulation_kind: SimKind::Solid,
         simulated: false,
         collidable: true,
+        rendered: true,
         transparent: false,
         pickable: true,
         breakable: true,
@@ -136,6 +145,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         simulation_kind: SimKind::Solid,
         simulated: false,
         collidable: true,
+        rendered: true,
         transparent: false,
         pickable: true,
         breakable: true,
@@ -149,6 +159,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         simulation_kind: SimKind::SemiSolid,
         simulated: true,
         collidable: true,
+        rendered: true,
         transparent: false,
         pickable: true,
         breakable: true,
@@ -162,6 +173,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         simulation_kind: SimKind::Liquid,
         simulated: true,
         collidable: false,
+        rendered: true,
         transparent: true,
         pickable: false,
         breakable: true,
@@ -174,6 +186,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         simulation_kind: SimKind::Liquid,
         simulated: true,
         collidable: false,
+        rendered: true,
         transparent: true,
         pickable: false,
         breakable: true,
@@ -236,6 +249,11 @@ impl Voxel {
     #[inline]
     pub fn starting_health(&self) -> i16 {
         self.definition().initial_health
+    }
+
+    #[inline]
+    pub fn rendered(self) -> bool {
+        self.definition().rendered
     }
 
     // is this block see-through (rendering)
@@ -326,6 +344,46 @@ impl Voxel {
             },
             _ => default_material,
         }
+    }
+}
+
+#[derive(Resource, Clone, Reflect)]
+#[reflect(Resource)]
+pub struct VoxelMaterials {
+    pub base: Handle<StandardMaterial>,
+    pub sand: Handle<StandardMaterial>,
+    pub dirt: Handle<StandardMaterial>,
+    pub grass: Handle<StandardMaterial>,
+    pub water: Handle<StandardMaterial>,
+    pub oil: Handle<StandardMaterial>,
+}
+
+impl VoxelMaterials {
+    pub fn new(materials: &mut Assets<StandardMaterial>) -> Self {
+        Self {
+            base: materials.add(Voxel::Base.material()),
+            dirt: materials.add(Voxel::Dirt.material()),
+            sand: materials.add(Voxel::Sand.material()),
+            grass: materials.add(Voxel::Grass.material()),
+            water: materials.add(Voxel::Water.material()),
+            oil: materials.add(Voxel::Oil.material()),
+        }
+    }
+
+    pub fn get(&self, voxel: Voxel) -> Handle<StandardMaterial> {
+        match voxel {
+            Voxel::Base => self.base.clone(),
+            Voxel::Sand => self.sand.clone(),
+            Voxel::Dirt => self.dirt.clone(),
+            Voxel::Grass => self.grass.clone(),
+            Voxel::Water => self.water.clone(),
+            Voxel::Oil => self.oil.clone(),
+            _ => self.base.clone(),
+        }
+    }
+
+    pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
+        commands.insert_resource(VoxelMaterials::new(&mut materials));
     }
 }
 

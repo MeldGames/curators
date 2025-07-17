@@ -7,6 +7,9 @@ use super::raycast::Hit;
 use crate::voxel::raycast::VoxelHit;
 use crate::voxel::{Scalar, UpdateVoxelMeshSet, Voxel, VoxelAabb, VoxelChunk, padded, unpadded};
 
+#[cfg(feature = "tracy")]
+use tracy_client::*;
+
 pub fn plugin(app: &mut App) {
     app.add_event::<ChangedChunks>();
 
@@ -106,27 +109,39 @@ impl Voxels {
     }
 
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
+        #[cfg(feature = "tracy")]
+        tracy_client::zone!("set_voxel");
+        
         if !self.clip.contains_point(point) {
             warn!("attempted voxel set at clip boundary");
             return;
         }
 
         // Set the overlapping chunks boundary voxels as well
-        // for chunk_point in Self::chunks_overlapping_voxel(point) {
-        //     let chunk = self.chunks.entry(chunk_point).or_default();
-        //     let relative_point = Self::relative_point_with_boundary(chunk_point, point);
-        //     if chunk.in_chunk_bounds_unpadded(relative_point) {
-        //         self.changed_chunks.insert(chunk_point); // negligible
-        //         chunk.set_unpadded(relative_point.into(), voxel);
-        //     }
-        // }
+        // setting overlap chunks adds about 10% to the simulation time
+        {
+            #[cfg(feature = "tracy")]
+            tracy_client::zone!("set_voxel_overlap_loop");
+            
+            for chunk_point in Self::chunks_overlapping_voxel(point) {
+                #[cfg(feature = "tracy")]
+                tracy_client::zone!("set_voxel_single_chunk");
+                
+                let chunk = self.chunks.entry(chunk_point).or_default();
+                let relative_point = Self::relative_point_with_boundary(chunk_point, point);
+                if chunk.in_chunk_bounds_unpadded(relative_point) {
+                    self.changed_chunks.insert(chunk_point); // negligible
+                    chunk.set_unpadded(relative_point.into(), voxel);
+                }
+            }
+        }
 
-        let chunk_point = Self::find_chunk(point);
-        let chunk = self.chunks.entry(chunk_point).or_default();
-        let relative_point = Self::relative_point_unoriented(point);
-        chunk.set(relative_point.into(), voxel);
+        // let chunk_point = Self::find_chunk(point);
+        // let chunk = self.chunks.entry(chunk_point).or_default();
+        // let relative_point = Self::relative_point_unoriented(point);
+        // chunk.set(relative_point.into(), voxel);
+        // self.changed_chunks.insert(chunk_point); // negligible
 
-        self.changed_chunks.insert(chunk_point); // negligible
         self.set_update_voxels(point); // 18-22%
     }
 

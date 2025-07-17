@@ -3,6 +3,9 @@ name = "arch"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+tracy = ["tracy-client", "bevy/trace_tracy"]
+
 [dependencies]
 # Bevy
 bevy = { version = "0.16.1", features = ["experimental_pbr_pcss"] }
@@ -44,7 +47,8 @@ bevy_meshem = { git = "https://github.com/aceeri/Meshem", branch = "bevy-0.16" }
 # Debug
 iyes_perf_ui = "0.5.0"
 #iyes_perf_ui = { git = "https://github.com/olekspickle/iyes_perf_ui", branch = "main" }
-bevy-inspector-egui = "0.31.0"
+bevy-inspector-egui = "0.32.0"
+tracy-client = { version = "0.18.0", optional = true }
 
 # Other
 rand = "0.9.1"
