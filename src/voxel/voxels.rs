@@ -69,8 +69,8 @@ impl Voxels {
     }
 
     pub fn chunks_overlapping_voxel(voxel_pos: IVec3) -> impl Iterator<Item = IVec3> {
-        let min_chunk = ((voxel_pos - CHUNK_SIZE).as_vec3() / CHUNK_SIZE_FLOAT).floor().as_ivec3();
-        let max_chunk = ((voxel_pos + IVec3::ONE).as_vec3() / CHUNK_SIZE_FLOAT).ceil().as_ivec3();
+        let min_chunk = ((voxel_pos - IVec3::splat(2)).as_vec3() / CHUNK_SIZE_FLOAT).floor().as_ivec3();
+        let max_chunk = ((voxel_pos + IVec3::splat(2)).as_vec3() / CHUNK_SIZE_FLOAT).ceil().as_ivec3();
 
         (min_chunk.y..max_chunk.y).flat_map(move |y| {
             (min_chunk.x..max_chunk.x)
