@@ -72,6 +72,7 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
     }
 }
 
+#[inline]
 pub fn simulate_semisolid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
     const SWAP_POINTS: [IVec3; 5] =
     [IVec3::NEG_Y, ivec3(1, -1, 0), ivec3(0, -1, 1), ivec3(-1, -1, 0), ivec3(0, -1, -1)];
@@ -86,6 +87,7 @@ pub fn simulate_semisolid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim
     }
 }
 
+#[inline]
 pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
     let swap_criteria = |voxel: Voxel| {
         voxel.is_gas() || (voxel.is_liquid() && sim_voxel.denser(voxel))
@@ -121,6 +123,7 @@ pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_ti
     }
 }
 
+#[inline]
 pub fn simulate_structured(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
     let below_voxel = grid.get_voxel(point + IVec3::new(0, -1, 0));
     if below_voxel == Voxel::Air {
