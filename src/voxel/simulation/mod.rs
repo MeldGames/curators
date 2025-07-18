@@ -24,7 +24,7 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
     mut sim_tick: ResMut<FallingSandTick>,
     mut ignore: Local<usize>,
 ) {
-    *ignore = (*ignore + 1) % 2; // 60 / 2 ticks per second
+    *ignore = (*ignore + 1) % 4; // 60 / 2 ticks per second
     if *ignore != 0 {
         return;
     }

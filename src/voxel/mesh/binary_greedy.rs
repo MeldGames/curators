@@ -90,7 +90,8 @@ pub fn update_binary_mesh(
     mut chunk_mesh_entities: Query<(&mut ChunkMeshes, &mut ChunkCollider)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
-    materials: Res<VoxelMaterials>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    voxel_materials: Res<VoxelMaterials>,
 
     mut mesher: Local<BgmMesher>,
     mut collider_mesh_buffer: Local<ColliderMesh>,
@@ -166,7 +167,7 @@ pub fn update_binary_mesh(
             } else {
                 if let Some(mesh) = render_mesh {
                     let mesh_handle = meshes.add(mesh);
-                    let material = materials.get(voxel);
+                    let material = materials.add(voxel.material());
                     let id = commands
                         .spawn((
                             Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),

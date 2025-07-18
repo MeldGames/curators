@@ -12,33 +12,9 @@ use arch::voxel::{Voxel, Voxels};
 use bevy_math::bounding::Aabb3d;
 
 pub fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(EguiPlugin { enable_multipass_for_primary_context: true })
-        .add_plugins(WorldInspectorPlugin::new())
-        .add_plugins(bevy_enhanced_input::EnhancedInputPlugin)
-        .add_plugins(EdgeDetectionPlugin { before: Node3d::Smaa })
-        .add_plugins(arch::voxel::VoxelPlugin)
-        .add_plugins(arch::camera::plugin)
-        .add_plugins(arch::cursor::plugin)
-        .add_systems(Startup, spawn_flying_camera)
-        .add_systems(Update, voxel_floor)
-        .add_systems(PreUpdate, rasterize_sdf)
-        .run();
-}
-
-pub fn spawn_flying_camera(mut commands: Commands) {
-    commands.spawn((
-        Name::new("Flying camera"),
-        FlyingSettings::default(),
-        FlyingState::default(),
-        camera_components(),
-        Transform::from_translation(Vec3::new(8., 3.0, 8.0))
-            .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
-        //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        Actions::<FlyingCamera>::default(),
-    ));
+    let mut app = App::new();
+    arch::viewer(&mut app);
+    app.run();
 }
 
 pub fn voxel_floor(mut voxels: Query<&mut Voxels>, mut initialized: Local<bool>) {

@@ -333,13 +333,20 @@ impl Voxel {
             Voxel::Water => StandardMaterial {
                 perceptual_roughness: 0.5,
                 base_color: Color::srgba(10.0 / 225.0, 10.0 / 255.0, 150.0 / 255.0, 0.2),
+                reflectance: 0.5,
                 alpha_mode: AlphaMode::Premultiplied,
                 ..default_material
             },
             Voxel::Oil => StandardMaterial {
                 perceptual_roughness: 0.5,
+                reflectance: 0.9,
                 base_color: Color::srgba(79.0 / 225.0, 55.0 / 255.0, 39.0 / 255.0, 0.2),
                 alpha_mode: AlphaMode::Premultiplied,
+                ..default_material
+            },
+            Voxel::Sand => StandardMaterial {
+                perceptual_roughness: 1.0,
+                base_color: Color::srgba(0.396, 0.314, 0.113, 1.0),
                 ..default_material
             },
             _ => default_material,

@@ -6,11 +6,16 @@ use bevy::pbr::wireframe::WireframePlugin;
 use bevy::pbr::{DirectionalLightShadowMap, PointLightShadowMap};
 use bevy::prelude::*;
 use bevy_edge_detection::*;
+use bevy_enhanced_input::prelude::Actions;
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mod_outline::*;
 use bevy_prng::WyRand;
 use bevy_rand::prelude::EntropyPlugin;
 use iyes_perf_ui::prelude::*;
 use rand_core::RngCore;
+
+use crate::camera::{camera_components, FlyingCamera, FlyingSettings, FlyingState};
 
 pub mod camera;
 pub mod character;
@@ -64,3 +69,32 @@ pub fn shared(app: &mut App) {
 
     app.world_mut().spawn(PerfUiAllEntries::default());
 }
+
+
+pub fn viewer(app: &mut App) {
+    app
+        .add_plugins(DefaultPlugins)
+        .add_plugins(EguiPlugin::default())
+        .add_plugins(WorldInspectorPlugin::new())
+        .add_plugins(bevy_enhanced_input::EnhancedInputPlugin)
+        .add_plugins(EdgeDetectionPlugin { before: Node3d::Smaa })
+        .add_plugins(crate::voxel::VoxelPlugin)
+        .add_plugins(crate::camera::plugin)
+        .add_plugins(crate::cursor::plugin)
+        .add_systems(Startup, spawn_flying_camera);
+}
+
+pub fn spawn_flying_camera(mut commands: Commands) {
+    commands.spawn((
+        Name::new("Flying camera"),
+        FlyingSettings::default(),
+        FlyingState::default(),
+        camera_components(),
+        Transform::from_translation(Vec3::new(8., 3.0, 8.0))
+            .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
+        //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        Actions::<FlyingCamera>::default(),
+    ));
+}
+

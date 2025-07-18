@@ -21,10 +21,16 @@ fn falling_sand_torus(c: &mut Criterion) {
     group.bench_function("torus_falling", |b| {
         let mut voxels = Voxels::new();
 
-        let floor = -10;
-        for x in -15..15 {
-            for z in -15..15 {
-                voxels.set_voxel(IVec3::new(x, floor, z), Voxel::Base);
+        // Create a simulation area with a barrier around it.
+        let min = -15;
+        let max = 15;
+        for x in min..max {
+            for z in min..max {
+                for y in min..max {
+                    if x == min || x == max || z == min || z == max || y == min || y == max {
+                        voxels.set_voxel(IVec3::new(x, y, z), Voxel::Barrier);
+                    }
+                }
             }
         }
 
