@@ -64,6 +64,7 @@ pub struct TerrainParams {
 pub enum TerrainKind {
     Flat,
     Hilly,
+    SimulationBox,
 }
 
 #[derive(Error, Debug)]
@@ -79,6 +80,7 @@ impl TerrainParams {
         match &self.kind {
             TerrainKind::Flat => self.flat(voxels),
             TerrainKind::Hilly => self.hilly(voxels),
+            TerrainKind::SimulationBox => self.simulation_box(voxels),
         }
     }
 
@@ -134,6 +136,29 @@ impl TerrainParams {
         // create blobs of a voxel randomly with desired depth and largeness
 
         // TODO: Conform top of the digsite to the terrain noise.
+        Ok(())
+    }
+
+    pub fn simulation_box(&self, voxels: &mut Voxels) -> Result<(), Vec<GenError>> {
+        let min = self.aabb.min;
+        let max = self.aabb.max;
+
+        for x in min.x..=max.x {
+            for z in min.z..=max.z {
+                for y in min.y..=max.y {
+                    let box_voxel = if y == min.y {
+                        Voxel::Base
+                    } else {
+                        Voxel::Barrier
+                    };
+
+                    if x == min.x || x == max.x || y == min.y || y == max.y || z == min.z || z == max.z {
+                        voxels.set_voxel(IVec3::new(x, y, z), box_voxel);
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 }

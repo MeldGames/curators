@@ -7,8 +7,8 @@ use super::raycast::Hit;
 use crate::voxel::raycast::VoxelHit;
 use crate::voxel::{Scalar, UpdateVoxelMeshSet, Voxel, VoxelAabb, VoxelChunk, padded, unpadded};
 
-#[cfg(feature = "tracy")]
-use tracy_client::*;
+#[cfg(feature = "trace")]
+use tracing::*;
 
 pub fn plugin(app: &mut App) {
     app.add_event::<ChangedChunks>();
@@ -65,10 +65,17 @@ impl Voxels {
     /// Given a voxel position, find the chunk it is in.
     #[inline]
     pub fn find_chunk(point: IVec3) -> IVec3 {
+        #[cfg(feature = "trace")]
+        let find_chunk_span = info_span!("find_chunk");
+
         point.div_euclid(CHUNK_SIZE)
     }
 
+    #[inline]
     pub fn chunks_overlapping_voxel(voxel_pos: IVec3) -> impl Iterator<Item = IVec3> {
+        #[cfg(feature = "trace")]
+        let chunks_overlapping_voxel_span = info_span!("chunks_overlapping_voxel");
+
         let min_chunk = ((voxel_pos - IVec3::splat(2)).as_vec3() / CHUNK_SIZE_FLOAT).floor().as_ivec3();
         let max_chunk = ((voxel_pos + IVec3::splat(2)).as_vec3() / CHUNK_SIZE_FLOAT).ceil().as_ivec3();
 
@@ -96,6 +103,18 @@ impl Voxels {
     #[inline]
     pub fn relative_point_unoriented(point: IVec3) -> IVec3 {
         point.rem_euclid(CHUNK_SIZE)
+
+    }
+
+    #[inline]
+    pub fn is_boundary_point(point: IVec3) -> bool {
+        let relative_point = point.rem_euclid(CHUNK_SIZE);
+        relative_point.x == 0
+            || relative_point.x == unpadded::SIZE_SCALAR
+            || relative_point.y == 0
+            || relative_point.y == unpadded::SIZE_SCALAR
+            || relative_point.z == 0
+            || relative_point.z == unpadded::SIZE_SCALAR
     }
 
     pub fn get_relative_points(
@@ -109,23 +128,36 @@ impl Voxels {
     }
 
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
-        #[cfg(feature = "tracy")]
-        tracy_client::zone!("set_voxel");
+        #[cfg(feature = "trace")]
+        let set_voxel_span = info_span!("set_voxel");
         
-        if !self.clip.contains_point(point) {
-            warn!("attempted voxel set at clip boundary");
-            return;
-        }
+        // if !self.clip.contains_point(point) {
+        //     warn!("attempted voxel set at clip boundary");
+        //     return;
+        // }
 
-        // Set the overlapping chunks boundary voxels as well
-        // setting overlap chunks adds about 10% to the simulation time
-        {
-            #[cfg(feature = "tracy")]
-            tracy_client::zone!("set_voxel_overlap_loop");
+        if point.y < -50 || point.y > 250 {
+            return;
+        } 
+
+        // if !Voxels::is_boundary_point(point) {
+        //     #[cfg(feature = "trace")]
+        //     let set_voxel_nonboundary_span = info_span!("set_voxel_nonboundary");
+            
+        //     let chunk_point = Self::find_chunk(point);
+        //     let chunk = self.chunks.entry(chunk_point).or_default();
+        //     let relative_point = Self::relative_point_unoriented(point);
+        //     chunk.set(relative_point.into(), voxel);
+        //     self.changed_chunks.insert(chunk_point); // negligible
+        // } else {
+            // Set the overlapping chunks boundary voxels as well
+            // setting overlap chunks adds about 10% to the simulation time
+            #[cfg(feature = "trace")]
+            let set_voxel_overlap_span = info_span!("set_voxel_overlap_loop");
             
             for chunk_point in Self::chunks_overlapping_voxel(point) {
-                #[cfg(feature = "tracy")]
-                tracy_client::zone!("set_voxel_single_chunk");
+                #[cfg(feature = "trace")]
+                let set_voxel_single_chunk_span = info_span!("set_voxel_single_chunk");
                 
                 let chunk = self.chunks.entry(chunk_point).or_default();
                 let relative_point = Self::relative_point_with_boundary(chunk_point, point);
@@ -134,13 +166,7 @@ impl Voxels {
                     chunk.set_unpadded(relative_point.into(), voxel);
                 }
             }
-        }
-
-        // let chunk_point = Self::find_chunk(point);
-        // let chunk = self.chunks.entry(chunk_point).or_default();
-        // let relative_point = Self::relative_point_unoriented(point);
-        // chunk.set(relative_point.into(), voxel);
-        // self.changed_chunks.insert(chunk_point); // negligible
+        // }
 
         self.set_update_voxels(point); // 18-22%
     }
@@ -182,6 +208,9 @@ impl Voxels {
     }
 
     pub fn get_voxel(&self, point: IVec3) -> Voxel {
+        #[cfg(feature = "trace")]
+        let get_voxel_span = info_span!("get_voxel");
+        
         let chunk_point = Self::find_chunk(point);
         if let Some(chunk) = self.chunks.get(&chunk_point) {
             chunk.voxel(Self::relative_point(chunk_point, point).into())

@@ -277,7 +277,6 @@ dependencies = [
  "serde",
  "thiserror 2.0.12",
  "tracing",
- "tracy-client",
 ]
 
 [[package]]

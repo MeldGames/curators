@@ -327,7 +327,8 @@ impl Voxel {
             },
             Voxel::Base => StandardMaterial {
                 perceptual_roughness: 1.0,
-                base_color: Color::srgb(0.0 / 225.0, 0.0 / 255.0, 0.0 / 255.0),
+                // base_color: Color::BLACK,
+                base_color: Color::srgb(0.8, 0.8, 0.8),
                 ..default_material
             },
             Voxel::Water => StandardMaterial {

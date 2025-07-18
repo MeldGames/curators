@@ -6,6 +6,9 @@
 use crate::voxel::{Voxel, Voxels};
 use bevy::prelude::*;
 
+#[cfg(feature = "trace")]
+use tracing::*;
+
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>();
     app.insert_resource(FallingSandTick(0));
@@ -20,33 +23,65 @@ pub fn islands(mut grids: Query<&mut Voxels>) {}
 #[reflect(Resource)]
 pub struct FallingSandTick(pub u32);
 
-pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3>>,
+// 62x1x62 vertical chunks separated by 2 vertical slices, 
+// need buffers around boundaries to avoid race conditions
+
+// requirements:
+// - deterministic
+// - no overlaps with other work groups for parallelism
+// - no more than ~6000 voxels simulated per work group
+
+// 62x1x62 chunks aligns with xz plane which has better contiguous memory ~12kb of memory for the surrounding 62x3x62 voxels
+// what to do about boundaries? 
+// need at least somewhat uniform simulation, so spreading it out over multiple chunks would be good
+// maybe offset spirals?:
+//  
+
+
+
+pub fn falling_sands(mut grids: Query<&mut Voxels>,
     mut sim_tick: ResMut<FallingSandTick>,
     mut ignore: Local<usize>,
+    mut updates: Local<Vec<IVec3>>,
 ) {
-    *ignore = (*ignore + 1) % 4; // 60 / 2 ticks per second
+    *ignore = (*ignore + 1) % 4; // 60 / 4 ticks per second
     if *ignore != 0 {
         return;
     }
 
+    #[cfg(feature = "trace")]
+    let falling_sands_span = info_span!("falling_sands");
+
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
     // const MAX_UPDATE: usize = 1_000_000;
+    let mut counter = 0;
     let mut simulated_counter = 0;
     let mut static_counter = 0;
 
     for mut grid in &mut grids {
-        updates.extend(grid.update_voxels.drain(..));
-        updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
-        updates.dedup();
+        {
+            // #[cfg(feature = "trace")]
+            // let update_management_span = info_span!("update_management");
+
+            updates.extend(grid.update_voxels.drain(..));
+            updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
+            updates.dedup();
+        }
+
 
         while let Some(point) = updates.pop() {
+            #[cfg(feature = "trace")]
+            let update_span = info_span!("update_voxel", iteration = counter);
+
             let sim_voxel = grid.get_voxel(point);
-            if sim_voxel.is_simulated() {
-                simulated_counter += 1;
-            } else {
-                static_counter += 1;
-            }
+            // counter += 1;
+            // if sim_voxel.is_simulated() {
+            //     simulated_counter += 1;
+            // } else {
+            //     static_counter += 1;
+            // };
+
 
             match sim_voxel {
                 Voxel::Sand => { // semi-solid
@@ -67,13 +102,16 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>, mut updates: Local<Vec<IVec3
         }
     }
 
-    if simulated_counter > 0 {
+    // if simulated_counter > 0 {
         // info!("simulated {} voxels, static {} voxels", simulated_counter, static_counter);
-    }
+    // }
 }
 
 #[inline]
 pub fn simulate_semisolid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
+    #[cfg(feature = "trace")]
+    let simulate_semisolid_span = info_span!("simulate_semisolid");
+    
     const SWAP_POINTS: [IVec3; 5] =
     [IVec3::NEG_Y, ivec3(1, -1, 0), ivec3(0, -1, 1), ivec3(-1, -1, 0), ivec3(0, -1, -1)];
 
@@ -89,6 +127,9 @@ pub fn simulate_semisolid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim
 
 #[inline]
 pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
+    #[cfg(feature = "trace")]
+    let simulate_liquid_span = info_span!("simulate_liquid");
+    
     let swap_criteria = |voxel: Voxel| {
         voxel.is_gas() || (voxel.is_liquid() && sim_voxel.denser(voxel))
     };
@@ -125,6 +166,9 @@ pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_ti
 
 #[inline]
 pub fn simulate_structured(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
+    #[cfg(feature = "trace")]
+    let simulate_structured_span = info_span!("simulate_structured");
+    
     let below_voxel = grid.get_voxel(point + IVec3::new(0, -1, 0));
     if below_voxel == Voxel::Air {
         const SURROUNDING: [IVec3; 5] = [
