@@ -119,7 +119,8 @@ impl VoxelChunk {
         Self::default()
     }
 
-    pub fn get_voxel(&self, point: [Scalar; 3]) -> Option<Voxel> {
+    pub fn get_voxel(&self, point: impl Into<[Scalar; 3]>) -> Option<Voxel> {
+        let point = point.into();
         if !self.in_chunk_bounds(point.into()) {
             return None;
         }
@@ -127,7 +128,8 @@ impl VoxelChunk {
         Some(self.voxel_from_index(padded::pad_linearize(point)))
     }
 
-    pub fn voxel(&self, point: [Scalar; 3]) -> Voxel {
+    pub fn voxel(&self, point: impl Into<[Scalar; 3]>) -> Voxel {
+        let point = point.into();
         debug_assert!(self.in_chunk_bounds(point.into()));
         // if !self.in_chunk_bounds(point.into()) {
         //     panic!("Point out of bounds: {:?}", point);
@@ -141,7 +143,8 @@ impl VoxelChunk {
         Voxel::from_id(self.voxels[index]).unwrap()
     }
 
-    pub fn set(&mut self, point: [Scalar; 3], voxel: Voxel) {
+    pub fn set(&mut self, point: impl Into<[Scalar; 3]>, voxel: Voxel) {
+        let point = point.into();
         if !self.in_chunk_bounds(point.into()) {
             panic!("Point out of bounds: {:?}", point);
         }

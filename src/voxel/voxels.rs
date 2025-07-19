@@ -213,7 +213,7 @@ impl Voxels {
         
         let chunk_point = Self::find_chunk(point);
         if let Some(chunk) = self.chunks.get(&chunk_point) {
-            chunk.voxel(Self::relative_point(chunk_point, point).into())
+            chunk.voxel(Self::relative_point(chunk_point, point))
         } else {
             Voxel::Air
         }
@@ -347,6 +347,10 @@ impl Voxels {
 
     pub fn get_chunk(&self, point: IVec3) -> Option<&VoxelChunk> {
         self.chunks.get(&point)
+    }
+
+    pub fn get_chunk_mut(&mut self, point: IVec3) -> Option<&mut VoxelChunk> {
+        self.chunks.get_mut(&point)
     }
 
     pub fn set_health(&mut self, point: IVec3, health: i16) {
