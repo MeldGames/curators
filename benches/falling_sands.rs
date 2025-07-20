@@ -22,8 +22,8 @@ fn falling_sand_torus(c: &mut Criterion) {
         let mut voxels = Voxels::new();
 
         // Create a simulation area with a barrier around it.
-        let min = -15;
-        let max = 15;
+        let min = -30;
+        let max = 30;
         for x in min..max {
             for z in min..max {
                 for y in min..max {

@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+use std::collections::BTreeSet;
 use std::ops::RangeInclusive;
 
 use bevy::platform::collections::{HashMap, HashSet};
@@ -37,12 +39,28 @@ pub fn clear_changed_chunks(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VoxelUpdate(pub IVec3);
+
+impl PartialOrd for VoxelUpdate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for VoxelUpdate {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.0.y.cmp(&self.0.y).then(other.0.x.cmp(&self.0.x)).then(other.0.z.cmp(&self.0.z))
+    }
+
+}
+
 #[derive(Debug, Component, Clone, PartialEq, Eq)]
 #[require(Name::new("Voxels"))]
 pub struct Voxels {
     chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
     changed_chunks: HashSet<IVec3>,
-    pub(crate) update_voxels: Vec<IVec3>,
+    pub(crate) update_voxels: BTreeSet<VoxelUpdate>,
     clip: VoxelAabb,
 }
 
@@ -127,6 +145,25 @@ impl Voxels {
         })
     }
 
+    #[inline]
+    pub fn set_voxel_chunk_overlap(&mut self, point: IVec3, voxel: Voxel) {
+            #[cfg(feature = "trace")]
+            let set_voxel_overlap_span = info_span!("set_voxel_overlap_loop");
+            
+            for chunk_point in Self::chunks_overlapping_voxel(point) {
+                #[cfg(feature = "trace")]
+                let set_voxel_single_chunk_span = info_span!("set_voxel_single_chunk");
+                
+                let chunk = self.chunks.entry(chunk_point).or_default();
+                let relative_point = Self::relative_point_with_boundary(chunk_point, point);
+                if chunk.in_chunk_bounds_unpadded(relative_point) {
+                    self.changed_chunks.insert(chunk_point); // negligible
+                    chunk.set_unpadded(relative_point.into(), voxel);
+                }
+            }
+    }
+
+    #[inline]
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
         #[cfg(feature = "trace")]
         let set_voxel_span = info_span!("set_voxel");
@@ -152,22 +189,9 @@ impl Voxels {
         // } else {
             // Set the overlapping chunks boundary voxels as well
             // setting overlap chunks adds about 10% to the simulation time
-            #[cfg(feature = "trace")]
-            let set_voxel_overlap_span = info_span!("set_voxel_overlap_loop");
-            
-            for chunk_point in Self::chunks_overlapping_voxel(point) {
-                #[cfg(feature = "trace")]
-                let set_voxel_single_chunk_span = info_span!("set_voxel_single_chunk");
-                
-                let chunk = self.chunks.entry(chunk_point).or_default();
-                let relative_point = Self::relative_point_with_boundary(chunk_point, point);
-                if chunk.in_chunk_bounds_unpadded(relative_point) {
-                    self.changed_chunks.insert(chunk_point); // negligible
-                    chunk.set_unpadded(relative_point.into(), voxel);
-                }
-            }
         // }
 
+        self.set_voxel_chunk_overlap(point, voxel);
         self.set_update_voxels(point); // 18-22%
     }
 
@@ -198,13 +222,7 @@ impl Voxels {
     // Push point and adjacent 26 points into voxels to check simulation on.
     #[inline]
     pub fn set_update_voxels(&mut self, point: IVec3) {
-        for x in -1..=1 {
-            for y in -1..=1 {
-                for z in -1..=1 {
-                    self.update_voxels.push(point + IVec3::new(x, y, z));
-                }
-            }
-        }
+        self.update_voxels.extend((-1..=1).flat_map(move |y| (-1..=1).flat_map(move |x| (-1..=1).map(move |z| VoxelUpdate(point + IVec3::new(x, y, z))))));
     }
 
     pub fn get_voxel(&self, point: IVec3) -> Voxel {

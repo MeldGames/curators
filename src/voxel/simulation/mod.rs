@@ -3,7 +3,9 @@
 //! This needs to be relatively fast... going to be a
 //! large experiment onto whether we can make this work or not.
 
-use crate::voxel::{unpadded, Voxel, Voxels};
+use std::collections::BTreeSet;
+
+use crate::voxel::{unpadded, voxels::VoxelUpdate, Voxel, Voxels};
 use bevy::prelude::*;
 
 #[cfg(feature = "trace")]
@@ -42,7 +44,7 @@ pub struct FallingSandTick(pub u32);
 pub fn falling_sands(mut grids: Query<&mut Voxels>,
     mut sim_tick: ResMut<FallingSandTick>,
     mut ignore: Local<usize>,
-    mut updates: Local<Vec<IVec3>>,
+    mut updates: Local<BTreeSet<VoxelUpdate>>,
 ) {
     *ignore = (*ignore + 1) % 4; // 60 / 4 ticks per second
     if *ignore != 0 {
@@ -64,13 +66,14 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>,
             // #[cfg(feature = "trace")]
             // let update_management_span = info_span!("update_management");
 
-            updates.extend(grid.update_voxels.drain(..));
-            updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
-            updates.dedup();
+            updates.clear();
+            std::mem::swap(&mut *updates, &mut grid.update_voxels);
+            // updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
+            // updates.dedup();
         }
 
 
-        while let Some(point) = updates.pop() {
+        for point in updates.iter().map(|p| p.0) {
             #[cfg(feature = "trace")]
             let update_span = info_span!("update_voxel", iteration = counter);
 
@@ -112,23 +115,14 @@ pub fn simulate_semisolid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim
     #[cfg(feature = "trace")]
     let simulate_semisolid_span = info_span!("simulate_semisolid");
 
-    let chunk_pos = Voxels::find_chunk(point);
-    let relative_point = Voxels::relative_point_unoriented(point);
-    let chunk = grid.get_chunk_mut(chunk_pos).unwrap();
-    
     const SWAP_POINTS: [IVec3; 5] =
     [IVec3::NEG_Y, ivec3(1, -1, 0), ivec3(0, -1, 1), ivec3(-1, -1, 0), ivec3(0, -1, -1)];
 
     for swap_point in SWAP_POINTS {
-        let voxel = chunk.voxel(relative_point + swap_point);
+        let voxel = grid.get_voxel(point + swap_point);
         if voxel.is_liquid() || voxel.is_gas() {
-            if relative_point.x == 0 || relative_point.x == unpadded::SIZE_SCALAR - 1 || relative_point.z == 0 || relative_point.z == unpadded::SIZE_SCALAR - 1 || relative_point.y == 0 || relative_point.y == unpadded::SIZE_SCALAR - 1 {
-                grid.set_voxel(point + swap_point, Voxel::Sand);
-                grid.set_voxel(point, voxel);
-            } else {
-                chunk.set(relative_point + swap_point, Voxel::Sand);
-                chunk.set(relative_point, voxel);
-            }
+            grid.set_voxel(point + swap_point, Voxel::Sand);
+            grid.set_voxel(point, voxel);
             break;
         }
     }
@@ -143,10 +137,6 @@ pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_ti
         voxel.is_gas() || (voxel.is_liquid() && sim_voxel.denser(voxel))
     };
 
-    let chunk_pos = Voxels::find_chunk(point);
-    let relative_point = Voxels::relative_point_unoriented(point);
-    let chunk = grid.get_chunk_mut(chunk_pos).unwrap();
-
     const SWAP_POINTS: [IVec3; 8] = [
         IVec3::NEG_Y.saturating_add(IVec3::NEG_X), // diagonals first
         IVec3::NEG_Y.saturating_add(IVec3::X),
@@ -160,17 +150,17 @@ pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_ti
     ];
 
     // prioritize negative y
-    let below_point = IVec3::from(relative_point + IVec3::NEG_Y);
-    let below_voxel = chunk.voxel(below_point);
+    let below_point = IVec3::from(point + IVec3::NEG_Y);
+    let below_voxel = grid.get_voxel(below_point);
     if swap_criteria(below_voxel) {
-        chunk.set(below_point, sim_voxel);
-        chunk.set(point, below_voxel);
+        grid.set_voxel(below_point, sim_voxel);
+        grid.set_voxel(point, below_voxel);
     } else {
         for swap_point in SWAP_POINTS.iter().cycle().skip((sim_tick.0 % 4) as usize).take(4) {
-            let voxel = chunk.voxel(IVec3::from(relative_point + swap_point));
+            let voxel = grid.get_voxel(IVec3::from(point + swap_point));
             if swap_criteria(voxel) {
-                chunk.set(relative_point + swap_point, sim_voxel);
-                chunk.set(relative_point, voxel);
+                grid.set_voxel(point + swap_point, sim_voxel);
+                grid.set_voxel(point, voxel);
                 break;
             }
         }
