@@ -2,7 +2,7 @@ use avian3d::prelude::*;
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
-use bevy_mod_outline::{AsyncSceneInheritOutline, OutlineVolume};
+use bevy_mod_outline::OutlineVolume;
 
 pub mod prefab_registry;
 
@@ -107,7 +107,7 @@ pub fn holding_binding(
     trigger: Trigger<Bind<Holding>>,
     mut inputs: Query<(&mut Actions<Holding>, &mut Hold)>,
 ) {
-    let Ok((mut actions, mut hold)) = inputs.get_mut(trigger.target()) else {
+    let Ok((mut actions, _hold)) = inputs.get_mut(trigger.target()) else {
         return;
     };
 
@@ -119,7 +119,7 @@ pub fn free_binding(
     trigger: Trigger<Bind<HandsFree>>,
     mut inputs: Query<(&mut Actions<HandsFree>, &mut Hold)>,
 ) {
-    let Ok((mut actions, mut hold)) = inputs.get_mut(trigger.target()) else {
+    let Ok((mut actions, _hold)) = inputs.get_mut(trigger.target()) else {
         return;
     };
 
@@ -171,7 +171,7 @@ impl ItemOutline {
 }
 
 pub fn grab_item(
-    mut holding: Query<(Entity, NameOrEntity, &mut Hold, &Actions<HandsFree>)>,
+    holding: Query<(Entity, NameOrEntity, &mut Hold, &Actions<HandsFree>)>,
     globals: Query<&GlobalTransform>,
     mut items: Query<(Entity, NameOrEntity, &mut Transform, &Item)>,
     outlined_items: Query<Entity, (With<Item>, With<OutlineVolume>)>,
@@ -201,7 +201,7 @@ pub fn grab_item(
                     continue;
                 }
 
-                let mut set = if let Some((_, closest_distance)) = closest_item {
+                let set = if let Some((_, closest_distance)) = closest_item {
                     distance < closest_distance
                 } else {
                     true
@@ -214,7 +214,7 @@ pub fn grab_item(
         }
 
         if let Some((item_entity, _)) = closest_item {
-            let Ok((_, item_name, mut item_transform, item)) = items.get_mut(item_entity) else {
+            let Ok((_, item_name, mut item_transform, _item)) = items.get_mut(item_entity) else {
                 continue;
             };
 

@@ -1,8 +1,5 @@
 use std::cmp::Ordering;
 
-use avian3d::prelude::*;
-use bevy::ecs::entity_disabling::Disabled;
-use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_prng::WyRand;
 use bevy_rand::prelude::*;
@@ -12,7 +9,6 @@ use rand::distr::weighted::WeightedIndex;
 use rand::seq::WeightError;
 
 use crate::map::{Aabb, Digsite, DigsiteObject, VoxelAabb, WorldGenSet};
-use crate::voxel::GRID_SCALE;
 
 #[derive(Event)]
 pub struct GenerateObjects {

@@ -239,7 +239,7 @@ fn aabb_intersections(
     Some((entry, exit))
 }
 
-pub fn plugin(mut app: &mut App) {
+pub fn plugin(app: &mut App) {
     app.register_type::<DebugRaycast>();
     app.insert_resource(DebugRaycast { show_chunks: false, show_voxels: false, debug_ray: None });
     app.add_systems(PreUpdate, debug_raycast);
@@ -302,16 +302,16 @@ pub fn debug_raycast(
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
-    let Ok((voxels_transform, mut voxels)) = voxels.single_mut() else {
+    let Ok((voxels_transform, voxels)) = voxels.single_mut() else {
         info!("No voxels found");
         return;
     };
 
     let test_ray = if let Some(last_ray) = debug_raycast.debug_ray { last_ray } else { ray };
 
-    const GREEN: Color = Color::srgb(0.0, 1.0, 0.0);
-    const RED: Color = Color::srgb(1.0, 0.0, 0.0);
-    const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
+    // const GREEN: Color = Color::srgb(0.0, 1.0, 0.0);
+    // const RED: Color = Color::srgb(1.0, 0.0, 0.0);
+    // const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
     for hit in voxels.ray_iter(voxels_transform, test_ray, 1_000.0) {
         use crate::voxel::GRID_SCALE;
         const CHUNK_SIZE: Vec3 = Vec3::splat(crate::voxel::chunk::unpadded::SIZE as f32);

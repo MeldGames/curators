@@ -5,7 +5,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::voxel::{unpadded, voxels::VoxelUpdate, Voxel, Voxels};
+use crate::voxel::{Voxel, Voxels, unpadded, voxels::VoxelUpdate};
 use bevy::prelude::*;
 
 #[cfg(feature = "trace")]
@@ -25,7 +25,7 @@ pub fn islands(mut grids: Query<&mut Voxels>) {}
 #[reflect(Resource)]
 pub struct FallingSandTick(pub u32);
 
-// 62x1x62 vertical chunks separated by 2 vertical slices, 
+// 62x1x62 vertical chunks separated by 2 vertical slices,
 // need buffers around boundaries to avoid race conditions
 
 // requirements:
@@ -34,14 +34,13 @@ pub struct FallingSandTick(pub u32);
 // - no more than ~6000 voxels simulated per work group
 
 // 62x1x62 chunks aligns with xz plane which has better contiguous memory ~12kb of memory for the surrounding 62x3x62 voxels
-// what to do about boundaries? 
+// what to do about boundaries?
 // need at least somewhat uniform simulation, so spreading it out over multiple chunks would be good
 // maybe offset spirals?:
-//  
+//
 
-
-
-pub fn falling_sands(mut grids: Query<&mut Voxels>,
+pub fn falling_sands(
+    mut grids: Query<&mut Voxels>,
     mut sim_tick: ResMut<FallingSandTick>,
     mut ignore: Local<usize>,
     mut updates: Local<Vec<VoxelUpdate>>,
@@ -72,7 +71,6 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>,
             updates.dedup();
         }
 
-
         for point in updates.iter().map(|p| p.0) {
             #[cfg(feature = "trace")]
             let update_span = info_span!("update_voxel", iteration = counter);
@@ -85,12 +83,13 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>,
             //     static_counter += 1;
             // };
 
-
             match sim_voxel {
-                Voxel::Sand => { // semi-solid
+                Voxel::Sand => {
+                    // semi-solid
                     simulate_semisolid(&mut grid, point, sim_voxel, &sim_tick);
                 },
-                Voxel::Water | Voxel::Oil => { // liquids
+                Voxel::Water | Voxel::Oil => {
+                    // liquids
                     simulate_liquid(&mut grid, point, sim_voxel, &sim_tick);
                 },
                 Voxel::Dirt => {
@@ -106,17 +105,22 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>,
     }
 
     // if simulated_counter > 0 {
-        // info!("simulated {} voxels, static {} voxels", simulated_counter, static_counter);
+    // info!("simulated {} voxels, static {} voxels", simulated_counter, static_counter);
     // }
 }
 
 #[inline]
-pub fn simulate_semisolid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
+pub fn simulate_semisolid(
+    grid: &mut Voxels,
+    point: IVec3,
+    sim_voxel: Voxel,
+    sim_tick: &FallingSandTick,
+) {
     #[cfg(feature = "trace")]
     let simulate_semisolid_span = info_span!("simulate_semisolid");
 
     const SWAP_POINTS: [IVec3; 5] =
-    [IVec3::NEG_Y, ivec3(1, -1, 0), ivec3(0, -1, 1), ivec3(-1, -1, 0), ivec3(0, -1, -1)];
+        [IVec3::NEG_Y, ivec3(1, -1, 0), ivec3(0, -1, 1), ivec3(-1, -1, 0), ivec3(0, -1, -1)];
 
     for swap_point in SWAP_POINTS {
         let voxel = grid.get_voxel(point + swap_point);
@@ -129,20 +133,23 @@ pub fn simulate_semisolid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim
 }
 
 #[inline]
-pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
+pub fn simulate_liquid(
+    grid: &mut Voxels,
+    point: IVec3,
+    sim_voxel: Voxel,
+    sim_tick: &FallingSandTick,
+) {
     #[cfg(feature = "trace")]
     let simulate_liquid_span = info_span!("simulate_liquid");
-    
-    let swap_criteria = |voxel: Voxel| {
-        voxel.is_gas() || (voxel.is_liquid() && sim_voxel.denser(voxel))
-    };
+
+    let swap_criteria =
+        |voxel: Voxel| voxel.is_gas() || (voxel.is_liquid() && sim_voxel.denser(voxel));
 
     const SWAP_POINTS: [IVec3; 8] = [
         IVec3::NEG_Y.saturating_add(IVec3::NEG_X), // diagonals first
         IVec3::NEG_Y.saturating_add(IVec3::X),
         IVec3::NEG_Y.saturating_add(IVec3::NEG_Z),
         IVec3::NEG_Y.saturating_add(IVec3::Z),
-
         IVec3::NEG_X, // adjacent second
         IVec3::X,
         IVec3::NEG_Z,
@@ -168,19 +175,19 @@ pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_ti
 }
 
 #[inline]
-pub fn simulate_structured(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
+pub fn simulate_structured(
+    grid: &mut Voxels,
+    point: IVec3,
+    sim_voxel: Voxel,
+    sim_tick: &FallingSandTick,
+) {
     #[cfg(feature = "trace")]
     let simulate_structured_span = info_span!("simulate_structured");
-    
+
     let below_voxel = grid.get_voxel(point + IVec3::new(0, -1, 0));
     if below_voxel == Voxel::Air {
-        const SURROUNDING: [IVec3; 5] = [
-            ivec3(-1, 0, 0),
-            ivec3(1, 0, 0),
-            ivec3(0, 0, -1),
-            ivec3(0, 0, 1),
-            ivec3(0, 1, 0),
-        ];
+        const SURROUNDING: [IVec3; 5] =
+            [ivec3(-1, 0, 0), ivec3(1, 0, 0), ivec3(0, 0, -1), ivec3(0, 0, 1), ivec3(0, 1, 0)];
 
         let mut structured = false;
         for check in SURROUNDING {

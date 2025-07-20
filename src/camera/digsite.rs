@@ -4,7 +4,6 @@
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
-use crate::voxel::GRID_SCALE;
 use crate::voxel::chunk::VoxelChunk;
 
 pub fn plugin(app: &mut App) {

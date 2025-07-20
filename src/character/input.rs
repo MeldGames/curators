@@ -2,7 +2,7 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
-use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk, Voxels};
+use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 
 #[derive(Component)]
 pub struct Controlling;
@@ -109,7 +109,7 @@ pub fn dig_target(
         }
 
         if let Some((digsite_entity, voxel)) = state.target_block {
-            if let Ok((_, digsite_transform, mut grid)) = voxels.get_mut(digsite_entity) {
+            if let Ok((_, digsite_transform, _grid)) = voxels.get_mut(digsite_entity) {
                 let voxel: Vec3 = IVec3::from(voxel).as_vec3();
                 let voxel_point = digsite_transform.transform_point(voxel);
                 gizmos.cuboid(
@@ -135,8 +135,8 @@ pub fn dig_block(
         if let ActionState::Fired = actions.state::<Dig>()? {
             if let Some((digsite_entity, voxel_pos)) = dig_state.target_block {
                 if let Ok(mut voxels) = voxels.get_mut(digsite_entity) {
-                    let voxel_state = voxels.get_voxel(voxel_pos.into());
-                    if dig_state.time_since_dig >= dig_state.dig_time {
+                    let voxel = voxels.get_voxel(voxel_pos.into());
+                    if voxel.breakable() && dig_state.time_since_dig >= dig_state.dig_time {
                         let dig_power = 10;
 
                         if let Some(health) = voxels.health(voxel_pos.into()) {

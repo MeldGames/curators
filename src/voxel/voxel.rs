@@ -8,17 +8,7 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(
-    Reflect,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Debug,
-    Copy,
-    Clone,
-    Serialize,
-    Deserialize,
+    Reflect, Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Serialize, Deserialize,
 )]
 pub enum Voxel {
     Air = 0, // special case "nothing"
@@ -35,7 +25,7 @@ pub enum Voxel {
     // semi-solids (falling sand)
     Sand,
 
-    // liquids 
+    // liquids
     Water, // TODO: add lateral velocity to remove oscillation?
     Oil,
 }
@@ -51,13 +41,13 @@ pub struct VoxelDefinition {
     /// Can we generally collide with this voxel?
     pub collidable: bool,
     /// Should this voxel be rendered?
-    pub rendered: bool, 
+    pub rendered: bool,
     /// Is this transparent? (should the rendering consider this non-filling)
-    pub transparent: bool, 
+    pub transparent: bool,
     /// Should raycasts pick this?
-    pub pickable: bool, 
+    pub pickable: bool,
     /// Can we break this?
-    pub breakable: bool, 
+    pub breakable: bool,
     /// Initial health of the voxel.
     pub initial_health: i16,
     /// "Density" of voxel, only really important for liquids/gases
@@ -112,7 +102,6 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         initial_health: 0,
         density: 0,
     },
-
     &VoxelDefinition {
         voxel: Voxel::Dirt,
         name: "dirt",
@@ -152,7 +141,6 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         initial_health: 100,
         density: 0,
     },
-
     &VoxelDefinition {
         voxel: Voxel::Sand,
         name: "sand",
@@ -166,7 +154,6 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         initial_health: 10,
         density: 0,
     },
-
     &VoxelDefinition {
         voxel: Voxel::Water,
         name: "water",

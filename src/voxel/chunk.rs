@@ -1,11 +1,7 @@
-use std::ops::RangeInclusive;
-
-use bevy::platform::collections::{HashMap, HashSet};
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
-use super::raycast::Hit;
-use crate::voxel::raycast::VoxelHit;
-use crate::voxel::{Voxel, VoxelAabb};
+use crate::voxel::Voxel;
 
 pub type Scalar = i32;
 

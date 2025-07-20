@@ -1,15 +1,12 @@
 use bevy::asset::RenderAssetUsages;
-use bevy::ecs::error::warn;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
-use fast_surface_nets::ndshape::{
-    ConstPow2Shape2i32, ConstPow2Shape3i32, ConstPow2Shape3u32, ConstShape, RuntimeShape, Shape,
-};
-use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
+use fast_surface_nets::SurfaceNetsBuffer;
+use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape};
 
+use crate::voxel::VoxelChunk;
 use crate::voxel::chunk::padded;
-use crate::voxel::{GRID_SCALE, Voxel, VoxelChunk};
 
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
@@ -47,7 +44,7 @@ pub fn update_surface_net_mesh(
 
         grid.update_surface_net(&mut net.buffer);
 
-        let mut mesh = surface_net_to_mesh(&net.buffer);
+        let mesh = surface_net_to_mesh(&net.buffer);
         // mesh.duplicate_vertices();
         // mesh.compute_flat_normals();
 
@@ -103,17 +100,17 @@ pub type ChunkShape =
     ConstPow2Shape3u32<{ padded::SIZE as u32 }, { padded::SIZE as u32 }, { padded::SIZE as u32 }>; // 62^3 with 1 padding
 
 impl VoxelChunk {
-    pub fn update_surface_net(&self, buffer: &mut SurfaceNetsBuffer) {
-        let mut samples = vec![1.0; padded::ARR_STRIDE];
+    pub fn update_surface_net(&self, _buffer: &mut SurfaceNetsBuffer) {
+        // let mut samples = vec![1.0; padded::ARR_STRIDE];
 
-        let chunk_shape = ChunkShape {};
-        for (i, voxel) in self.voxels.iter().enumerate() {
-            let sample = match self.voxel_from_index(i) {
-                Voxel::Air => 1.0,
-                _ => -1.0,
-            };
-            samples[i] = sample;
-        }
+        // let chunk_shape = ChunkShape {};
+        // for (i, voxel) in self.voxels.iter().enumerate() {
+        //     let sample = match self.voxel_from_index(i) {
+        //         Voxel::Air => 1.0,
+        //         _ => -1.0,
+        //     };
+        //     samples[i] = sample;
+        // }
         // // unpadded
         // for i in 0..self.size() {
         //     let point = self.delinearize(i);
@@ -131,6 +128,6 @@ impl VoxelChunk {
         // info!("SIZES {:?} < {:?}", shape.linearize(padded_grid_array),
         // shape.usize());
 
-        surface_nets(&samples, &ChunkShape {}, [0; 3], [padded::SIZE as u32 - 1; 3], buffer);
+        // surface_nets(&samples, &ChunkShape {}, [0; 3], [padded::SIZE as u32 - 1; 3], buffer);
     }
 }

@@ -15,7 +15,7 @@ use bevy_rand::prelude::EntropyPlugin;
 use iyes_perf_ui::prelude::*;
 use rand_core::RngCore;
 
-use crate::camera::{camera_components, FlyingCamera, FlyingSettings, FlyingState};
+use crate::camera::{FlyingCamera, FlyingSettings, FlyingState, camera_components};
 
 pub mod camera;
 pub mod character;
@@ -70,10 +70,8 @@ pub fn shared(app: &mut App) {
     app.world_mut().spawn(PerfUiAllEntries::default());
 }
 
-
 pub fn viewer(app: &mut App) {
-    app
-        .add_plugins(DefaultPlugins)
+    app.add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(bevy_enhanced_input::EnhancedInputPlugin)
@@ -97,4 +95,3 @@ pub fn spawn_flying_camera(mut commands: Commands) {
         Actions::<FlyingCamera>::default(),
     ));
 }
-

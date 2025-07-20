@@ -146,13 +146,15 @@ impl TerrainParams {
         for x in min.x..=max.x {
             for z in min.z..=max.z {
                 for y in min.y..=max.y {
-                    let box_voxel = if y == min.y {
-                        Voxel::Base
-                    } else {
-                        Voxel::Barrier
-                    };
+                    let box_voxel = if y == min.y { Voxel::Base } else { Voxel::Barrier };
 
-                    if x == min.x || x == max.x || y == min.y || y == max.y || z == min.z || z == max.z {
+                    if x == min.x
+                        || x == max.x
+                        || y == min.y
+                        || y == max.y
+                        || z == min.z
+                        || z == max.z
+                    {
                         voxels.set_voxel(IVec3::new(x, y, z), box_voxel);
                     }
                 }

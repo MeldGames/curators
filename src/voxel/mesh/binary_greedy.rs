@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 
-use avian3d::parry::bounding_volume::Aabb;
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
 use bevy::platform::collections::{HashMap, HashSet};
@@ -11,11 +10,7 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
-use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{ChangedChunks, Voxel, VoxelChunk, Voxels};
-
-const MASK_6: u64 = 0b111111;
-const MASK_XYZ: u64 = 0b111111_111111_111111;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
@@ -91,10 +86,8 @@ pub fn update_binary_mesh(
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    voxel_materials: Res<VoxelMaterials>,
-
+    // voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
     mut mesher: Local<BgmMesher>,
-    mut collider_mesh_buffer: Local<ColliderMesh>,
     mut changed_chunks: EventReader<ChangedChunks>,
 
     mut queue: Local<VecDeque<(Entity, IVec3)>>,
@@ -115,7 +108,9 @@ pub fn update_binary_mesh(
 
     while pop_count < PER_FRAME {
         pop_count += 1;
-        let Some((voxel_entity, chunk_point)) = queue.pop_front() else { break; };
+        let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
+            break;
+        };
         dedup.remove(&(voxel_entity, chunk_point));
 
         let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
@@ -402,8 +397,7 @@ impl BinaryGreedyMeshing for VoxelChunk {
             let face: Face = (face_n as u8).into();
             let n = face.n();
             for quad in quads {
-                let voxel_i = quad.voxel_id() as usize;
-                for (pos, uv) in pos_uvs(*quad, face) {
+                for (pos, _uv) in pos_uvs(*quad, face) {
                     collider_mesh.positions.push(pos);
                     collider_mesh.normals.push(n.clone());
                 }

@@ -52,7 +52,6 @@ impl Ord for VoxelUpdate {
     fn cmp(&self, other: &Self) -> Ordering {
         other.y.cmp(&self.y).then(other.x.cmp(&self.x)).then(other.z.cmp(&self.z))
     }
-
 }
 
 #[derive(Debug, Component, Clone, PartialEq, Eq)]
@@ -94,8 +93,10 @@ impl Voxels {
         #[cfg(feature = "trace")]
         let chunks_overlapping_voxel_span = info_span!("chunks_overlapping_voxel");
 
-        let min_chunk = ((voxel_pos - IVec3::splat(2)).as_vec3() / CHUNK_SIZE_FLOAT).floor().as_ivec3();
-        let max_chunk = ((voxel_pos + IVec3::splat(2)).as_vec3() / CHUNK_SIZE_FLOAT).ceil().as_ivec3();
+        let min_chunk =
+            ((voxel_pos - IVec3::splat(2)).as_vec3() / CHUNK_SIZE_FLOAT).floor().as_ivec3();
+        let max_chunk =
+            ((voxel_pos + IVec3::splat(2)).as_vec3() / CHUNK_SIZE_FLOAT).ceil().as_ivec3();
 
         (min_chunk.y..max_chunk.y).flat_map(move |y| {
             (min_chunk.x..max_chunk.x)
@@ -121,7 +122,6 @@ impl Voxels {
     #[inline]
     pub fn relative_point_unoriented(point: IVec3) -> IVec3 {
         point.rem_euclid(CHUNK_SIZE)
-
     }
 
     #[inline]
@@ -147,27 +147,27 @@ impl Voxels {
 
     #[inline]
     pub fn set_voxel_chunk_overlap(&mut self, point: IVec3, voxel: Voxel) {
+        #[cfg(feature = "trace")]
+        let set_voxel_overlap_span = info_span!("set_voxel_overlap_loop");
+
+        for chunk_point in Self::chunks_overlapping_voxel(point) {
             #[cfg(feature = "trace")]
-            let set_voxel_overlap_span = info_span!("set_voxel_overlap_loop");
-            
-            for chunk_point in Self::chunks_overlapping_voxel(point) {
-                #[cfg(feature = "trace")]
-                let set_voxel_single_chunk_span = info_span!("set_voxel_single_chunk");
-                
-                let chunk = self.chunks.entry(chunk_point).or_default();
-                let relative_point = Self::relative_point_with_boundary(chunk_point, point);
-                if chunk.in_chunk_bounds_unpadded(relative_point) {
-                    self.changed_chunks.insert(chunk_point); // negligible
-                    chunk.set_unpadded(relative_point.into(), voxel);
-                }
+            let set_voxel_single_chunk_span = info_span!("set_voxel_single_chunk");
+
+            let chunk = self.chunks.entry(chunk_point).or_default();
+            let relative_point = Self::relative_point_with_boundary(chunk_point, point);
+            if chunk.in_chunk_bounds_unpadded(relative_point) {
+                self.changed_chunks.insert(chunk_point); // negligible
+                chunk.set_unpadded(relative_point.into(), voxel);
             }
+        }
     }
 
     #[inline]
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
         #[cfg(feature = "trace")]
         let set_voxel_span = info_span!("set_voxel");
-        
+
         // if !self.clip.contains_point(point) {
         //     warn!("attempted voxel set at clip boundary");
         //     return;
@@ -175,20 +175,20 @@ impl Voxels {
 
         if point.y < -50 || point.y > 250 {
             return;
-        } 
+        }
 
         // if !Voxels::is_boundary_point(point) {
         //     #[cfg(feature = "trace")]
         //     let set_voxel_nonboundary_span = info_span!("set_voxel_nonboundary");
-            
+
         //     let chunk_point = Self::find_chunk(point);
         //     let chunk = self.chunks.entry(chunk_point).or_default();
         //     let relative_point = Self::relative_point_unoriented(point);
         //     chunk.set(relative_point.into(), voxel);
         //     self.changed_chunks.insert(chunk_point); // negligible
         // } else {
-            // Set the overlapping chunks boundary voxels as well
-            // setting overlap chunks adds about 10% to the simulation time
+        // Set the overlapping chunks boundary voxels as well
+        // setting overlap chunks adds about 10% to the simulation time
         // }
 
         self.set_voxel_chunk_overlap(point, voxel);
@@ -222,13 +222,16 @@ impl Voxels {
     // Push point and adjacent 26 points into voxels to check simulation on.
     #[inline]
     pub fn set_update_voxels(&mut self, point: IVec3) {
-        self.update_voxels.extend((-1..=1).flat_map(move |y| (-1..=1).flat_map(move |x| (-1..=1).map(move |z| VoxelUpdate(point + IVec3::new(x, y, z))))));
+        self.update_voxels.extend((-1..=1).flat_map(move |y| {
+            (-1..=1)
+                .flat_map(move |x| (-1..=1).map(move |z| VoxelUpdate(point + IVec3::new(x, y, z))))
+        }));
     }
 
     pub fn get_voxel(&self, point: IVec3) -> Voxel {
         #[cfg(feature = "trace")]
         let get_voxel_span = info_span!("get_voxel");
-        
+
         let chunk_point = Self::find_chunk(point);
         if let Some(chunk) = self.chunks.get(&chunk_point) {
             chunk.voxel(Self::relative_point(chunk_point, point))

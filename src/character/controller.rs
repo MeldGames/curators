@@ -19,7 +19,7 @@ pub fn apply_movement(
     )>,
     time: Res<Time>,
 ) -> Result<()> {
-    for (mut controller, grounded, mut transform, actions) in &mut players {
+    for (mut controller, _grounded, mut transform, actions) in &mut players {
         let move_input = actions.value::<Move>()?;
         let dig = actions.value::<Dig>()?;
 

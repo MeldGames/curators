@@ -2,16 +2,10 @@ use bevy::prelude::*;
 use bevy_edge_detection::EdgeDetection;
 use bevy_enhanced_input::prelude::*;
 
-use bevy::core_pipeline::bloom::Bloom;
-use bevy::core_pipeline::experimental::taa::TemporalAntiAliasing;
-use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass};
 use bevy::core_pipeline::smaa::{Smaa, SmaaPreset};
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::pbr::{
-    Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel,
-    ShadowFilteringMethod,
-};
+use bevy::pbr::{Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel};
 
 pub mod digsite;
 pub mod flying;

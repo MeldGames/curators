@@ -35,7 +35,6 @@ pub fn cursor_voxel(
     mut voxels: Query<(&GlobalTransform, &Voxels)>,
 
     mut cursor_voxel: ResMut<CursorVoxel>,
-    mut gizmos: Gizmos,
 ) {
     let Some((camera, camera_transform)) = camera_query.iter().find(|(camera, _)| camera.is_active)
     else {
@@ -57,7 +56,7 @@ pub fn cursor_voxel(
     // https://github.com/cgyurgyik/fast-voxel-traversal-algorithm/blob/master/overview/FastVoxelTraversalOverview.md
 
     // Calculate if and where the ray is hitting a voxel.
-    let Ok((voxels_transform, mut voxels)) = voxels.single_mut() else {
+    let Ok((voxels_transform, voxels)) = voxels.single_mut() else {
         info!("No voxels found");
         return;
     };
@@ -113,12 +112,7 @@ pub fn draw_cursor(
             &sdf::Sphere { radius: 4.0 },
         ];
 
-        let brush_voxels: Vec<Voxel> = vec![
-            Voxel::Dirt,
-            Voxel::Sand,
-            Voxel::Water,
-            Voxel::Oil,
-        ];
+        let brush_voxels: Vec<Voxel> = vec![Voxel::Dirt, Voxel::Sand, Voxel::Water, Voxel::Oil];
 
         if key_input.just_pressed(KeyCode::KeyB) {
             *brush_index = (*brush_index + 1) % brushes.len();

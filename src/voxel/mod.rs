@@ -1,14 +1,10 @@
-use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
-use bevy::render::camera::Exposure;
 pub use chunk::{Scalar, VoxelChunk, padded, unpadded};
 pub use mesh::UpdateVoxelMeshSet;
 pub use pick::CursorVoxel;
 pub use voxel::Voxel;
 pub use voxel_aabb::VoxelAabb;
 pub use voxels::{ChangedChunks, Voxels};
-
-use crate::character;
 
 pub mod brush;
 pub mod chunk;
