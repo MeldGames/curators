@@ -4,7 +4,7 @@ use avian3d::prelude::*;
 use bevy::prelude::*;
 
 use crate::map::Aabb;
-use crate::voxel::{GRID_SCALE, VoxelAabb, Voxels};
+use crate::voxel::{VoxelAabb, Voxels};
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, rebuild_borders);
@@ -46,9 +46,9 @@ pub fn rebuild_borders(
     info!("aabb.center: {:?}", aabb.center());
     info!("aabb.size: {:?}", aabb.size());
 
-    let ground_level = 16.0 * GRID_SCALE.y;
-    let y_pos = ground_level / 2.0;
-    let y_height = ground_level;
+    // let ground_level = 16.0 * GRID_SCALE.y;
+    // let y_pos = ground_level / 2.0;
+    // let y_height = ground_level;
 
     let ground_material = MeshMaterial3d(materials.add(StandardMaterial {
         base_color: Srgba::new(0.0, 82.0 / 255.0, 0.0, 1.0).into(),
@@ -74,7 +74,7 @@ pub fn rebuild_borders(
     }
     .correct();
 
-    const GROUND_CATCH_HEIGHT: f32 = PADDING;
+    // const GROUND_CATCH_HEIGHT: f32 = PADDING;
     // ground catch
     commands.spawn((Border, Name::new("Ground catch"), from_aabb(ground_catch_aabb)));
     // commands.spawn((Border, Name::new("Ground catch"), from_aabb(aabb)));

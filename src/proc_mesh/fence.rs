@@ -7,7 +7,7 @@ use rand::Rng;
 
 use crate::map::WorldGenSet;
 use crate::voxel::pick::CursorVoxel;
-use crate::voxel::{GRID_SCALE, Voxel, Voxels};
+use crate::voxel::{GRID_SCALE, Voxels};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<Fence>().register_type::<BoardParams>();
@@ -123,8 +123,8 @@ pub fn paint_fence(
         new_fence
     };
 
-    let Ok((voxels)) = voxels.single() else { return };
-    let Ok((mut fence)) = fences.get_mut(fence) else { return };
+    let Ok(voxels) = voxels.single() else { return };
+    let Ok(mut fence) = fences.get_mut(fence) else { return };
 
     if input.just_pressed(KeyCode::KeyO) {
         if let Some(hit) = cursor_voxel.hit() {
@@ -141,11 +141,11 @@ pub fn test_fence(mut commands: Commands, voxels: Query<&Voxels>, mut done: Loca
         return;
     }
 
-    let Ok(voxels) = voxels.get_single() else {
+    let Ok(voxels) = voxels.single() else {
         return;
     };
 
-    let mut points = vec![
+    let points = vec![
         Vec3::new(3.0, 0.0, 0.0),
         // Vec3::new(4.0, 0.0, 0.0),
         Vec3::new(5.0, 0.0, 0.0),
@@ -228,21 +228,21 @@ pub fn spawn_fence(
 
         let mut posts = Vec::new();
         for point_index in 0..fence.points.len() {
-            let prev_point_index =
-                if point_index == 0 { fence.points.len() - 1 } else { point_index - 1 };
-            let next_point_index =
-                if point_index == fence.points.len() - 1 { 0 } else { point_index + 1 };
+            // let prev_point_index =
+            //     if point_index == 0 { fence.points.len() - 1 } else { point_index - 1 };
+            // let next_point_index =
+            //     if point_index == fence.points.len() - 1 { 0 } else { point_index + 1 };
 
-            let prev_point = fence.points[prev_point_index];
+            // let prev_point = fence.points[prev_point_index];
             let point = fence.points[point_index];
-            let next_point = fence.points[next_point_index];
+            // let next_point = fence.points[next_point_index];
 
             let post_size = fence.post_size
                 + fence.post_size_variance * Vec3::new(rng.random(), rng.random(), rng.random());
 
-            let prev = Vec2::new(prev_point.x, prev_point.z);
-            let next = Vec2::new(next_point.x, next_point.z);
-            let facing_angle = prev.angle_to(next);
+            // let prev = Vec2::new(prev_point.x, prev_point.z);
+            // let next = Vec2::new(next_point.x, next_point.z);
+            // let facing_angle = prev.angle_to(next);
 
             let transform = Transform {
                 translation: point + Vec3::Y * 0.5 + fence.offset,
@@ -291,7 +291,7 @@ pub fn spawn_fence(
 
             if let Some((from, to)) = to_connect {
                 for board_params in &fence.boards {
-                    let board = commands
+                    let _board = commands
                         .spawn((
                             Board { from_post: from, to_post: to },
                             board_params.clone(),

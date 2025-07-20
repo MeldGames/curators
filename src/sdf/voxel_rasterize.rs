@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
 
 use crate::sdf::{Sdf, ops};
-use crate::voxel::{Voxel, Voxels};
 
 pub struct RasterVoxel {
     pub point: IVec3,
@@ -19,7 +18,7 @@ pub struct RasterConfig {
 pub struct RasterIterator<S: Sdf, I: Iterator<Item = IVec3>> {
     sdf: S,
     sample_points: I,
-    config: RasterConfig,
+    // config: RasterConfig,
 }
 
 impl<S: Sdf, I: Iterator<Item = IVec3>> Iterator for RasterIterator<S, I> {
@@ -55,6 +54,6 @@ pub fn rasterize<S: Sdf>(
     RasterIterator {
         sdf: ops::Scale { primitive: sdf, scale: 1.0 / config.grid_scale }, // might need to invert this scale?
         sample_points: point_iter,
-        config,
+        // config,
     }
 }

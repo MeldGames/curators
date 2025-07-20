@@ -1,17 +1,6 @@
 use avian3d::prelude::*;
 use bevy::color::palettes::css::GRAY;
-use bevy::core_pipeline::bloom::Bloom;
-use bevy::core_pipeline::experimental::taa::TemporalAntiAliasing;
-use bevy::core_pipeline::fxaa::Fxaa;
-use bevy::core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass};
-use bevy::core_pipeline::smaa::{Smaa, SmaaPreset};
-use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::pbr::{
-    Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel,
-    ShadowFilteringMethod,
-};
 use bevy::prelude::*;
-use bevy_edge_detection::EdgeDetection;
 use bevy_enhanced_input::prelude::*;
 
 use super::input::DigState;
@@ -30,7 +19,7 @@ pub fn spawn_player(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
+    // asset_server: Res<AssetServer>,
 ) {
     let collider = Collider::capsule(0.4, 0.8);
     let mesh = meshes.add(Mesh::from(Capsule3d::new(0.4, 0.8)));
@@ -73,7 +62,7 @@ pub fn spawn_player(
         .add_child(hold_entity)
         .id();
 
-    let metering_mask: Handle<Image> = asset_server.load("basic_metering_mask.png");
+    // let metering_mask: Handle<Image> = asset_server.load("basic_metering_mask.png");
 
     let flying = commands
         .spawn((

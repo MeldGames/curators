@@ -2,7 +2,7 @@
 
 pub use bevy::math::primitives::{Sphere, Torus};
 use bevy::prelude::*;
-use bevy_math::bounding::{Aabb3d, Bounded3d};
+use bevy_math::bounding::Aabb3d;
 
 pub mod ops;
 pub mod voxel_rasterize;

@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 //! Static trimesh collider
 
 use avian3d::prelude::*;

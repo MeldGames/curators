@@ -30,6 +30,7 @@ const DEPENETRATION_EPSILON: f32 = 0.01;
 /// Result of a movement calculation iteration
 #[derive(Debug)]
 pub struct MovementResult {
+    #[allow(dead_code)]
     pub movement: Vec3,
     pub remaining_velocity: Vec3,
     pub hit_normal: Option<Vec3>,

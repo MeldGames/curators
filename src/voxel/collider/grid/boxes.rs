@@ -17,7 +17,7 @@ pub fn spawn_box_colliders(
     mut commands: Commands,
     grids: Query<(Entity, &GlobalTransform, &VoxelChunk), Changed<VoxelChunk>>,
 ) {
-    for (entity, global_transform, grid) in &grids {
+    for (entity, _global_transform, grid) in &grids {
         let mut colliders: Vec<(Vec3, Quat, Collider)> = Vec::new();
         for point in VoxelChunk::point_iter() {
             let point_ivec3: IVec3 = point.into();
