@@ -39,7 +39,7 @@ pub fn clear_changed_chunks(
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Deref, DerefMut, Debug, Clone, PartialEq, Eq)]
 pub struct VoxelUpdate(pub IVec3);
 
 impl PartialOrd for VoxelUpdate {
@@ -50,7 +50,7 @@ impl PartialOrd for VoxelUpdate {
 
 impl Ord for VoxelUpdate {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.0.y.cmp(&self.0.y).then(other.0.x.cmp(&self.0.x)).then(other.0.z.cmp(&self.0.z))
+        other.y.cmp(&self.y).then(other.x.cmp(&self.x)).then(other.z.cmp(&self.z))
     }
 
 }
@@ -60,7 +60,7 @@ impl Ord for VoxelUpdate {
 pub struct Voxels {
     chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
     changed_chunks: HashSet<IVec3>,
-    pub(crate) update_voxels: BTreeSet<VoxelUpdate>,
+    pub(crate) update_voxels: Vec<VoxelUpdate>,
     clip: VoxelAabb,
 }
 

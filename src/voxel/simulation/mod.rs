@@ -44,7 +44,7 @@ pub struct FallingSandTick(pub u32);
 pub fn falling_sands(mut grids: Query<&mut Voxels>,
     mut sim_tick: ResMut<FallingSandTick>,
     mut ignore: Local<usize>,
-    mut updates: Local<BTreeSet<VoxelUpdate>>,
+    mut updates: Local<Vec<VoxelUpdate>>,
 ) {
     *ignore = (*ignore + 1) % 4; // 60 / 4 ticks per second
     if *ignore != 0 {
@@ -68,8 +68,8 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>,
 
             updates.clear();
             std::mem::swap(&mut *updates, &mut grid.update_voxels);
-            // updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
-            // updates.dedup();
+            updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
+            updates.dedup();
         }
 
 
