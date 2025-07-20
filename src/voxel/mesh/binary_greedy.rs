@@ -20,7 +20,7 @@ const MASK_XYZ: u64 = 0b111111_111111_111111;
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
     app.add_systems(
-        PostUpdate,
+        FixedPostUpdate,
         (spawn_chunk_entities, update_binary_mesh).chain().in_set(UpdateVoxelMeshSet),
     );
 }
@@ -96,6 +96,7 @@ pub fn update_binary_mesh(
     mut mesher: Local<BgmMesher>,
     mut collider_mesh_buffer: Local<ColliderMesh>,
     mut changed_chunks: EventReader<ChangedChunks>,
+    mut grid_entities: Query<Entity, With<Voxels>>,
 
     mut queue: Local<VecDeque<(Entity, IVec3)>>,
     mut dedup: Local<HashSet<(Entity, IVec3)>>,
@@ -110,10 +111,11 @@ pub fn update_binary_mesh(
         }
     }
 
-    const PER_FRAME: usize = 4;
+    const PER_FRAME: usize = 64;
     let mut pop_count = 0;
 
     while pop_count < PER_FRAME {
+        // info!("generating mesh for chunk {:?}", queue.front());
         pop_count += 1;
         let Some((voxel_entity, chunk_point)) = queue.pop_front() else { break; };
         dedup.remove(&(voxel_entity, chunk_point));
@@ -123,6 +125,7 @@ pub fn update_binary_mesh(
             continue;
         };
         // collider_mesh_buffer.clear();
+
 
         let Some(chunk) = voxels.get_chunk(chunk_point) else {
             warn!("No chunk at {chunk_point:?}");

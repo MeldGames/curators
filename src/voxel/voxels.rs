@@ -31,7 +31,9 @@ pub fn clear_changed_chunks(
     for (voxel_entity, mut voxels) in &mut voxels {
         writer.write(ChangedChunks {
             voxel_entity,
-            changed_chunks: voxels.changed_chunk_pos_iter().collect::<Vec<_>>(),
+            // changed_chunks: voxels.changed_chunk_pos_iter().collect::<Vec<_>>(),
+            // just update all chunks for now
+            changed_chunks: voxels.chunk_pos_iter().collect::<Vec<_>>(),
         });
         voxels.clear_changed_chunks();
     }
@@ -40,10 +42,13 @@ pub fn clear_changed_chunks(
 #[derive(Debug, Component, Clone, PartialEq, Eq)]
 #[require(Name::new("Voxels"))]
 pub struct Voxels {
+    clip: VoxelAabb,
     chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
     changed_chunks: HashSet<IVec3>,
-    pub(crate) update_voxels: Vec<IVec3>,
-    clip: VoxelAabb,
+
+    // 27 buckets as a 3x3 area of voxels to update
+    // very naive parallization scheme
+    pub(crate) update_voxels: [Vec<IVec3>; 27],
 }
 
 const CHUNK_SIZE: IVec3 = IVec3::splat(unpadded::SIZE as Scalar);
@@ -51,14 +56,15 @@ const CHUNK_SIZE_FLOAT: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
 impl Voxels {
     pub fn new() -> Self {
+        const EXPECTED_CHUNKS: usize = 64;
         Self {
-            chunks: default(),
-            changed_chunks: default(),
-            update_voxels: default(),
             clip: VoxelAabb {
                 min: IVec3::new(-1000, -100, -1000),
                 max: IVec3::new(1000, 300, 1000),
             },
+            chunks: HashMap::with_capacity(EXPECTED_CHUNKS),
+            changed_chunks: HashSet::with_capacity(EXPECTED_CHUNKS),
+            update_voxels: std::array::from_fn(|_| Vec::with_capacity(512)),
         }
     }
 
@@ -69,6 +75,7 @@ impl Voxels {
         let find_chunk_span = info_span!("find_chunk");
 
         point.div_euclid(CHUNK_SIZE)
+        // point / CHUNK_SIZE
     }
 
     #[inline]
@@ -103,7 +110,6 @@ impl Voxels {
     #[inline]
     pub fn relative_point_unoriented(point: IVec3) -> IVec3 {
         point.rem_euclid(CHUNK_SIZE)
-
     }
 
     #[inline]
@@ -125,6 +131,22 @@ impl Voxels {
                 (chunk_point, Self::relative_point_with_boundary(chunk_point, point))
             })
         })
+    }
+
+    // Guarantees while calling this:
+    // - I will add to the update_voxels list
+    // - All chunks surrounding this voxel that I care about exist
+    pub fn set_voxel_no_sideeffect(&mut self, point: IVec3, voxel: Voxel) {
+        for chunk_point in Self::chunks_overlapping_voxel(point) {
+            #[cfg(feature = "trace")]
+            let set_voxel_single_chunk_span = info_span!("set_voxel_single_chunk");
+            
+            let Some(chunk) = self.chunks.get_mut(&chunk_point) else { continue; };
+            let relative_point = Self::relative_point_with_boundary(chunk_point, point);
+            if chunk.in_chunk_bounds_unpadded(relative_point) {
+                chunk.set_unpadded(relative_point.into(), voxel);
+            }
+        }
     }
 
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
@@ -162,7 +184,6 @@ impl Voxels {
                 let chunk = self.chunks.entry(chunk_point).or_default();
                 let relative_point = Self::relative_point_with_boundary(chunk_point, point);
                 if chunk.in_chunk_bounds_unpadded(relative_point) {
-                    self.changed_chunks.insert(chunk_point); // negligible
                     chunk.set_unpadded(relative_point.into(), voxel);
                 }
             }
@@ -195,15 +216,21 @@ impl Voxels {
         }
     }
 
+    #[inline]
+    fn update_bucket(point: IVec3) -> usize {
+        (point.z.rem_euclid(3) + point.x.rem_euclid(3) * 3 + point.y.rem_euclid(3) * 9) as usize
+    }
+
     // Push point and adjacent 26 points into voxels to check simulation on.
     #[inline]
     pub fn set_update_voxels(&mut self, point: IVec3) {
-        for x in -1..=1 {
-            for y in -1..=1 {
-                for z in -1..=1 {
-                    self.update_voxels.push(point + IVec3::new(x, y, z));
-                }
-            }
+        // put each voxel into their own bucket
+        for offset in (-1..=1).flat_map(move |y| {
+            (-1..=1).flat_map(move |x| (-1..=1).map(move |z| IVec3::new(x, y, z)))
+        }) {
+            let point = point + offset;
+            let bucket = Self::update_bucket(point);
+            self.update_voxels[bucket].push(point);
         }
     }
 
@@ -351,6 +378,16 @@ impl Voxels {
 
     pub fn get_chunk_mut(&mut self, point: IVec3) -> Option<&mut VoxelChunk> {
         self.chunks.get_mut(&point)
+    }
+
+    // For parallel simulation - returns owned chunks
+    pub fn take_chunk(&mut self, point: IVec3) -> Option<VoxelChunk> {
+        self.chunks.remove(&point)
+    }
+
+    // For parallel simulation - restores chunks
+    pub fn restore_chunk(&mut self, point: IVec3, chunk: VoxelChunk) {
+        self.chunks.insert(point, chunk);
     }
 
     pub fn set_health(&mut self, point: IVec3, health: i16) {

@@ -29,8 +29,8 @@ pub fn torus_falling(mut voxels: Query<&mut Voxels>, input: Res<ButtonInput<KeyC
     *voxels = Voxels::new();
 
     // Create a simulation area with a barrier around it.
-    let min = -30;
-    let max = 30;
+    let min = 0;
+    let max = 60;
     for x in min..=max {
         for z in min..=max {
             for y in min..=max {
@@ -51,7 +51,7 @@ pub fn torus_falling(mut voxels: Query<&mut Voxels>, input: Res<ButtonInput<KeyC
         },
     ) {
         if raster_voxel.distance <= 0.0 {
-            voxels.set_voxel(raster_voxel.point, Voxel::Sand);
+            voxels.set_voxel(raster_voxel.point + IVec3::new(30, 0, 30), Voxel::Sand);
         }
     }
 }

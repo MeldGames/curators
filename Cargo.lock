@@ -274,6 +274,7 @@ dependencies = [
  "pprof",
  "rand 0.9.1",
  "rand_core 0.9.3",
+ "rayon",
  "serde",
  "thiserror 2.0.12",
  "tracing",

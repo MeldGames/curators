@@ -3,23 +3,33 @@
 //! This needs to be relatively fast... going to be a
 //! large experiment onto whether we can make this work or not.
 
-use crate::voxel::{unpadded, Voxel, Voxels};
+use crate::voxel::{Voxel, Voxels};
+use crate::voxel::chunk::unpadded;
 use bevy::prelude::*;
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "trace")]
 use tracing::*;
+
+// Re-export parallel simulation
+pub mod parallel;
+pub use parallel::*;
+
+// To use the parallel simulation, replace the falling_sands system with:
+// app.add_systems(FixedPreUpdate, parallel::parallel_falling_sands);
 
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>();
     app.insert_resource(FallingSandTick(0));
     app.add_systems(FixedPreUpdate, falling_sands);
+    // app.add_systems(FixedPreUpdate, parallel::parallel_falling_sands);
     // app.add_systems(Update, falling_sands);
 }
 
 // Make islands of voxels fall if unsupported.
 pub fn islands(mut grids: Query<&mut Voxels>) {}
 
-#[derive(Resource, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+#[derive(Resource, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, Debug)]
 #[reflect(Resource)]
 pub struct FallingSandTick(pub u32);
 
@@ -38,6 +48,10 @@ pub struct FallingSandTick(pub u32);
 //  
 
 
+#[derive(Clone)]
+pub struct GridPtr(pub *mut Voxels);
+unsafe impl Send for GridPtr {}
+unsafe impl Sync for GridPtr {}
 
 pub fn falling_sands(mut grids: Query<&mut Voxels>,
     mut sim_tick: ResMut<FallingSandTick>,
@@ -45,9 +59,9 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>,
     mut updates: Local<Vec<IVec3>>,
 ) {
     *ignore = (*ignore + 1) % 4; // 60 / 4 ticks per second
-    if *ignore != 0 {
-        return;
-    }
+    // if *ignore != 0 {
+    //     return;
+    // }
 
     #[cfg(feature = "trace")]
     let falling_sands_span = info_span!("falling_sands");
@@ -60,46 +74,45 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>,
     let mut static_counter = 0;
 
     for mut grid in &mut grids {
-        {
-            // #[cfg(feature = "trace")]
-            // let update_management_span = info_span!("update_management");
 
-            updates.extend(grid.update_voxels.drain(..));
+        // for i in (0..27).cycle().skip(27 / (*ignore + 1)).take(27 / 4) { // 27 buckets
+        for i in 0..27 { // 27 buckets
+            updates.clear();
+            std::mem::swap(&mut grid.update_voxels[i], &mut updates);
             updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
             updates.dedup();
-        }
 
 
-        while let Some(point) = updates.pop() {
-            #[cfg(feature = "trace")]
-            let update_span = info_span!("update_voxel", iteration = counter);
-
-            let sim_voxel = grid.get_voxel(point);
-            // counter += 1;
-            // if sim_voxel.is_simulated() {
-            //     simulated_counter += 1;
-            // } else {
-            //     static_counter += 1;
-            // };
-
-
-            match sim_voxel {
-                Voxel::Sand => { // semi-solid
-                    simulate_semisolid(&mut grid, point, sim_voxel, &sim_tick);
-                },
-                Voxel::Water | Voxel::Oil => { // liquids
-                    simulate_liquid(&mut grid, point, sim_voxel, &sim_tick);
-                },
-                Voxel::Dirt => {
-                    simulate_structured(&mut grid, point, sim_voxel, &sim_tick);
-                },
-                _ => {}, // no-op
+            for &update in &updates {
+                if grid.get_voxel(update).is_simulated() {
+                    grid.set_update_voxels(update);
+                }
             }
 
-            // if counter > MAX_UPDATE {
-            //     break;
-            // }
+            // SAFETY: We guarantee no overlapping voxel modifications across threads via the 27 buckets.
+            // the buckets act as a 3x3x3 buffer around the voxel being simulated.
+            let grid_ptr = GridPtr(&mut *grid as *mut Voxels);
+            let sim_tick = sim_tick.clone();
+
+            // rayon::scope(|s| {
+                for &point in &updates {
+                    let mut grid_ptr = grid_ptr.clone();
+                    // s.spawn(move |_| {
+                        #[cfg(feature = "trace")]
+                        let update_span = info_span!("update_voxel", iteration = counter);
+
+                        simulate_voxel(&mut grid_ptr, point, &sim_tick);
+                    // });
+                }
+                // eprintln!("bucket {} done, scope", i);
+            // });
+            // eprintln!("bucket {} done", i);
+
+            // eprintln!("bucket {} starting, simulating {} voxels", i, updates.len());
+            
+            // eprintln!("bucket {} done", i);
         }
+
     }
 
     // if simulated_counter > 0 {
@@ -108,44 +121,57 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>,
 }
 
 #[inline]
+pub fn simulate_voxel(grid_ptr: &mut GridPtr, point: IVec3, sim_tick: &FallingSandTick) {
+    let grid = unsafe { &mut *grid_ptr.0 };
+    let sim_voxel = grid.get_voxel(point);
+
+    match sim_voxel {
+        Voxel::Sand => { // semi-solid
+            simulate_semisolid(grid, point, sim_voxel, &sim_tick);
+        },
+        // Voxel::Water | Voxel::Oil => { // liquids
+        //     simulate_liquid(grid_ptr, point, sim_voxel, &sim_tick);
+        // },
+        // Voxel::Dirt => {
+        //     simulate_structured(grid_ptr, point, sim_voxel, &sim_tick);
+        // },
+        _ => {}, // no-op
+    }
+}
+
+#[inline]
 pub fn simulate_semisolid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
     #[cfg(feature = "trace")]
     let simulate_semisolid_span = info_span!("simulate_semisolid");
-
-    let chunk_pos = Voxels::find_chunk(point);
-    let relative_point = Voxels::relative_point_unoriented(point);
-    let chunk = grid.get_chunk_mut(chunk_pos).unwrap();
     
     const SWAP_POINTS: [IVec3; 5] =
     [IVec3::NEG_Y, ivec3(1, -1, 0), ivec3(0, -1, 1), ivec3(-1, -1, 0), ivec3(0, -1, -1)];
 
     for swap_point in SWAP_POINTS {
-        let voxel = chunk.voxel(relative_point + swap_point);
+        let voxel = grid.get_voxel(point + swap_point);
         if voxel.is_liquid() || voxel.is_gas() {
-            if relative_point.x == 0 || relative_point.x == unpadded::SIZE_SCALAR - 1 || relative_point.z == 0 || relative_point.z == unpadded::SIZE_SCALAR - 1 || relative_point.y == 0 || relative_point.y == unpadded::SIZE_SCALAR - 1 {
-                grid.set_voxel(point + swap_point, Voxel::Sand);
-                grid.set_voxel(point, voxel);
-            } else {
-                chunk.set(relative_point + swap_point, Voxel::Sand);
-                chunk.set(relative_point, voxel);
-            }
+            // if relative_point.x == 0 || relative_point.x == unpadded::SIZE_SCALAR - 1 || relative_point.z == 0 || relative_point.z == unpadded::SIZE_SCALAR - 1 || relative_point.y == 0 || relative_point.y == unpadded::SIZE_SCALAR - 1 {
+            //     unsafe { &mut *grid }.set_voxel(point + swap_point, Voxel::Sand);
+            //     unsafe { &mut *grid }.set_voxel(point, voxel);
+            // } else {
+            // }
+
+            // FIX: set_voxel is not safe here, I need to set voxels directly without side effects.
+            grid.set_voxel_no_sideeffect(point + swap_point, Voxel::Sand);
+            grid.set_voxel_no_sideeffect(point, voxel);
             break;
         }
     }
 }
 
 #[inline]
-pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
+pub fn simulate_liquid(grid: &GridPtr, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
     #[cfg(feature = "trace")]
     let simulate_liquid_span = info_span!("simulate_liquid");
     
     let swap_criteria = |voxel: Voxel| {
         voxel.is_gas() || (voxel.is_liquid() && sim_voxel.denser(voxel))
     };
-
-    let chunk_pos = Voxels::find_chunk(point);
-    let relative_point = Voxels::relative_point_unoriented(point);
-    let chunk = grid.get_chunk_mut(chunk_pos).unwrap();
 
     const SWAP_POINTS: [IVec3; 8] = [
         IVec3::NEG_Y.saturating_add(IVec3::NEG_X), // diagonals first
@@ -160,17 +186,17 @@ pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_ti
     ];
 
     // prioritize negative y
-    let below_point = IVec3::from(relative_point + IVec3::NEG_Y);
-    let below_voxel = chunk.voxel(below_point);
+    let below_point = IVec3::from(point + IVec3::NEG_Y);
+    let below_voxel = unsafe { &mut *grid.0 }.get_voxel(below_point);
     if swap_criteria(below_voxel) {
-        chunk.set(below_point, sim_voxel);
-        chunk.set(point, below_voxel);
+        unsafe { &mut *grid.0 }.set_voxel(below_point, sim_voxel);
+        unsafe { &mut *grid.0 }.set_voxel(point, below_voxel);
     } else {
         for swap_point in SWAP_POINTS.iter().cycle().skip((sim_tick.0 % 4) as usize).take(4) {
-            let voxel = chunk.voxel(IVec3::from(relative_point + swap_point));
+            let voxel = unsafe { &mut *grid.0 }.get_voxel(IVec3::from(point + swap_point));
             if swap_criteria(voxel) {
-                chunk.set(relative_point + swap_point, sim_voxel);
-                chunk.set(relative_point, voxel);
+                unsafe { &mut *grid.0 }.set_voxel(point + swap_point, sim_voxel);
+                unsafe { &mut *grid.0 }.set_voxel(point, voxel);
                 break;
             }
         }
@@ -178,11 +204,11 @@ pub fn simulate_liquid(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_ti
 }
 
 #[inline]
-pub fn simulate_structured(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
+pub fn simulate_structured(grid: &GridPtr, point: IVec3, sim_voxel: Voxel, sim_tick: &FallingSandTick) {
     #[cfg(feature = "trace")]
     let simulate_structured_span = info_span!("simulate_structured");
     
-    let below_voxel = grid.get_voxel(point + IVec3::new(0, -1, 0));
+    let below_voxel = unsafe { &mut *grid.0 }.get_voxel(point + IVec3::new(0, -1, 0));
     if below_voxel == Voxel::Air {
         const SURROUNDING: [IVec3; 5] = [
             ivec3(-1, 0, 0),
@@ -194,7 +220,7 @@ pub fn simulate_structured(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, si
 
         let mut structured = false;
         for check in SURROUNDING {
-            let check_voxel = grid.get_voxel(point + check);
+            let check_voxel = unsafe { &mut *grid.0 }.get_voxel(point + check);
 
             if !check_voxel.is_liquid() && !check_voxel.is_gas() {
                 structured = true;
@@ -203,8 +229,8 @@ pub fn simulate_structured(grid: &mut Voxels, point: IVec3, sim_voxel: Voxel, si
         }
 
         if structured {
-            grid.set_voxel(point + IVec3::new(0, -1, 0), Voxel::Dirt);
-            grid.set_voxel(point, below_voxel);
+            unsafe { &mut *grid.0 }.set_voxel(point + IVec3::new(0, -1, 0), Voxel::Dirt);
+            unsafe { &mut *grid.0 }.set_voxel(point, below_voxel);
         }
     }
 }

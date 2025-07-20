@@ -68,7 +68,7 @@ pub fn spawn_directional_lights(mut commands: Commands) {
         Transform::from_translation(Vec3::new(0.0, 1.0, 0.5)).looking_at(Vec3::ZERO, Vec3::Y),
         DirectionalLight {
             shadows_enabled: true,
-            soft_shadow_size: Some(1.0),
+            // soft_shadow_size: Some(1.0),
             // illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
