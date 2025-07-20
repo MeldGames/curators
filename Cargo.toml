@@ -13,7 +13,57 @@ trace = [
 
 [dependencies]
 # Bevy
-bevy = { version = "0.16.1", features = ["experimental_pbr_pcss"] }
+bevy = { version = "0.16.1", default-features = false, features = [
+  "experimental_pbr_pcss",
+
+  # default features
+  "std",
+  "async_executor",
+  "android-game-activity",
+  "android_shared_stdcxx",
+  "animation",
+  "bevy_asset",
+  "bevy_audio",
+  "bevy_color",
+  "bevy_core_pipeline",
+#   "bevy_core_widgets",
+#   "bevy_anti_aliasing",
+  "bevy_gilrs",
+  "bevy_gizmos",
+  "bevy_gltf",
+  "bevy_input_focus",
+  "bevy_log",
+  "bevy_mesh_picking_backend",
+  "bevy_pbr",
+  "bevy_picking",
+  "bevy_render",
+  "bevy_scene",
+#   "bevy_scene2",
+  "bevy_sprite",
+  "bevy_sprite_picking_backend",
+  "bevy_state",
+  "bevy_text",
+  "bevy_ui",
+  "bevy_ui_picking_backend",
+#   "bevy_ui_render",
+  "bevy_window",
+  "bevy_winit",
+  "custom_cursor",
+  "default_font",
+  "hdr",
+#   "multi_threaded",
+  "png",
+  "smaa_luts",
+  "sysinfo_plugin",
+  "tonemapping_luts",
+  "vorbis",
+  "webgl2",
+  "x11",
+#   "debug",
+#   "zstd_rust",
+#   "experimental_bevy_feathers",
+
+] }
 bevy_math = { version = "0.16.1", features = ["approx"] }
 #bevy = { version = "0.16.0", features = ["dynamic_linking", "trace_tracy"] }
 # Set max log levels. This helps avoid unwanted low-severity log spam, which can affect performance.

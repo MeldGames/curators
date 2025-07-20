@@ -68,7 +68,7 @@ pub fn falling_sands(mut grids: Query<&mut Voxels>,
 
             updates.clear();
             std::mem::swap(&mut *updates, &mut grid.update_voxels);
-            updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
+            updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));
             updates.dedup();
         }
 
