@@ -52,6 +52,11 @@ pub struct VoxelDefinition {
     pub initial_health: i16,
     /// "Density" of voxel, only really important for liquids/gases
     pub density: i8,
+
+    /// Should this voxel cast shadows?
+    pub shadow_caster: bool,
+    /// Should this voxel receive shadows?
+    pub shadow_receiver: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -75,6 +80,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         breakable: false,
         initial_health: 0,
         density: 0,
+        shadow_caster: false,
+        shadow_receiver: false,
     },
     &VoxelDefinition {
         voxel: Voxel::Base,
@@ -88,6 +95,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         breakable: false,
         initial_health: 0,
         density: 0,
+        shadow_caster: true,
+        shadow_receiver: true,
     },
     &VoxelDefinition {
         voxel: Voxel::Barrier, // base but transparent
@@ -101,6 +110,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         breakable: false,
         initial_health: 0,
         density: 0,
+        shadow_caster: false,
+        shadow_receiver: false,
     },
     &VoxelDefinition {
         voxel: Voxel::Dirt,
@@ -114,6 +125,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         breakable: true,
         initial_health: 10,
         density: 0,
+        shadow_caster: true,
+        shadow_receiver: true,
     },
     &VoxelDefinition {
         voxel: Voxel::Grass,
@@ -127,6 +140,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         breakable: true,
         initial_health: 10,
         density: 0,
+        shadow_caster: true,
+        shadow_receiver: true,
     },
     &VoxelDefinition {
         voxel: Voxel::Stone,
@@ -140,6 +155,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         breakable: true,
         initial_health: 100,
         density: 0,
+        shadow_caster: true,
+        shadow_receiver: true,
     },
     &VoxelDefinition {
         voxel: Voxel::Sand,
@@ -153,6 +170,9 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         breakable: true,
         initial_health: 10,
         density: 0,
+        shadow_caster: true,
+        shadow_receiver: true,
+
     },
     &VoxelDefinition {
         voxel: Voxel::Water,
@@ -166,6 +186,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         breakable: true,
         initial_health: 10,
         density: 40,
+        shadow_caster: false,
+        shadow_receiver: true,
     },
     &VoxelDefinition {
         voxel: Voxel::Oil,
@@ -179,6 +201,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         breakable: true,
         initial_health: 10,
         density: 10,
+        shadow_caster: false,
+        shadow_receiver: true,
     },
 ];
 
@@ -291,6 +315,16 @@ impl Voxel {
             Sand | Dirt | Water | Oil => true,
             _ => false,
         }
+    }
+
+    #[inline]
+    pub fn shadow_caster(self) -> bool {
+        self.definition().shadow_caster
+    }
+
+    #[inline]
+    pub fn shadow_receiver(self) -> bool {
+        self.definition().shadow_receiver
     }
 
     #[inline]

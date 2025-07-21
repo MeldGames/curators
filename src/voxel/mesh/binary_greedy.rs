@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
+use bevy::pbr::{NotShadowCaster, NotShadowReceiver};
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
@@ -163,14 +164,18 @@ pub fn update_binary_mesh(
                 if let Some(mesh) = render_mesh {
                     let mesh_handle = meshes.add(mesh);
                     let material = materials.add(voxel.material());
-                    let id = commands
+                    let mut voxel_mesh_commands = commands
                         .spawn((
                             Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
                             Mesh3d(mesh_handle),
                             MeshMaterial3d(material),
                             ChildOf(*chunk_entity),
-                        ))
-                        .id();
+                        ));
+
+                    if !voxel.shadow_caster() { voxel_mesh_commands.insert(NotShadowCaster); }
+                    if !voxel.shadow_receiver() { voxel_mesh_commands.insert(NotShadowReceiver); }
+
+                    let id = voxel_mesh_commands.id();
 
                     chunk_meshes.insert(voxel, id);
                 }

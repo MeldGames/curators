@@ -169,6 +169,20 @@ pub fn draw_cursor(
                     }
                 }
             }
+        } else if key_input.pressed(KeyCode::KeyU) {
+            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
+                brush,
+                RasterConfig {
+                    clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
+                    grid_scale: crate::voxel::GRID_SCALE,
+                    pad_bounds: Vec3::splat(3.0),
+                },
+            ) {
+                let point = point_ivec + raster_voxel.point;
+                if raster_voxel.distance < 0.0 {
+                    voxels.add_update_voxel(point);
+                }
+            }
         }
     }
 }

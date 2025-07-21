@@ -227,6 +227,11 @@ impl Voxels {
         }));
     }
 
+    #[inline]
+    pub fn add_update_voxel(&mut self, point: IVec3) {
+        self.update_voxels.push(VoxelUpdate(point));
+    }
+
     pub fn get_voxel(&self, point: IVec3) -> Voxel {
         #[cfg(feature = "trace")]
         let get_voxel_span = info_span!("get_voxel");
