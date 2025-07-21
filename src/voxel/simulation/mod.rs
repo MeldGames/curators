@@ -46,6 +46,10 @@ pub struct FallingSandTick(pub u32);
 // - give each thread a couple of dirty chunks to apply movements to and the lists of movements
 // 1 other thing is I really need to smooth this processing over multiple frames
 
+// pub struct ChunkMovements {
+//     pub movements: Vec<IVec3>,
+// }
+
 pub fn falling_sands(
     mut grids: Query<&mut Voxels>,
     mut sim_tick: ResMut<FallingSandTick>,

@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
 use std::ops::RangeInclusive;
 
 use bevy::platform::collections::{HashMap, HashSet};
@@ -445,8 +444,8 @@ impl Voxels {
         length: f32,
     ) -> impl Iterator<Item = Hit> {
         const CHUNK_SIZE: Vec3 = Vec3::splat(unpadded::SIZE as f32);
-        #[allow(non_snake_case)]
-        let SCALED_CHUNK_SIZE: Vec3 = CHUNK_SIZE * crate::voxel::GRID_SCALE;
+        // #[allow(non_snake_case)]
+        // let SCALED_CHUNK_SIZE: Vec3 = CHUNK_SIZE * crate::voxel::GRID_SCALE;
 
         let inv_matrix = grid_transform.compute_matrix().inverse();
         let Ok(local_direction) = Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3()))
@@ -510,7 +509,7 @@ impl Voxels {
         length: f32,
     ) -> impl Iterator<Item = VoxelHit> {
         self.chunk_ray_iter(grid_transform, ray, length).flat_map(move |chunk_hit| {
-            const CHUNK_SIZE: Vec3 = Vec3::splat(unpadded::SIZE as f32);
+            // const CHUNK_SIZE: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
             // let chunk_pos = chunk_hit.voxel.as_vec3() * CHUNK_SIZE;
             // let chunk_pos_transform = Transform { translation: chunk_pos, ..default() };
@@ -645,8 +644,6 @@ pub struct VoxelDiff {
 
 #[cfg(test)]
 pub mod tests {
-    use binary_greedy_meshing as bgm;
-
     use super::*;
 
     #[test]
