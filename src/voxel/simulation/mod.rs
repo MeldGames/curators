@@ -39,6 +39,13 @@ pub struct FallingSandTick(pub u32);
 // maybe offset spirals?:
 //
 
+// Take 2 on parallelization:
+// - each thread has a work pool of a chunk, each chunk keeps a record of dirty voxels (need to figure out a good way to store these too that isn't too rough to set)
+// - thread runs through each dirty voxel and marks where it'd like to go
+// - collect all of the commands/movements, flatten duplicates based on distance of the movement for determinism
+// - give each thread a couple of dirty chunks to apply movements to and the lists of movements
+// 1 other thing is I really need to smooth this processing over multiple frames
+
 pub fn falling_sands(
     mut grids: Query<&mut Voxels>,
     mut sim_tick: ResMut<FallingSandTick>,
