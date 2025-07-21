@@ -50,6 +50,12 @@ pub struct FallingSandTick(pub u32);
 //     pub movements: Vec<IVec3>,
 // }
 
+pub struct VoxelMovement {
+    pub from: IVec3,
+    pub from_chunk: IVec3,
+    pub to: IVec3,
+}
+
 pub fn falling_sands(
     mut grids: Query<&mut Voxels>,
     mut sim_tick: ResMut<FallingSandTick>,
@@ -78,7 +84,7 @@ pub fn falling_sands(
 
             updates.clear();
             std::mem::swap(&mut *updates, &mut grid.update_voxels);
-            updates.sort_by(|a, b| b.y.cmp(&a.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));
+            updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));
             updates.dedup();
         }
 
