@@ -57,6 +57,8 @@ impl Ord for VoxelUpdate {
 #[require(Name::new("Voxels"))]
 pub struct Voxels {
     chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
+    // chunks: Vec<VoxelChunk>, // linearize chunks similar to the voxels in the chunk
+    // strides: [usize; 3],
     changed_chunks: HashSet<IVec3>,
     pub(crate) update_voxels: Vec<VoxelUpdate>,
     clip: VoxelAabb,
@@ -66,9 +68,11 @@ const CHUNK_SIZE: IVec3 = IVec3::splat(unpadded::SIZE as Scalar);
 const CHUNK_SIZE_FLOAT: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
 impl Voxels {
-    pub fn new() -> Self {
+    pub fn new(size: IVec3) -> Self {
         Self {
             chunks: default(),
+            // chunks: vec![VoxelChunk::new(); (size.x * size.y * size.z) as usize],
+            // strides: [1, size.x as usize, (size.x * size.y) as usize],
             changed_chunks: default(),
             update_voxels: default(),
             clip: VoxelAabb {

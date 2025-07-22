@@ -50,6 +50,17 @@ pub struct FallingSandTick(pub u32);
 //     pub movements: Vec<IVec3>,
 // }
 
+
+// 4x4x4 voxels per block
+pub fn sim_linearize(point: IVec3) -> (IVec3, usize) {
+    let block = point.div_euclid(IVec3::splat(4));
+    let relative = point - block * IVec3::splat(4);
+    let index = (relative.x + relative.y * 4 + relative.z * 16) as usize;
+    (block, index)
+}
+pub struct SimBlocks {
+    pub blocks: [Voxel; 64]
+}
 pub struct VoxelMovement {
     pub from: IVec3,
     pub from_chunk: IVec3,
@@ -226,9 +237,9 @@ pub fn simulate_liquid(
                 Voxel::Water { lateral_energy } => {
                     if lateral_energy == 0 {
                         if below_voxel.is_liquid() {
-                            grid.set_voxel(point, Voxel::Air);
+                            // grid.set_voxel(point, Voxel::Air);
                         }
-                        return;
+                        // return;
                     }
 
                     Voxel::Water { lateral_energy: lateral_energy - 1 }
@@ -236,7 +247,7 @@ pub fn simulate_liquid(
                 Voxel::Oil { lateral_energy } => {
                     if lateral_energy == 0 {
                         if below_voxel.is_liquid() {
-                            grid.set_voxel(point, Voxel::Air);
+                            // grid.set_voxel(point, Voxel::Air);
                         }
                         return;
                     }
