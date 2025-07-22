@@ -64,7 +64,7 @@ pub fn falling_sands(
 ) {
     *ignore = (*ignore + 1) % 4; // 60 / 4 ticks per second
     if *ignore != 0 {
-        return;
+        // return;
     }
 
     #[cfg(feature = "trace")]
@@ -84,7 +84,22 @@ pub fn falling_sands(
 
             updates.clear();
             std::mem::swap(&mut *updates, &mut grid.update_voxels);
-            updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));
+            match sim_tick.0 % 4 {
+                0 => {
+                    updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));
+                },
+                1 => {
+                    updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
+                },
+                2 => {
+                    updates.sort_by(|a, b| a.y.cmp(&b.y).then(a.x.cmp(&b.x)).then(a.z.cmp(&b.z)));
+                },
+                3 => {
+                    updates.sort_by(|a, b| a.y.cmp(&b.y).then(a.z.cmp(&b.z)).then(a.x.cmp(&b.x)));
+                },
+                _ => unreachable!(),
+            }
+
             updates.dedup();
         }
 
@@ -105,7 +120,7 @@ pub fn falling_sands(
                     // semi-solid
                     simulate_semisolid(&mut grid, point, sim_voxel, &sim_tick);
                 },
-                Voxel::Water | Voxel::Oil => {
+                Voxel::Water { .. } | Voxel::Oil { .. } => {
                     // liquids
                     simulate_liquid(&mut grid, point, sim_voxel, &sim_tick);
                 },
@@ -180,7 +195,8 @@ pub fn simulate_liquid(
         grid.set_voxel(below_point, sim_voxel);
         grid.set_voxel(point, below_voxel);
     } else {
-        for swap_point in SWAP_POINTS.iter().cycle().skip((sim_tick.0 % 4) as usize).take(4) {
+        // for swap_point in SWAP_POINTS.iter().cycle().skip((sim_tick.0 % 4) as usize).take(8) {
+        for swap_point in SWAP_POINTS.iter().cycle().skip((sim_tick.0 % 8) as usize).take(8) {
             let voxel = grid.get_voxel(IVec3::from(point + swap_point));
             if swap_criteria(voxel) {
                 grid.set_voxel(point + swap_point, sim_voxel);

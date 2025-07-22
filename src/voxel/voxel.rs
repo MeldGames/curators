@@ -11,7 +11,7 @@ pub fn plugin(app: &mut App) {
     Reflect, Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Serialize, Deserialize,
 )]
 pub enum Voxel {
-    Air = 0, // special case "nothing"
+    Air, // special case "nothing"
 
     // unbreakable
     Base,
@@ -26,9 +26,34 @@ pub enum Voxel {
     Sand,
 
     // liquids
-    Water, // TODO: add lateral velocity to remove oscillation?
+    Water,
     Oil,
+    // Water(LiquidParams), // TODO: add lateral velocity to remove oscillation?
+    // Oil(LiquidParams),
 }
+
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, Serialize, Deserialize,
+)]
+pub struct LiquidParams {
+    pub lateral_energy: u8,
+}
+
+impl Default for LiquidParams {
+    fn default() -> Self {
+        Self { lateral_energy: 4 }
+    }
+}
+
+// pub struct VoxelData(u16);
+
+// pub fn pack_voxel(voxel: Voxel) -> PackedVoxel {
+//     match voxel {
+//         Voxel::Water { lateral_energy } => PackedVoxel::Water { lateral_energy },
+//         Voxel::Oil { lateral_energy } => PackedVoxel::Oil { lateral_energy },
+//         _ => PackedVoxel::Air,
+//     }
+// }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VoxelDefinition {
@@ -59,7 +84,9 @@ pub struct VoxelDefinition {
     pub shadow_receiver: bool,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, Serialize, Deserialize,
+)]
 pub enum SimKind {
     Solid, // No sim
     SemiSolid,
@@ -172,9 +199,9 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 0,
         shadow_caster: true,
         shadow_receiver: true,
-
     },
     &VoxelDefinition {
+        // voxel: Voxel::Water { lateral_energy: 4 },
         voxel: Voxel::Water,
         name: "water",
         simulation_kind: SimKind::Liquid,
@@ -190,6 +217,7 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         shadow_receiver: true,
     },
     &VoxelDefinition {
+        // voxel: Voxel::Oil { lateral_energy: 4 },
         voxel: Voxel::Oil,
         name: "oil",
         simulation_kind: SimKind::Liquid,
@@ -219,7 +247,17 @@ impl Voxel {
 
     #[inline]
     pub fn id(self) -> u16 {
-        self as u16
+        match self {
+            Voxel::Air => 0,
+            Voxel::Base => 1,
+            Voxel::Barrier => 2,
+            Voxel::Dirt => 3,
+            Voxel::Grass => 4,
+            Voxel::Stone => 5,
+            Voxel::Sand => 6,
+            Voxel::Water => 7,
+            Voxel::Oil => 8,
+        }
     }
 
     #[inline]
@@ -356,14 +394,14 @@ impl Voxel {
                 perceptual_roughness: 0.5,
                 base_color: Color::srgba(10.0 / 225.0, 10.0 / 255.0, 150.0 / 255.0, 0.2),
                 reflectance: 0.5,
-                alpha_mode: AlphaMode::Premultiplied,
+                alpha_mode: AlphaMode::Blend,
                 ..default_material
             },
             Voxel::Oil => StandardMaterial {
                 perceptual_roughness: 0.5,
                 reflectance: 0.9,
                 base_color: Color::srgba(79.0 / 225.0, 55.0 / 255.0, 39.0 / 255.0, 0.2),
-                alpha_mode: AlphaMode::Premultiplied,
+                alpha_mode: AlphaMode::Blend,
                 ..default_material
             },
             Voxel::Sand => StandardMaterial {
@@ -419,11 +457,23 @@ impl VoxelMaterials {
 #[cfg(test)]
 mod test {
     use super::*;
+    
+    #[test]
+    fn voxel_mem_test() {
+        assert_eq!(std::mem::size_of::<Voxel>(), 1);
+    }
 
     #[test]
     fn def_sanity() {
         for (id, &def) in VOXEL_DEFINITIONS.iter().enumerate() {
-            assert_eq!(def.voxel, Voxel::from_id(id as u16).unwrap());
+            assert_eq!(
+                def.voxel,
+                Voxel::from_id(id as u16).unwrap(),
+                "Id for voxel {:?} is not the same as definition index: {} != {}",
+                Voxel::from_id(id as u16),
+                id,
+                def.voxel.id()
+            );
             assert_eq!(def.voxel.id(), id as u16);
         }
     }
