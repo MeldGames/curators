@@ -339,7 +339,11 @@ pub fn pos_uvs(quad: Quad, face: Face) -> [([f32; 3], [f32; 2]); 4] {
 impl BinaryGreedyMeshing for VoxelChunk {
     fn generate_render_meshes(&self, mesher: &mut bgm::Mesher) -> Vec<Option<Mesh>> {
         mesher.clear();
-        mesher.fast_mesh_no_merge(&self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(), &self.opaque_mask, &self.transparent_mask);
+        mesher.fast_mesh_no_merge(
+            &self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(),
+            &self.opaque_mask,
+            &self.transparent_mask,
+        );
 
         let max_id = Voxel::iter()
             .max_by(|v1, v2| v1.id().cmp(&v2.id()))

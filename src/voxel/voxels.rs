@@ -56,12 +56,12 @@ impl Ord for VoxelUpdate {
 #[derive(Debug, Component, Clone, PartialEq, Eq)]
 #[require(Name::new("Voxels"))]
 pub struct Voxels {
-    chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
-    // chunks: Vec<VoxelChunk>, // linearize chunks similar to the voxels in the chunk
-    // strides: [usize; 3],
+    // chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
+    chunks: Vec<VoxelChunk>, // linearize chunks similar to the voxels in the chunk
+    strides: [usize; 3],
     changed_chunks: HashSet<IVec3>,
     pub(crate) update_voxels: Vec<VoxelUpdate>,
-    clip: VoxelAabb,
+    size: IVec3,
 }
 
 const CHUNK_SIZE: IVec3 = IVec3::splat(unpadded::SIZE as Scalar);
@@ -69,16 +69,22 @@ const CHUNK_SIZE_FLOAT: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
 impl Voxels {
     pub fn new(size: IVec3) -> Self {
+        // let mut chunks = HashMap::with_capacity((size.x * size.y * size.z) as usize);
+        // for z in 0..size.z {
+        //     for x in 0..size.x {
+        //         for y in 0..size.y {
+        //             chunks.insert(IVec3::new(x, y, z), VoxelChunk::new());
+        //         }
+        //     }
+        // }
+
         Self {
-            chunks: default(),
-            // chunks: vec![VoxelChunk::new(); (size.x * size.y * size.z) as usize],
-            // strides: [1, size.x as usize, (size.x * size.y) as usize],
+            // chunks: chunks,
+            chunks: vec![VoxelChunk::new(); (size.x * size.y * size.z) as usize],
+            strides: [1, size.z as usize, (size.z * size.x) as usize],
             changed_chunks: default(),
             update_voxels: default(),
-            clip: VoxelAabb {
-                min: IVec3::new(-1000, -100, -1000),
-                max: IVec3::new(1000, 300, 1000),
-            },
+            size,
         }
     }
 
@@ -88,8 +94,23 @@ impl Voxels {
         #[cfg(feature = "trace")]
         let find_chunk_span = info_span!("find_chunk");
 
-        point.div_euclid(CHUNK_SIZE)
+        // point.div_euclid(CHUNK_SIZE)
+        point / CHUNK_SIZE
     }
+
+    #[inline]
+    pub fn chunk_index(&self, chunk_point: IVec3) -> usize {
+        chunk_point.z as usize
+            + chunk_point.x as usize * self.strides[1]
+            + chunk_point.y as usize * self.strides[2]
+    }
+
+    // pub fn chunk_delinearize(&self, chunk_index: usize) -> IVec3 {
+    //     let z = chunk_index % self.strides[1];
+    //     let x = (chunk_index / self.strides[1]) % self.strides[2];
+    //     let y = chunk_index / self.strides[2];
+    //     IVec3::new(x, y, z)
+    // }
 
     #[inline]
     pub fn chunks_overlapping_voxel(voxel_pos: IVec3) -> impl Iterator<Item = IVec3> {
@@ -124,12 +145,12 @@ impl Voxels {
 
     #[inline]
     pub fn relative_point_unoriented(point: IVec3) -> IVec3 {
-        point.rem_euclid(CHUNK_SIZE)
+        point % CHUNK_SIZE
     }
 
     #[inline]
     pub fn is_boundary_point(point: IVec3) -> bool {
-        let relative_point = point.rem_euclid(CHUNK_SIZE);
+        let relative_point = Self::relative_point_unoriented(point);
         relative_point.x == 0
             || relative_point.x == unpadded::SIZE_SCALAR
             || relative_point.y == 0
@@ -157,11 +178,13 @@ impl Voxels {
             #[cfg(feature = "trace")]
             let set_voxel_single_chunk_span = info_span!("set_voxel_single_chunk");
 
-            let chunk = self.chunks.entry(chunk_point).or_default();
+            let Some(chunk) = self.get_chunk_mut(chunk_point) else {
+                continue;
+            };
             let relative_point = Self::relative_point_with_boundary(chunk_point, point);
             if chunk.in_chunk_bounds_unpadded(relative_point) {
-                self.changed_chunks.insert(chunk_point); // negligible
                 chunk.set_unpadded(relative_point.into(), voxel);
+                self.changed_chunks.insert(chunk_point); // negligible
             }
         }
     }
@@ -176,9 +199,15 @@ impl Voxels {
         //     return;
         // }
 
-        if point.y < -50 || point.y > 250 {
-            return;
-        }
+        // if point.x < 0
+        //     || point.y < 0
+        //     || point.z < 0
+        //     || point.x >= self.size.x * unpadded::SIZE_SCALAR
+        //     || point.y >= self.size.y * unpadded::SIZE_SCALAR
+        //     || point.z >= self.size.z * unpadded::SIZE_SCALAR
+        // {
+        //     return;
+        // }
 
         // if !Voxels::is_boundary_point(point) {
         //     #[cfg(feature = "trace")]
@@ -196,30 +225,6 @@ impl Voxels {
 
         self.set_voxel_chunk_overlap(point, voxel);
         self.set_update_voxels(point); // 18-22%
-    }
-
-    pub fn set_voxels(
-        &mut self,
-        voxel_points: impl Iterator<Item = IVec3> + Clone,
-        voxels: impl Iterator<Item = Voxel>,
-    ) {
-        for point in voxel_points.clone() {
-            self.set_update_voxels(point);
-        }
-
-        let iterator = voxel_points.zip(voxels).flat_map(|(point, voxel)| {
-            Self::chunks_overlapping_voxel(point).map(move |chunk_point| {
-                (chunk_point, Self::relative_point_with_boundary(chunk_point, point), voxel)
-            })
-        });
-
-        for (chunk_point, relative_point, voxel) in iterator {
-            let chunk = self.chunks.entry(chunk_point).or_default();
-            if chunk.in_chunk_bounds_unpadded(relative_point) {
-                self.changed_chunks.insert(chunk_point);
-                chunk.set_unpadded(relative_point.into(), voxel);
-            }
-        }
     }
 
     // Push point and adjacent 26 points into voxels to check simulation on.
@@ -241,10 +246,10 @@ impl Voxels {
         let get_voxel_span = info_span!("get_voxel");
 
         let chunk_point = Self::find_chunk(point);
-        if let Some(chunk) = self.chunks.get(&chunk_point) {
-            chunk.voxel(Self::relative_point(chunk_point, point))
+        if let Some(chunk) = self.get_chunk(chunk_point) {
+            chunk.get_voxel(Self::relative_point(chunk_point, point)).unwrap_or(Voxel::Barrier)
         } else {
-            Voxel::Air
+            Voxel::Barrier
         }
     }
 
@@ -374,23 +379,28 @@ impl Voxels {
         }
     }
 
-    pub fn get_chunk(&self, point: IVec3) -> Option<&VoxelChunk> {
-        self.chunks.get(&point)
+    #[inline]
+    pub fn get_chunk(&self, chunk_point: IVec3) -> Option<&VoxelChunk> {
+        let chunk_index = self.chunk_index(chunk_point);
+        self.chunks.get(chunk_index)
+        // self.chunks.get(&chunk_point)
     }
 
-    pub fn get_chunk_mut(&mut self, point: IVec3) -> Option<&mut VoxelChunk> {
-        self.chunks.get_mut(&point)
+    pub fn get_chunk_mut(&mut self, chunk_point: IVec3) -> Option<&mut VoxelChunk> {
+        let chunk_index = self.chunk_index(chunk_point);
+        self.chunks.get_mut(chunk_index)
+        // self.chunks.get_mut(&chunk_point)
     }
 
     pub fn set_health(&mut self, point: IVec3, health: i16) {
-        if let Some(chunk) = self.chunks.get_mut(&Self::find_chunk(point)) {
+        if let Some(chunk) = self.get_chunk_mut(Self::find_chunk(point)) {
             chunk.set_health(point.into(), health);
         }
     }
 
     pub fn health(&self, point: IVec3) -> Option<i16> {
         let chunk_point = Self::find_chunk(point);
-        if let Some(chunk) = self.chunks.get(&chunk_point) {
+        if let Some(chunk) = self.get_chunk(chunk_point) {
             Some(chunk.health(Self::relative_point(chunk_point, point).into()))
         } else {
             None
@@ -399,19 +409,20 @@ impl Voxels {
 
     // [min, max]
     pub fn chunk_bounds(&self) -> (IVec3, IVec3) {
-        let mut min = IVec3::MAX;
-        let mut max = IVec3::MIN;
+        // let mut min = IVec3::MAX;
+        // let mut max = IVec3::MIN;
 
-        if self.chunks.len() == 0 {
-            return (IVec3::ZERO, IVec3::ZERO);
-        }
+        // if self.chunks.len() == 0 {
+        //     return (IVec3::ZERO, IVec3::ZERO);
+        // }
 
-        for chunk_point in self.chunks.keys().copied() {
-            min = min.min(chunk_point);
-            max = max.max(chunk_point + IVec3::splat(1));
-        }
+        // for chunk_point in self.chunks.keys().copied() {
+        //     min = min.min(chunk_point);
+        //     max = max.max(chunk_point + IVec3::splat(1));
+        // }
 
-        (min, max)
+        // (min, max)
+        (IVec3::ZERO, self.size)
     }
 
     pub fn chunk_aabb(&self) -> VoxelAabb {
@@ -435,7 +446,10 @@ impl Voxels {
     }
 
     pub fn chunk_pos_iter(&self) -> impl Iterator<Item = IVec3> {
-        self.chunks.keys().copied()
+        // self.chunks.keys().copied()
+        (0..self.size.z).flat_map(move |z| {
+            (0..self.size.x).flat_map(move |x| (0..self.size.y).map(move |y| IVec3::new(x, y, z)))
+        })
     }
 
     pub fn point_iter(&self) -> impl Iterator<Item = IVec3> {
@@ -545,7 +559,7 @@ impl Voxels {
     }
 
     pub fn chunk_iter(&self) -> impl Iterator<Item = (IVec3, &VoxelChunk)> {
-        self.chunks.iter().map(|(p, c)| (*p, c))
+        self.chunk_pos_iter().map(|chunk_point| (chunk_point, self.get_chunk(chunk_point).unwrap()))
     }
 
     pub fn changed_chunk_pos_iter(&self) -> impl Iterator<Item = IVec3> {
@@ -553,7 +567,7 @@ impl Voxels {
     }
 
     pub fn changed_chunk_iter(&self) -> impl Iterator<Item = (IVec3, &VoxelChunk)> {
-        self.changed_chunks.iter().filter_map(|p| self.chunks.get(p).map(|chunk| (*p, chunk)))
+        self.changed_chunks.iter().filter_map(|&p| self.get_chunk(p).map(|chunk| (p, chunk)))
     }
 
     pub fn clear_changed_chunks(&mut self) {
@@ -735,27 +749,27 @@ pub mod tests {
         );
     }
 
-    #[test]
-    fn set_voxel_batch() {
-        // just make sure the batch actually does the same thing as setting directly
-        let size = 1;
-        let len = size * size * size;
-        let point_iter = (-size..=size).flat_map(move |y| {
-            (-size..=size).flat_map(move |x| (-size..=size).map(move |z| IVec3::new(x, y, z)))
-        });
-        let voxel_iter = (-len..len).map(|_| Voxel::Sand);
+    // #[test]
+    // fn set_voxel_batch() {
+    //     // just make sure the batch actually does the same thing as setting directly
+    //     let size = 1;
+    //     let len = size * size * size;
+    //     let point_iter = (-size..=size).flat_map(move |y| {
+    //         (-size..=size).flat_map(move |x| (-size..=size).map(move |z| IVec3::new(x, y, z)))
+    //     });
+    //     let voxel_iter = (-len..len).map(|_| Voxel::Sand);
 
-        let mut voxels_direct = Voxels::new();
-        for (point, voxel) in point_iter.clone().zip(voxel_iter.clone()) {
-            voxels_direct.set_voxel(point, voxel);
-        }
+    //     let mut voxels_direct = Voxels::new(IVec3::splat(size));
+    //     for (point, voxel) in point_iter.clone().zip(voxel_iter.clone()) {
+    //         voxels_direct.set_voxel(point, voxel);
+    //     }
 
-        let mut voxels_batch = Voxels::new();
-        voxels_batch.set_voxels(point_iter.clone(), voxel_iter.clone());
+    //     let mut voxels_batch = Voxels::new(IVec3::splat(size));
+    //     voxels_batch.set_voxels(point_iter.clone(), voxel_iter.clone());
 
-        let diff = voxels_direct.diff(&voxels_batch, 50);
-        if diff.len() > 0 {
-            panic!("diffs: {:?}", diff);
-        }
-    }
+    //     let diff = voxels_direct.diff(&voxels_batch, 50);
+    //     if diff.len() > 0 {
+    //         panic!("diffs: {:?}", diff);
+    //     }
+    // }
 }

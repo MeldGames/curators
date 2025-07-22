@@ -271,7 +271,7 @@ impl Voxel {
             Voxel::Oil { .. } => 8,
         }
     }
-    
+
     #[inline]
     pub fn from_data(data: u16) -> Self {
         unpack_voxel(data)
@@ -474,7 +474,7 @@ impl VoxelMaterials {
 #[cfg(test)]
 mod test {
     use super::*;
-    
+
     #[test]
     fn voxel_mem_test() {
         assert_eq!(std::mem::size_of::<Voxel>(), 1);

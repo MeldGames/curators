@@ -124,9 +124,13 @@ impl VoxelChunk {
         Some(self.voxel_from_index(padded::pad_linearize(point)))
     }
 
+    /// Retrieve a voxel from the chunk.
+    ///
+    /// # Panics
+    /// Panics if the point is out of the chunk bounds.
     pub fn voxel(&self, point: impl Into<[Scalar; 3]>) -> Voxel {
         let point = point.into();
-        debug_assert!(self.in_chunk_bounds(point.into()));
+        debug_assert!(self.in_chunk_bounds(point.into()), "Point out of bounds: {:?}", point);
         // if !self.in_chunk_bounds(point.into()) {
         //     panic!("Point out of bounds: {:?}", point);
         // }

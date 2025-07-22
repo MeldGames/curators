@@ -50,7 +50,6 @@ pub struct FallingSandTick(pub u32);
 //     pub movements: Vec<IVec3>,
 // }
 
-
 // 4x4x4 voxels per block
 pub fn sim_linearize(point: IVec3) -> (IVec3, usize) {
     let block = point.div_euclid(IVec3::splat(4));
@@ -59,7 +58,7 @@ pub fn sim_linearize(point: IVec3) -> (IVec3, usize) {
     (block, index)
 }
 pub struct SimBlocks {
-    pub blocks: [Voxel; 64]
+    pub blocks: [Voxel; 64],
 }
 pub struct VoxelMovement {
     pub from: IVec3,
@@ -165,7 +164,6 @@ const ADJACENTS: [IVec3; 4] = [
     IVec3::NEG_Z,
     IVec3::Z,
 ];
-
 
 #[inline]
 pub fn simulate_semisolid(
