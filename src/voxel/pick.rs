@@ -110,9 +110,10 @@ pub fn draw_cursor(
         let brushes: Vec<&dyn sdf::Sdf> = vec![
             &sdf::Torus { minor_radius: 1.0, major_radius: 3.0 },
             &sdf::Sphere { radius: 4.0 },
+            // &sdf::Sphere { radius: 0.2 },
         ];
 
-        let brush_voxels: Vec<Voxel> = vec![Voxel::Dirt, Voxel::Sand, Voxel::Water, Voxel::Oil];
+        let brush_voxels: Vec<Voxel> = vec![Voxel::Dirt, Voxel::Sand, Voxel::Water { lateral_energy: 4 }, Voxel::Oil { lateral_energy: 4 }];
 
         if key_input.just_pressed(KeyCode::KeyB) {
             *brush_index = (*brush_index + 1) % brushes.len();

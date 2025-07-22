@@ -142,7 +142,7 @@ pub fn update_binary_mesh(
         // 몰리
 
         for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
-            let voxel = Voxel::from_id(voxel_id as u16).unwrap();
+            let voxel = Voxel::from_data(voxel_id as u16);
 
             if let Some(entity) = chunk_meshes.get(&voxel) {
                 let mut entity_commands = commands.entity(*entity);
@@ -339,7 +339,7 @@ pub fn pos_uvs(quad: Quad, face: Face) -> [([f32; 3], [f32; 2]); 4] {
 impl BinaryGreedyMeshing for VoxelChunk {
     fn generate_render_meshes(&self, mesher: &mut bgm::Mesher) -> Vec<Option<Mesh>> {
         mesher.clear();
-        mesher.fast_mesh_no_merge(&self.voxels, &self.opaque_mask, &self.transparent_mask);
+        mesher.fast_mesh_no_merge(&self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(), &self.opaque_mask, &self.transparent_mask);
 
         let max_id = Voxel::iter()
             .max_by(|v1, v2| v1.id().cmp(&v2.id()))
@@ -353,7 +353,7 @@ impl BinaryGreedyMeshing for VoxelChunk {
             let face: Face = (face_n as u8).into();
             let n = face.n();
             for quad in quads {
-                let voxel_i = quad.voxel_id() as usize;
+                let voxel_i = Voxel::from_data(quad.voxel_id() as u16).id() as usize;
                 for (pos, uv) in pos_uvs(*quad, face) {
                     positions[voxel_i].push(pos);
                     normals[voxel_i].push(n.clone());
@@ -392,7 +392,7 @@ impl BinaryGreedyMeshing for VoxelChunk {
     fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher) -> ColliderMesh {
         let mut collide_voxels = vec![0u16; bgm::CS_P3].into_boxed_slice();
         for (index, voxel) in self.voxels.iter().enumerate() {
-            if Voxel::from_id(*voxel).unwrap().collidable() {
+            if Voxel::from_data(*voxel as u16).collidable() {
                 collide_voxels[index] = 1;
             }
         }

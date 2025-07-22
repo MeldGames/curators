@@ -26,34 +26,41 @@ pub enum Voxel {
     Sand,
 
     // liquids
-    Water,
-    Oil,
-    // Water(LiquidParams), // TODO: add lateral velocity to remove oscillation?
-    // Oil(LiquidParams),
-}
-
-#[derive(
-    Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect, Serialize, Deserialize,
-)]
-pub struct LiquidParams {
-    pub lateral_energy: u8,
-}
-
-impl Default for LiquidParams {
-    fn default() -> Self {
-        Self { lateral_energy: 4 }
-    }
+    Water { lateral_energy: u8 }, // TODO: add lateral velocity to remove oscillation?
+    Oil { lateral_energy: u8 },
 }
 
 // pub struct VoxelData(u16);
 
-// pub fn pack_voxel(voxel: Voxel) -> PackedVoxel {
-//     match voxel {
-//         Voxel::Water { lateral_energy } => PackedVoxel::Water { lateral_energy },
-//         Voxel::Oil { lateral_energy } => PackedVoxel::Oil { lateral_energy },
-//         _ => PackedVoxel::Air,
-//     }
-// }
+#[inline]
+pub fn pack_voxel(voxel: Voxel) -> u16 {
+    let extra_data: u8 = match voxel {
+        Voxel::Water { lateral_energy } => lateral_energy,
+        Voxel::Oil { lateral_energy } => lateral_energy,
+        _ => 0,
+    };
+
+    let data = ((extra_data as u16) << 8) | voxel.id();
+    data
+}
+
+#[inline]
+pub fn unpack_voxel(data: u16) -> Voxel {
+    let id = data & 0xFF;
+    let extra_data = (data >> 8) & 0xFF;
+    match id {
+        0 => Voxel::Air,
+        1 => Voxel::Base,
+        2 => Voxel::Barrier,
+        3 => Voxel::Dirt,
+        4 => Voxel::Grass,
+        5 => Voxel::Stone,
+        6 => Voxel::Sand,
+        7 => Voxel::Water { lateral_energy: extra_data as u8 },
+        8 => Voxel::Oil { lateral_energy: extra_data as u8 },
+        _ => panic!("Invalid voxel id: {}", id),
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VoxelDefinition {
@@ -201,8 +208,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         shadow_receiver: true,
     },
     &VoxelDefinition {
-        // voxel: Voxel::Water { lateral_energy: 4 },
-        voxel: Voxel::Water,
+        voxel: Voxel::Water { lateral_energy: 32 },
+        // voxel: Voxel::Water,
         name: "water",
         simulation_kind: SimKind::Liquid,
         simulated: true,
@@ -217,8 +224,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         shadow_receiver: true,
     },
     &VoxelDefinition {
-        // voxel: Voxel::Oil { lateral_energy: 4 },
-        voxel: Voxel::Oil,
+        voxel: Voxel::Oil { lateral_energy: 32 },
+        // voxel: Voxel::Oil,
         name: "oil",
         simulation_kind: SimKind::Liquid,
         simulated: true,
@@ -246,6 +253,11 @@ impl Voxel {
     }
 
     #[inline]
+    pub fn data(self) -> u16 {
+        pack_voxel(self)
+    }
+
+    #[inline]
     pub fn id(self) -> u16 {
         match self {
             Voxel::Air => 0,
@@ -255,9 +267,14 @@ impl Voxel {
             Voxel::Grass => 4,
             Voxel::Stone => 5,
             Voxel::Sand => 6,
-            Voxel::Water => 7,
-            Voxel::Oil => 8,
+            Voxel::Water { .. } => 7,
+            Voxel::Oil { .. } => 8,
         }
+    }
+    
+    #[inline]
+    pub fn from_data(data: u16) -> Self {
+        unpack_voxel(data)
     }
 
     #[inline]
@@ -279,8 +296,8 @@ impl Voxel {
             "grass" => Some(Voxel::Grass),
             "stone" => Some(Voxel::Stone),
 
-            "water" => Some(Voxel::Water),
-            "oil" => Some(Voxel::Oil),
+            "water" => Some(Voxel::Water { lateral_energy: 32 }),
+            "oil" => Some(Voxel::Oil { lateral_energy: 32 }),
             _ => None,
         }
     }
@@ -292,7 +309,7 @@ impl Voxel {
 
     #[inline]
     pub fn definition(self) -> &'static VoxelDefinition {
-        VOXEL_DEFINITIONS[self as usize]
+        VOXEL_DEFINITIONS[self.id() as usize]
     }
 
     #[inline]
@@ -350,7 +367,7 @@ impl Voxel {
     pub fn is_simulated(self) -> bool {
         use Voxel::*;
         match self {
-            Sand | Dirt | Water | Oil => true,
+            Sand | Dirt | Water { .. } | Oil { .. } => true,
             _ => false,
         }
     }
@@ -390,14 +407,14 @@ impl Voxel {
                 base_color: Color::srgb(0.6, 0.6, 0.6),
                 ..default_material
             },
-            Voxel::Water => StandardMaterial {
+            Voxel::Water { .. } => StandardMaterial {
                 perceptual_roughness: 0.5,
                 base_color: Color::srgba(10.0 / 225.0, 10.0 / 255.0, 150.0 / 255.0, 0.2),
                 reflectance: 0.5,
                 alpha_mode: AlphaMode::Blend,
                 ..default_material
             },
-            Voxel::Oil => StandardMaterial {
+            Voxel::Oil { .. } => StandardMaterial {
                 perceptual_roughness: 0.5,
                 reflectance: 0.9,
                 base_color: Color::srgba(79.0 / 225.0, 55.0 / 255.0, 39.0 / 255.0, 0.2),
@@ -432,8 +449,8 @@ impl VoxelMaterials {
             dirt: materials.add(Voxel::Dirt.material()),
             sand: materials.add(Voxel::Sand.material()),
             grass: materials.add(Voxel::Grass.material()),
-            water: materials.add(Voxel::Water.material()),
-            oil: materials.add(Voxel::Oil.material()),
+            water: materials.add(Voxel::Water { lateral_energy: 32 }.material()),
+            oil: materials.add(Voxel::Oil { lateral_energy: 32 }.material()),
         }
     }
 
@@ -443,8 +460,8 @@ impl VoxelMaterials {
             Voxel::Sand => self.sand.clone(),
             Voxel::Dirt => self.dirt.clone(),
             Voxel::Grass => self.grass.clone(),
-            Voxel::Water => self.water.clone(),
-            Voxel::Oil => self.oil.clone(),
+            Voxel::Water { .. } => self.water.clone(),
+            Voxel::Oil { .. } => self.oil.clone(),
             _ => self.base.clone(),
         }
     }
@@ -501,6 +518,18 @@ mod test {
             unique.insert(name);
             let from_name = Voxel::from_name(name).unwrap();
             assert_eq!(from_name, voxel);
+        }
+    }
+
+    #[test]
+    fn pack_unpack() {
+        for voxel in Voxel::iter() {
+            println!("voxel: {:?}", voxel);
+            let data = voxel.data();
+            println!("data: {:016b}", data);
+            let unpacked = Voxel::from_data(data);
+            println!("unpacked: {:?}", unpacked);
+            assert_eq!(voxel, unpacked);
         }
     }
 }

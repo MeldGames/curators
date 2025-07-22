@@ -136,7 +136,7 @@ impl VoxelChunk {
 
     #[inline]
     pub fn voxel_from_index(&self, index: usize) -> Voxel {
-        Voxel::from_id(self.voxels[index]).unwrap()
+        Voxel::from_data(self.voxels[index])
     }
 
     pub fn set(&mut self, point: impl Into<[Scalar; 3]>, voxel: Voxel) {
@@ -156,7 +156,7 @@ impl VoxelChunk {
         let index = padded::linearize(point);
 
         self.clear_health(point);
-        self.voxels[index as usize] = voxel.id();
+        self.voxels[index as usize] = voxel.data();
         self.set_masks(point, voxel.transparent())
     }
 
@@ -309,8 +309,8 @@ pub mod tests {
         let mut chunk = VoxelChunk::new();
         chunk.set([0, 0, 0], Voxel::Dirt);
         assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Dirt);
-        chunk.set([0, 0, 0], Voxel::Water);
-        assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Water);
+        chunk.set([0, 0, 0], Voxel::Water { lateral_energy: 4 });
+        assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Water { lateral_energy: 4 });
     }
 
     #[test]
@@ -383,7 +383,7 @@ pub mod tests {
             assert_eq!(chunk.opaque_mask[mask_index] & (1 << mask_bit), 1 << mask_bit);
             assert_eq!(chunk.transparent_mask[mask_index] & (1 << mask_bit), 0);
 
-            chunk.set(point, Voxel::Water);
+            chunk.set(point, Voxel::Water { lateral_energy: 4 });
             println!(
                 "{:?}:{:?} = arr {:?} mask {:?}",
                 mask_index,
