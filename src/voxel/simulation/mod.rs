@@ -5,7 +5,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::voxel::{simulation::data::SimChunks, Voxel, Voxels};
+use crate::voxel::{Voxel, Voxels, simulation::data::SimChunks};
 use bevy::prelude::*;
 
 #[cfg(feature = "trace")]
@@ -61,12 +61,12 @@ pub struct SimSwapBuffer(pub Vec<[u64; 64]>);
 #[derive(Component, Clone)]
 pub struct RenderSwapBuffer(pub Vec<[u64; 64]>);
 
-pub fn update_render_voxels(
-    mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer)>,
-) {
+pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer)>) {
     for (mut grid, mut render_swap_buffer) in &mut grids {
-        for (chunk_index, voxel_index) in grid.sim_chunks.render_updates(&mut render_swap_buffer.0) {
-            let point = grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+        for (chunk_index, voxel_index) in grid.sim_chunks.render_updates(&mut render_swap_buffer.0)
+        {
+            let point =
+                grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
             let voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
             grid.render_chunks.set_voxel(point, voxel);
             // info!("updating point: {:?}", point);
@@ -75,7 +75,7 @@ pub fn update_render_voxels(
 }
 
 pub fn falling_sands(
-    mut grids: Query<(&mut Voxels,&mut SimSwapBuffer)>,
+    mut grids: Query<(&mut Voxels, &mut SimSwapBuffer)>,
     mut sim_tick: ResMut<FallingSandTick>,
     mut ignore: Local<usize>,
 ) {
@@ -138,16 +138,22 @@ pub fn falling_sands(
             match sim_voxel {
                 Voxel::Sand => {
                     // semi-solid
-                    let point = grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    let point = grid
+                        .sim_chunks
+                        .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
                     simulate_semisolid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 Voxel::Water { .. } | Voxel::Oil { .. } => {
                     // liquids
-                    let point = grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    let point = grid
+                        .sim_chunks
+                        .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
                     simulate_liquid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 Voxel::Dirt => {
-                    let point = grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    let point = grid
+                        .sim_chunks
+                        .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
                     simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 _ => {}, // no-op
@@ -177,7 +183,6 @@ const ADJACENTS: [IVec3; 4] = [
     IVec3::NEG_Z,
     IVec3::Z,
 ];
-
 
 #[inline]
 pub fn simulate_semisolid(

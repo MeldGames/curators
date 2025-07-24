@@ -1,4 +1,7 @@
-use crate::voxel::{simulation::{RenderSwapBuffer, SimSwapBuffer}, Voxel, Voxels};
+use crate::voxel::{
+    Voxel, Voxels,
+    simulation::{RenderSwapBuffer, SimSwapBuffer},
+};
 use bevy::prelude::*;
 
 #[cfg(feature = "trace")]
@@ -41,7 +44,7 @@ pub struct SimChunks {
     pub chunks: Vec<SimChunk>,
     pub chunk_strides: [usize; 3],
 
-    pub sim_updates: Vec<[u64; 64]>, // bitmask of updates
+    pub sim_updates: Vec<[u64; 64]>,    // bitmask of updates
     pub render_updates: Vec<[u64; 64]>, // bitmask of updates
 
     pub chunk_size: IVec3,

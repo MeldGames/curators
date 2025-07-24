@@ -30,7 +30,6 @@ pub struct Voxels {
     pub voxel_size: IVec3,
 }
 
-
 impl Voxels {
     pub fn new(voxel_size: IVec3) -> Self {
         Self {
@@ -140,7 +139,6 @@ impl Voxels {
         None
     }
 
-
     /// Take a 3x3 matrix around the voxel and smooth it on the y-axis.
     pub fn smooth_voxel(&mut self, pos: IVec3, height_range: RangeInclusive<i32>) {
         #[rustfmt::skip]
@@ -209,9 +207,8 @@ impl Voxels {
 
     pub fn point_iter(&self) -> impl Iterator<Item = IVec3> {
         (0..self.voxel_size.x).flat_map(move |x| {
-            (0..self.voxel_size.z).flat_map(move |z| {
-                (0..self.voxel_size.y).map(move |y| IVec3::new(x, y, z))
-            })
+            (0..self.voxel_size.z)
+                .flat_map(move |z| (0..self.voxel_size.y).map(move |y| IVec3::new(x, y, z)))
         })
     }
 

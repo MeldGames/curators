@@ -4,11 +4,14 @@ use std::hint::black_box;
 
 use bevy::prelude::*;
 
-use arch::{sdf::{
-    self,
-    voxel_rasterize::{rasterize, RasterConfig, RasterVoxel},
-}, voxel::simulation::{data::SimChunks, SimSwapBuffer}};
 use arch::voxel::{self, Voxel, Voxels};
+use arch::{
+    sdf::{
+        self,
+        voxel_rasterize::{RasterConfig, RasterVoxel, rasterize},
+    },
+    voxel::simulation::{SimSwapBuffer, data::SimChunks},
+};
 
 criterion_group!(benches, falling_sand_torus);
 criterion_main!(benches);

@@ -1,6 +1,6 @@
 use bevy::{platform::collections::HashSet, prelude::*};
 
-pub use chunk::{VoxelChunk, unpadded, padded, Scalar};
+pub use chunk::{Scalar, VoxelChunk, padded, unpadded};
 
 use crate::voxel::{Voxel, VoxelAabb, Voxels};
 
@@ -43,7 +43,6 @@ pub fn clear_changed_chunks(
         voxels.render_chunks.clear_changed_chunks();
     }
 }
-
 
 const CHUNK_SIZE: IVec3 = IVec3::splat(unpadded::SIZE as Scalar);
 const CHUNK_SIZE_FLOAT: Vec3 = Vec3::splat(unpadded::SIZE as f32);
@@ -191,7 +190,6 @@ impl RenderChunks {
         }
     }
 
-
     /// Given a voxel position, find the chunk it is in.
     #[inline]
     pub fn find_chunk(point: IVec3) -> IVec3 {
@@ -275,7 +273,8 @@ impl RenderChunks {
     pub fn chunk_pos_iter(&self) -> impl Iterator<Item = IVec3> {
         // self.chunks.keys().copied()
         (0..self.chunk_size.z).flat_map(move |z| {
-            (0..self.chunk_size.x).flat_map(move |x| (0..self.chunk_size.y).map(move |y| IVec3::new(x, y, z)))
+            (0..self.chunk_size.x)
+                .flat_map(move |x| (0..self.chunk_size.y).map(move |y| IVec3::new(x, y, z)))
         })
     }
 
@@ -301,7 +300,6 @@ impl RenderChunks {
     pub fn clear_changed_chunks(&mut self) {
         self.changed_chunks.clear();
     }
-
 }
 
 impl std::fmt::Debug for RenderChunks {
@@ -309,7 +307,6 @@ impl std::fmt::Debug for RenderChunks {
         write!(f, "RenderChunks")
     }
 }
-
 
 #[cfg(test)]
 pub mod tests {
@@ -334,10 +331,22 @@ pub mod tests {
         assert_eq!(RenderChunks::relative_point(ivec3(1, 0, 0), ivec3(63, 0, 0)), ivec3(1, 0, 0));
 
         // negative handling
-        assert_eq!(RenderChunks::relative_point(ivec3(0, 0, 0), ivec3(-1, -1, -1)), ivec3(-1, -1, -1));
-        assert_eq!(RenderChunks::relative_point(ivec3(-1, -1, -1), ivec3(0, 0, 0)), ivec3(62, 62, 62)); // oob
-        assert_eq!(RenderChunks::relative_point(ivec3(-1, -1, -1), ivec3(-1, -1, -1)), ivec3(61, 61, 61));
-        assert_eq!(RenderChunks::relative_point(ivec3(-1, -1, -1), ivec3(-62, -62, -62)), ivec3(0, 0, 0));
+        assert_eq!(
+            RenderChunks::relative_point(ivec3(0, 0, 0), ivec3(-1, -1, -1)),
+            ivec3(-1, -1, -1)
+        );
+        assert_eq!(
+            RenderChunks::relative_point(ivec3(-1, -1, -1), ivec3(0, 0, 0)),
+            ivec3(62, 62, 62)
+        ); // oob
+        assert_eq!(
+            RenderChunks::relative_point(ivec3(-1, -1, -1), ivec3(-1, -1, -1)),
+            ivec3(61, 61, 61)
+        );
+        assert_eq!(
+            RenderChunks::relative_point(ivec3(-1, -1, -1), ivec3(-62, -62, -62)),
+            ivec3(0, 0, 0)
+        );
     }
 
     #[test]
@@ -418,5 +427,4 @@ pub mod tests {
     //         panic!("diffs: {:?}", diff);
     //     }
     // }
-
 }

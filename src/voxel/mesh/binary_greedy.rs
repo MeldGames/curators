@@ -11,8 +11,8 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
+use crate::voxel::mesh::{ChangedChunks, chunk::VoxelChunk};
 use crate::voxel::{Voxel, Voxels};
-use crate::voxel::mesh::{chunk::VoxelChunk, ChangedChunks};
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);

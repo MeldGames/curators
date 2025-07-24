@@ -5,8 +5,8 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::voxel::{UpdateVoxelMeshSet, Voxel, Voxels};
 use crate::voxel::mesh::chunk::VoxelChunk;
+use crate::voxel::{UpdateVoxelMeshSet, Voxel, Voxels};
 
 pub struct VoxelTrimeshColliderPlugin;
 impl Plugin for VoxelTrimeshColliderPlugin {
