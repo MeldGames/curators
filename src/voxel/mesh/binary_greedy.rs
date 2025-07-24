@@ -11,7 +11,8 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
-use crate::voxel::{ChangedChunks, Voxel, VoxelChunk, Voxels};
+use crate::voxel::mesh::{ChangedChunks, chunk::VoxelChunk};
+use crate::voxel::{Voxel, Voxels};
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
@@ -57,7 +58,7 @@ pub fn spawn_chunk_entities(
     mut grids: Query<(Entity, &Voxels, &mut Chunks), Changed<Voxels>>,
 ) {
     for (voxels_entity, voxels, mut voxel_chunks) in &mut grids {
-        for (chunk_pos, _) in voxels.chunk_iter() {
+        for (chunk_pos, _) in voxels.render_chunks.chunk_iter() {
             if !voxel_chunks.contains_key(&chunk_pos) {
                 let new_chunk = commands
                     .spawn((
@@ -67,7 +68,7 @@ pub fn spawn_chunk_entities(
                         ChildOf(voxels_entity),
                         Transform {
                             translation: chunk_pos.as_vec3()
-                                * crate::voxel::chunk::unpadded::SIZE as f32,
+                                * crate::voxel::mesh::unpadded::SIZE as f32,
                             ..default()
                         },
                         Visibility::Inherited,
@@ -104,7 +105,7 @@ pub fn update_binary_mesh(
         }
     }
 
-    const PER_FRAME: usize = 4;
+    const PER_FRAME: usize = 16;
     let mut pop_count = 0;
 
     while pop_count < PER_FRAME {
@@ -120,7 +121,7 @@ pub fn update_binary_mesh(
         };
         // collider_mesh_buffer.clear();
 
-        let Some(chunk) = voxels.get_chunk(chunk_point) else {
+        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
             warn!("No chunk at {chunk_point:?}");
             continue;
         };
@@ -339,7 +340,11 @@ pub fn pos_uvs(quad: Quad, face: Face) -> [([f32; 3], [f32; 2]); 4] {
 impl BinaryGreedyMeshing for VoxelChunk {
     fn generate_render_meshes(&self, mesher: &mut bgm::Mesher) -> Vec<Option<Mesh>> {
         mesher.clear();
-        mesher.fast_mesh_no_merge(&self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(), &self.opaque_mask, &self.transparent_mask);
+        mesher.fast_mesh_no_merge(
+            &self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(),
+            &self.opaque_mask,
+            &self.transparent_mask,
+        );
 
         let max_id = Voxel::iter()
             .max_by(|v1, v2| v1.id().cmp(&v2.id()))

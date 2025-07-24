@@ -1,13 +1,11 @@
 use bevy::prelude::*;
-pub use chunk::{Scalar, VoxelChunk, padded, unpadded};
 pub use mesh::UpdateVoxelMeshSet;
 pub use pick::CursorVoxel;
 pub use voxel::Voxel;
 pub use voxel_aabb::VoxelAabb;
-pub use voxels::{ChangedChunks, Voxels};
+pub use voxels::Voxels;
 
 pub mod brush;
-pub mod chunk;
 pub mod collider;
 pub mod mesh;
 pub mod pick;
@@ -43,7 +41,7 @@ impl Plugin for VoxelPlugin {
 
 pub fn spawn_voxel_grid(mut commands: Commands) {
     commands.spawn((
-        Voxels::new(),
+        Voxels::new(IVec3::new(256, 256, 256)),
         Transform { scale: GRID_SCALE, ..default() },
         // mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,

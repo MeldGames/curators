@@ -5,17 +5,22 @@
 
 use std::collections::BTreeSet;
 
-use crate::voxel::{Voxel, Voxels, unpadded, voxels::VoxelUpdate};
+use crate::voxel::{Voxel, Voxels, simulation::data::SimChunks};
 use bevy::prelude::*;
 
 #[cfg(feature = "trace")]
 use tracing::*;
 
+pub mod data;
+
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>();
     app.insert_resource(FallingSandTick(0));
     app.add_systems(FixedPreUpdate, falling_sands);
+    app.add_systems(FixedUpdate, update_render_voxels);
     // app.add_systems(Update, falling_sands);
+
+    app.add_plugins(data::plugin);
 }
 
 // Make islands of voxels fall if unsupported.
@@ -50,17 +55,29 @@ pub struct FallingSandTick(pub u32);
 //     pub movements: Vec<IVec3>,
 // }
 
-pub struct VoxelMovement {
-    pub from: IVec3,
-    pub from_chunk: IVec3,
-    pub to: IVec3,
+#[derive(Component, Clone)]
+pub struct SimSwapBuffer(pub Vec<[u64; 64]>);
+
+#[derive(Component, Clone)]
+pub struct RenderSwapBuffer(pub Vec<[u64; 64]>);
+
+pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer)>) {
+    for (mut grid, mut render_swap_buffer) in &mut grids {
+        for (chunk_index, voxel_index) in grid.sim_chunks.render_updates(&mut render_swap_buffer.0)
+        {
+            let point =
+                grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+            let voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
+            grid.render_chunks.set_voxel(point, voxel);
+            // info!("updating point: {:?}", point);
+        }
+    }
 }
 
 pub fn falling_sands(
-    mut grids: Query<&mut Voxels>,
+    mut grids: Query<(&mut Voxels, &mut SimSwapBuffer)>,
     mut sim_tick: ResMut<FallingSandTick>,
     mut ignore: Local<usize>,
-    mut updates: Local<Vec<VoxelUpdate>>,
 ) {
     *ignore = (*ignore + 1) % 4; // 60 / 4 ticks per second
     if *ignore != 0 {
@@ -77,37 +94,40 @@ pub fn falling_sands(
     let mut simulated_counter = 0;
     let mut static_counter = 0;
 
-    for mut grid in &mut grids {
-        {
-            // #[cfg(feature = "trace")]
-            // let update_management_span = info_span!("update_management");
+    for (mut grid, mut sim_swap_buffer) in &mut grids {
+        // {
+        //     // #[cfg(feature = "trace")]
+        //     // let update_management_span = info_span!("update_management");
 
-            updates.clear();
-            std::mem::swap(&mut *updates, &mut grid.update_voxels);
-            match sim_tick.0 % 4 {
-                0 => {
-                    updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));
-                },
-                1 => {
-                    updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
-                },
-                2 => {
-                    updates.sort_by(|a, b| a.y.cmp(&b.y).then(a.x.cmp(&b.x)).then(a.z.cmp(&b.z)));
-                },
-                3 => {
-                    updates.sort_by(|a, b| a.y.cmp(&b.y).then(a.z.cmp(&b.z)).then(a.x.cmp(&b.x)));
-                },
-                _ => unreachable!(),
-            }
+        //     updates.clear();
+        //     std::mem::swap(&mut *updates, &mut grid.update_voxels);
+        //     match sim_tick.0 % 4 {
+        //         0 => {
+        //             updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));
+        //         },
+        //         1 => {
+        //             updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
+        //         },
+        //         2 => {
+        //             updates.sort_by(|a, b| a.y.cmp(&b.y).then(a.x.cmp(&b.x)).then(a.z.cmp(&b.z)));
+        //         },
+        //         3 => {
+        //             updates.sort_by(|a, b| a.y.cmp(&b.y).then(a.z.cmp(&b.z)).then(a.x.cmp(&b.x)));
+        //         },
+        //         _ => unreachable!(),
+        //     }
 
-            updates.dedup();
-        }
+        //     updates.dedup();
+        // }
 
-        for point in updates.iter().map(|p| p.0) {
+        // println!("simulating");
+        for (chunk_index, voxel_index) in grid.sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
             #[cfg(feature = "trace")]
             let update_span = info_span!("update_voxel", iteration = counter);
+            // println!("chunk_index: {}, voxel_index: {}", chunk_index, voxel_index);
 
-            let sim_voxel = grid.get_voxel(point);
+            let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
+
             // counter += 1;
             // if sim_voxel.is_simulated() {
             //     simulated_counter += 1;
@@ -115,17 +135,27 @@ pub fn falling_sands(
             //     static_counter += 1;
             // };
 
+            // TODO: delinearize indices into a point
             match sim_voxel {
                 Voxel::Sand => {
                     // semi-solid
-                    simulate_semisolid(&mut grid, point, sim_voxel, &sim_tick);
+                    let point = grid
+                        .sim_chunks
+                        .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    simulate_semisolid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 Voxel::Water { .. } | Voxel::Oil { .. } => {
                     // liquids
-                    simulate_liquid(&mut grid, point, sim_voxel, &sim_tick);
+                    let point = grid
+                        .sim_chunks
+                        .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    simulate_liquid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 Voxel::Dirt => {
-                    simulate_structured(&mut grid, point, sim_voxel, &sim_tick);
+                    let point = grid
+                        .sim_chunks
+                        .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 _ => {}, // no-op
             }
@@ -155,10 +185,9 @@ const ADJACENTS: [IVec3; 4] = [
     IVec3::Z,
 ];
 
-
 #[inline]
 pub fn simulate_semisolid(
-    grid: &mut Voxels,
+    grid: &mut SimChunks,
     point: IVec3,
     sim_voxel: Voxel,
     sim_tick: &FallingSandTick,
@@ -181,7 +210,7 @@ pub fn simulate_semisolid(
 
 #[inline]
 pub fn simulate_liquid(
-    grid: &mut Voxels,
+    grid: &mut SimChunks,
     point: IVec3,
     sim_voxel: Voxel,
     sim_tick: &FallingSandTick,
@@ -226,9 +255,9 @@ pub fn simulate_liquid(
                 Voxel::Water { lateral_energy } => {
                     if lateral_energy == 0 {
                         if below_voxel.is_liquid() {
-                            grid.set_voxel(point, Voxel::Air);
+                            // grid.set_voxel(point, Voxel::Air);
                         }
-                        return;
+                        // return;
                     }
 
                     Voxel::Water { lateral_energy: lateral_energy - 1 }
@@ -236,7 +265,7 @@ pub fn simulate_liquid(
                 Voxel::Oil { lateral_energy } => {
                     if lateral_energy == 0 {
                         if below_voxel.is_liquid() {
-                            grid.set_voxel(point, Voxel::Air);
+                            // grid.set_voxel(point, Voxel::Air);
                         }
                         return;
                     }
@@ -254,7 +283,7 @@ pub fn simulate_liquid(
 
 #[inline]
 pub fn simulate_structured(
-    grid: &mut Voxels,
+    grid: &mut SimChunks,
     point: IVec3,
     sim_voxel: Voxel,
     sim_tick: &FallingSandTick,
