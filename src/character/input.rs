@@ -139,16 +139,16 @@ pub fn dig_block(
                     if voxel.breakable() && dig_state.time_since_dig >= dig_state.dig_time {
                         let dig_power = 10;
 
-                        if let Some(health) = voxels.health(voxel_pos.into()) {
-                            let new_health = health.saturating_sub(dig_power);
-                            if new_health == 0 {
-                                voxels.set_voxel(voxel_pos.into(), Voxel::Air);
-                            } else {
-                                voxels.set_health(voxel_pos.into(), new_health);
-                            }
+                        // if let Some(health) = voxels.health(voxel_pos.into()) {
+                        //     let new_health = health.saturating_sub(dig_power);
+                        //     if new_health == 0 {
+                        //         voxels.set_voxel(voxel_pos.into(), Voxel::Air);
+                        //     } else {
+                        //         voxels.set_health(voxel_pos.into(), new_health);
+                        //     }
 
-                            dig_state.time_since_dig -= dig_state.dig_time;
-                        }
+                        //     dig_state.time_since_dig -= dig_state.dig_time;
+                        // }
                     }
                 }
             }

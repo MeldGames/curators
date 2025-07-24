@@ -11,7 +11,8 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
-use crate::voxel::{ChangedChunks, Voxel, VoxelChunk, Voxels};
+use crate::voxel::{Voxel, Voxels};
+use crate::voxel::mesh::{chunk::VoxelChunk, ChangedChunks};
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
@@ -57,7 +58,7 @@ pub fn spawn_chunk_entities(
     mut grids: Query<(Entity, &Voxels, &mut Chunks), Changed<Voxels>>,
 ) {
     for (voxels_entity, voxels, mut voxel_chunks) in &mut grids {
-        for (chunk_pos, _) in voxels.chunk_iter() {
+        for (chunk_pos, _) in voxels.render_chunks.chunk_iter() {
             if !voxel_chunks.contains_key(&chunk_pos) {
                 let new_chunk = commands
                     .spawn((
@@ -67,7 +68,7 @@ pub fn spawn_chunk_entities(
                         ChildOf(voxels_entity),
                         Transform {
                             translation: chunk_pos.as_vec3()
-                                * crate::voxel::chunk::unpadded::SIZE as f32,
+                                * crate::voxel::mesh::unpadded::SIZE as f32,
                             ..default()
                         },
                         Visibility::Inherited,
@@ -120,7 +121,7 @@ pub fn update_binary_mesh(
         };
         // collider_mesh_buffer.clear();
 
-        let Some(chunk) = voxels.get_chunk(chunk_point) else {
+        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
             warn!("No chunk at {chunk_point:?}");
             continue;
         };
@@ -140,6 +141,8 @@ pub fn update_binary_mesh(
         };
 
         // 몰리
+
+        info!("updating chunk mesh");
 
         for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
             let voxel = Voxel::from_data(voxel_id as u16);

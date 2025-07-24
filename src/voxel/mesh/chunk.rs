@@ -92,9 +92,6 @@ pub struct VoxelChunk {
     pub voxels: Vec<u16>,           // padded::ARR_STRIDE length
     pub opaque_mask: Vec<u64>,      // padded::SIZE^2 length, bit masks of 64^3 voxels
     pub transparent_mask: Vec<u64>, // padded::SIZE^2 length
-
-    // Voxel health
-    health: HashMap<[Scalar; 3], i16>,
 }
 
 impl Default for VoxelChunk {
@@ -104,8 +101,6 @@ impl Default for VoxelChunk {
 
             opaque_mask: vec![0u64; padded::SIZE * padded::SIZE],
             transparent_mask: vec![0u64; padded::SIZE * padded::SIZE],
-
-            health: HashMap::default(),
         }
     }
 }
@@ -159,7 +154,6 @@ impl VoxelChunk {
 
         let index = padded::linearize(point);
 
-        self.clear_health(point);
         self.voxels[index as usize] = voxel.data();
         self.set_masks(point, voxel.transparent())
     }
@@ -252,35 +246,6 @@ impl VoxelChunk {
     #[inline]
     pub fn ground_level(&self) -> Scalar {
         (self.y_size() as f32 / 2.0).ceil() as Scalar
-    }
-
-    pub fn health(&self, point: [Scalar; 3]) -> i16 {
-        if let Some(health) = self.health.get(&point) {
-            *health
-        } else {
-            self.voxel(point).starting_health()
-        }
-    }
-
-    pub fn set_health(&mut self, point: [Scalar; 3], health: i16) {
-        self.health.insert(point, health);
-    }
-
-    pub fn clear_health(&mut self, point: [Scalar; 3]) {
-        self.health.remove(&point);
-    }
-
-    // Closest voxel to the surface at a specified x and z.
-    // This is a hack compared to a real screenspace raycast.
-    pub fn surface_voxel(&self, x: Scalar, z: Scalar) -> Option<(Voxel, Scalar)> {
-        for y in (0..self.y_size()).rev() {
-            let voxel = self.voxel([x, y, z]);
-            if voxel != Voxel::Air {
-                return Some((voxel, y));
-            }
-        }
-
-        None
     }
 }
 

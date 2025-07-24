@@ -18,7 +18,6 @@ impl VoxelAabb {
 
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct VoxelHit {
-    pub chunk: IVec3,
     pub voxel: IVec3,
     pub world_space: Vec3,
 
@@ -314,25 +313,25 @@ pub fn debug_raycast(
     // const BLUE: Color = Color::srgb(0.0, 0.0, 1.0);
     for hit in voxels.ray_iter(voxels_transform, test_ray, 1_000.0) {
         use crate::voxel::GRID_SCALE;
-        const CHUNK_SIZE: Vec3 = Vec3::splat(crate::voxel::chunk::unpadded::SIZE as f32);
+        const CHUNK_SIZE: Vec3 = Vec3::splat(crate::voxel::mesh::unpadded::SIZE as f32);
 
         // info!("- hit: {:?}", hit);
 
         // Generate chunk aabbs that we sampled
-        if debug_raycast.show_chunks {
-            #[allow(non_snake_case)]
-            let SCALED_CHUNK_SIZE: Vec3 = CHUNK_SIZE * GRID_SCALE;
+        // if debug_raycast.show_chunks {
+        //     #[allow(non_snake_case)]
+        //     let SCALED_CHUNK_SIZE: Vec3 = CHUNK_SIZE * GRID_SCALE;
 
-            let pos = hit.chunk.as_vec3();
-            gizmos.cuboid(
-                Transform {
-                    translation: pos * SCALED_CHUNK_SIZE + SCALED_CHUNK_SIZE / 2.0,
-                    scale: SCALED_CHUNK_SIZE,
-                    ..default()
-                },
-                Color::srgb(1.0, 0.0, 0.0),
-            );
-        }
+        //     let pos = hit.chunk.as_vec3();
+        //     gizmos.cuboid(
+        //         Transform {
+        //             translation: pos * SCALED_CHUNK_SIZE + SCALED_CHUNK_SIZE / 2.0,
+        //             scale: SCALED_CHUNK_SIZE,
+        //             ..default()
+        //         },
+        //         Color::srgb(1.0, 0.0, 0.0),
+        //     );
+        // }
 
         // Generate voxel aabbs that we sampled
         if debug_raycast.show_voxels {
@@ -347,7 +346,7 @@ pub fn debug_raycast(
             );
         }
 
-        let voxel = voxels.get_voxel(hit.voxel);
+        let voxel = voxels.sim_chunks.get_voxel(hit.voxel);
         if voxel.pickable() {
             break;
         }

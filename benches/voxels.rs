@@ -16,7 +16,7 @@ criterion_main!(benches);
 fn get_voxel(c: &mut Criterion) {
     let mut group = c.benchmark_group("get_voxels");
     group.bench_function("get_voxel_direct", |b| {
-        let voxels = Voxels::new();
+        let voxels = Voxels::new(IVec3::splat(128));
 
         b.iter(|| {
             for y in -10..10 {
@@ -39,8 +39,8 @@ fn set_voxel(c: &mut Criterion) {
     });
     let voxel_iter = (-len..len).map(|_| Voxel::Sand);
 
-    group.bench_function("set_voxel_direct", |b| {
-        let mut voxels = Voxels::new();
+    group.bench_function("set_voxel_sim", |b| {
+        let mut voxels = Voxels::new(IVec3::splat(128));
 
         b.iter(|| {
             for (point, voxel) in point_iter.clone().zip(voxel_iter.clone()) {
@@ -49,11 +49,13 @@ fn set_voxel(c: &mut Criterion) {
         })
     });
 
-    group.bench_function("set_voxel_batch", |b| {
-        let mut voxels = Voxels::new();
+    group.bench_function("set_voxel_render", |b| {
+        let mut voxels = Voxels::new(IVec3::splat(128));
 
         b.iter(|| {
-            black_box(voxels.set_voxels(point_iter.clone(), voxel_iter.clone()));
+            for (point, voxel) in point_iter.clone().zip(voxel_iter.clone()) {
+                black_box(voxels.set_voxel(point, voxel));
+            }
         })
     });
 }

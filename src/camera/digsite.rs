@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
-use crate::voxel::chunk::VoxelChunk;
+use crate::voxel::mesh::chunk::VoxelChunk;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<DigsiteEntity>();

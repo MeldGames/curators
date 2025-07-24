@@ -67,16 +67,16 @@ impl VoxelAabb {
         self.min.cmpge(container.min).all() && self.max.cmple(container.max).all()
     }
 
-    #[inline]
-    pub fn intersecting_chunks(&self) -> impl Iterator<Item = IVec3> {
-        use crate::voxel::chunk::unpadded;
-        let min = self.min.div_euclid(IVec3::splat(unpadded::SIZE_SCALAR));
-        let max = self.max.div_euclid(IVec3::splat(unpadded::SIZE_SCALAR));
+    // #[inline]
+    // pub fn intersecting_chunks(&self) -> impl Iterator<Item = IVec3> {
+    //     use crate::voxel::chunk::unpadded;
+    //     let min = self.min.div_euclid(IVec3::splat(unpadded::SIZE_SCALAR));
+    //     let max = self.max.div_euclid(IVec3::splat(unpadded::SIZE_SCALAR));
 
-        (min.y..max.y).flat_map(move |y| {
-            (min.x..max.x).flat_map(move |x| (min.z..max.z).map(move |z| IVec3::new(x, y, z)))
-        })
-    }
+    //     (min.y..max.y).flat_map(move |y| {
+    //         (min.x..max.x).flat_map(move |x| (min.z..max.z).map(move |z| IVec3::new(x, y, z)))
+    //     })
+    // }
 
     /// Returns a list of AABBs that represent self minus the overlapping region
     /// with `other`

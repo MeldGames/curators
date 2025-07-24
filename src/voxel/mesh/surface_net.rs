@@ -5,8 +5,7 @@ use bevy::render::render_resource::PrimitiveTopology;
 use fast_surface_nets::SurfaceNetsBuffer;
 use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape};
 
-use crate::voxel::VoxelChunk;
-use crate::voxel::chunk::padded;
+use crate::voxel::mesh::{padded, chunk::VoxelChunk};
 
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
