@@ -105,7 +105,7 @@ pub fn update_binary_mesh(
         }
     }
 
-    const PER_FRAME: usize = 4;
+    const PER_FRAME: usize = 16;
     let mut pop_count = 0;
 
     while pop_count < PER_FRAME {
