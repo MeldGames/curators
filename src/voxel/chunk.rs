@@ -16,7 +16,7 @@ pub mod unpadded {
     pub const Y_STRIDE: usize = SIZE * SIZE;
     pub const ARR_STRIDE: usize = SIZE * SIZE * SIZE;
 
-    // Padded linearize point into a 62^3 XZY array
+    // Padded linearize point into a 62^3 ZXY array
     #[inline]
     pub fn linearize([x, y, z]: [Scalar; 3]) -> usize {
         z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
@@ -53,7 +53,7 @@ pub mod padded {
     pub const Y_STRIDE_I: isize = Y_STRIDE as isize;
     pub const ARR_STRIDE_I: isize = ARR_STRIDE as isize;
 
-    // Padded linearize point into a 64^3 XZY array
+    // Padded linearize point into a 64^3 ZXY array
     #[inline]
     pub const fn linearize([x, y, z]: [Scalar; 3]) -> usize {
         z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE

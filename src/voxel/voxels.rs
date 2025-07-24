@@ -61,14 +61,16 @@ pub struct Voxels {
     strides: [usize; 3],
     changed_chunks: HashSet<IVec3>,
     pub(crate) update_voxels: Vec<VoxelUpdate>,
-    size: IVec3,
+    pub chunk_size: IVec3,
+    pub voxel_size: IVec3,
 }
 
 const CHUNK_SIZE: IVec3 = IVec3::splat(unpadded::SIZE as Scalar);
 const CHUNK_SIZE_FLOAT: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
 impl Voxels {
-    pub fn new(size: IVec3) -> Self {
+    pub fn new(voxel_size: IVec3) -> Self {
+        let chunk_size = (voxel_size / IVec3::splat(unpadded::SIZE as Scalar)) + IVec3::ONE;
         // let mut chunks = HashMap::with_capacity((size.x * size.y * size.z) as usize);
         // for z in 0..size.z {
         //     for x in 0..size.x {
@@ -80,11 +82,12 @@ impl Voxels {
 
         Self {
             // chunks: chunks,
-            chunks: vec![VoxelChunk::new(); (size.x * size.y * size.z) as usize],
-            strides: [1, size.z as usize, (size.z * size.x) as usize],
+            chunks: vec![VoxelChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
+            strides: [1, chunk_size.z as usize, (chunk_size.z * chunk_size.x) as usize],
             changed_chunks: default(),
             update_voxels: default(),
-            size,
+            chunk_size,
+            voxel_size,
         }
     }
 
@@ -422,7 +425,7 @@ impl Voxels {
         // }
 
         // (min, max)
-        (IVec3::ZERO, self.size)
+        (IVec3::ZERO, self.chunk_size)
     }
 
     pub fn chunk_aabb(&self) -> VoxelAabb {
@@ -431,8 +434,9 @@ impl Voxels {
     }
 
     pub fn voxel_bounds(&self) -> (IVec3, IVec3) {
-        let (min, max) = self.chunk_bounds();
-        (min * unpadded::SIZE as Scalar, max * unpadded::SIZE as Scalar)
+        // let (min, max) = self.chunk_bounds();
+        // (min * unpadded::SIZE as Scalar, max * unpadded::SIZE as Scalar)
+        (IVec3::ZERO, self.voxel_size)
     }
 
     pub fn voxel_aabb(&self) -> VoxelAabb {
@@ -441,14 +445,15 @@ impl Voxels {
     }
 
     pub fn chunk_size(&self) -> IVec3 {
-        let (min, max) = self.chunk_bounds();
-        max - min
+        // let (min, max) = self.chunk_bounds();
+        // max - min
+        self.chunk_size
     }
 
     pub fn chunk_pos_iter(&self) -> impl Iterator<Item = IVec3> {
         // self.chunks.keys().copied()
-        (0..self.size.z).flat_map(move |z| {
-            (0..self.size.x).flat_map(move |x| (0..self.size.y).map(move |y| IVec3::new(x, y, z)))
+        (0..self.chunk_size.z).flat_map(move |z| {
+            (0..self.chunk_size.x).flat_map(move |x| (0..self.chunk_size.y).map(move |y| IVec3::new(x, y, z)))
         })
     }
 
@@ -772,4 +777,5 @@ pub mod tests {
     //         panic!("diffs: {:?}", diff);
     //     }
     // }
+
 }

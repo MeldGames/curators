@@ -4,10 +4,10 @@ use std::hint::black_box;
 
 use bevy::prelude::*;
 
-use arch::sdf::{
+use arch::{sdf::{
     self,
-    voxel_rasterize::{RasterConfig, RasterVoxel, rasterize},
-};
+    voxel_rasterize::{rasterize, RasterConfig, RasterVoxel},
+}, voxel::simulation::{data::SimChunks, SimSwapBuffer}};
 use arch::voxel::{self, Voxel, Voxels};
 
 criterion_group!(benches, falling_sand_torus);
@@ -19,7 +19,7 @@ fn falling_sand_torus(c: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(10));
 
     group.bench_function("torus_falling", |b| {
-        let mut voxels = Voxels::new(IVec3::new(1, 1, 1));
+        let mut voxels = Voxels::new(IVec3::new(128, 128, 128));
 
         // Create a simulation area with a barrier around it.
         let min = 0;
@@ -43,7 +43,7 @@ fn falling_sand_torus(c: &mut Criterion) {
                 } // let settle.
 
                 let mut world = app.world_mut();
-                let mut query = world.query::<&mut Voxels>();
+                let mut query = world.query::<&mut SimChunks>();
                 let mut voxels = query.single_mut(&mut world).unwrap();
 
                 let torus = sdf::Torus { minor_radius: 2.0, major_radius: 3.0 };
@@ -82,6 +82,7 @@ fn plugin_setup() -> App {
     app.add_plugins(MinimalPlugins)
         .add_plugins(voxel::voxels::plugin)
         .insert_resource(voxel::simulation::FallingSandTick(0))
-        .add_systems(Update, voxel::simulation::falling_sands);
+        .add_systems(Update, voxel::simulation::falling_sands)
+        .add_plugins(voxel::simulation::data::plugin);
     app
 }
