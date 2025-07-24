@@ -4,6 +4,16 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
+pub const BLOCK_VOXELS_BITSHIFT: i32 = 2; // 4 voxels
+pub const BLOCK_VOXELS: i32 = 1 << BLOCK_VOXELS_BITSHIFT;
+pub const BLOCK_STRIDE: i32 = BLOCK_VOXELS * BLOCK_VOXELS * BLOCK_VOXELS;
+
+pub const CHUNK_BLOCKS_BITSHIFT: i32 = 2; // 4;
+pub const CHUNK_BLOCKS: i32 = 1 << CHUNK_BLOCKS_BITSHIFT; // 4 blocks per chunk
+pub const CHUNK_VOXELS_BITSHIFT: i32 = BLOCK_VOXELS_BITSHIFT * CHUNK_BLOCKS_BITSHIFT;
+pub const CHUNK_VOXELS: i32 = 1 << CHUNK_VOXELS_BITSHIFT;
+pub const CHUNK_STRIDE: i32 = CHUNK_VOXELS * CHUNK_VOXELS * CHUNK_VOXELS;
+
 pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
     // app.add_systems(Update, falling_sands);
@@ -27,12 +37,12 @@ pub fn insert_voxels_sim_chunks(
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub struct SimChunk {
-    pub voxels: [u16; 16 * 16 * 16], // 4x4x4 voxels in blocks, 4x4x4 blocks in chunk
+    pub voxels: [u16; CHUNK_STRIDE as usize], // 4x4x4 voxels in blocks, 4x4x4 blocks in chunk
 }
 
 impl SimChunk {
     pub fn new() -> Self {
-        Self { voxels: [0; 16 * 16 * 16] }
+        Self { voxels: [0; CHUNK_STRIDE as usize] }
     }
 }
 
@@ -63,21 +73,21 @@ pub struct SimChunks {
 #[inline]
 pub fn block_relative_to_chunk(chunk_point: IVec3, point: IVec3) -> IVec3 {
     // not euclidean (point / 4)
-    point - (chunk_point << 2)
+    point - (chunk_point << CHUNK_BLOCKS_BITSHIFT)
 }
 
 #[inline]
 pub fn point_relative_to_block(block_point: IVec3, point: IVec3) -> IVec3 {
     // (point - block_point * 4)
-    point - (block_point << 2)
+    point - (block_point << BLOCK_VOXELS_BITSHIFT)
 }
 
 #[inline]
 pub fn linearize_4x4x4(relative_point: IVec3) -> usize {
-    assert!(
-        relative_point.x < 4
-            && relative_point.y < 4
-            && relative_point.z < 4
+    debug_assert!(
+        relative_point.x < BLOCK_VOXELS
+            && relative_point.y < BLOCK_VOXELS
+            && relative_point.z < BLOCK_VOXELS
             && relative_point.x >= 0
             && relative_point.y >= 0
             && relative_point.z >= 0
@@ -85,30 +95,30 @@ pub fn linearize_4x4x4(relative_point: IVec3) -> usize {
 
     // x + z * 4 + y * 16
     // xzy order for now, maybe check if yxz is better later since the most checks are vertical
-    (relative_point.z + (relative_point.x << 2) + (relative_point.y << 4)) as usize
+    (relative_point.z + (relative_point.x << BLOCK_VOXELS_BITSHIFT) + (relative_point.y << (BLOCK_VOXELS_BITSHIFT * 2))) as usize
 }
 
 #[inline]
 pub fn delinearize_4x4x4(mut index: usize) -> IVec3 {
-    assert!(index < 64);
+    debug_assert!(index < 64);
 
-    let y = index / 16;
-    index -= y * 16;
-    let x = index / 4;
-    let z = index % 4;
+    let y = index >> 4;
+    index -= y << 4;
+    let x = index >> 2;
+    let z = index & 3; // index % 4
     ivec3(x as i32, y as i32, z as i32)
 }
 
 #[inline]
 pub fn chunk_point(point: IVec3) -> IVec3 {
     // not euclidean (point / 16)
-    point >> 4
+    point >> CHUNK_VOXELS_BITSHIFT
 }
 
 #[inline]
 pub fn block_point(point: IVec3) -> IVec3 {
     // not euclidean (point / 4)
-    point >> 2
+    point >> BLOCK_VOXELS_BITSHIFT
 }
 
 pub struct LinearizedVoxelPoint {

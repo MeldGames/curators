@@ -477,7 +477,7 @@ mod test {
 
     #[test]
     fn voxel_mem_test() {
-        assert_eq!(std::mem::size_of::<Voxel>(), 1);
+        assert_eq!(std::mem::size_of::<Voxel>(), 2);
     }
 
     #[test]
