@@ -43,7 +43,7 @@ fn falling_sand_torus(c: &mut Criterion) {
                 } // let settle.
 
                 let mut world = app.world_mut();
-                let mut query = world.query::<&mut SimChunks>();
+                let mut query = world.query::<&mut Voxels>();
                 let mut voxels = query.single_mut(&mut world).unwrap();
 
                 let torus = sdf::Torus { minor_radius: 2.0, major_radius: 3.0 };

@@ -142,8 +142,6 @@ pub fn update_binary_mesh(
 
         // 몰리
 
-        info!("updating chunk mesh");
-
         for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
             let voxel = Voxel::from_data(voxel_id as u16);
 

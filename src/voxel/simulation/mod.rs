@@ -62,20 +62,20 @@ pub struct SimSwapBuffer(pub Vec<[u64; 64]>);
 pub struct RenderSwapBuffer(pub Vec<[u64; 64]>);
 
 pub fn update_render_voxels(
-    mut grids: Query<(&mut Voxels, &mut SimChunks, &mut RenderSwapBuffer)>,
+    mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer)>,
 ) {
-    for (mut grid, mut sim_chunks, mut render_swap_buffer) in &mut grids {
-        for (chunk_index, voxel_index) in sim_chunks.render_updates(&mut render_swap_buffer.0) {
-            let point = sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
-            let voxel = sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
-            println!("updating point: {:?}", point);
-            grid.set_voxel(point, voxel);
+    for (mut grid, mut render_swap_buffer) in &mut grids {
+        for (chunk_index, voxel_index) in grid.sim_chunks.render_updates(&mut render_swap_buffer.0) {
+            let point = grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+            let voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
+            grid.render_chunks.set_voxel(point, voxel);
+            // info!("updating point: {:?}", point);
         }
     }
 }
 
 pub fn falling_sands(
-    mut grids: Query<(&mut Voxels, &mut SimChunks, &mut SimSwapBuffer)>,
+    mut grids: Query<(&mut Voxels,&mut SimSwapBuffer)>,
     mut sim_tick: ResMut<FallingSandTick>,
     mut ignore: Local<usize>,
 ) {
@@ -94,7 +94,7 @@ pub fn falling_sands(
     let mut simulated_counter = 0;
     let mut static_counter = 0;
 
-    for (mut grid, mut sim_chunks, mut sim_swap_buffer) in &mut grids {
+    for (mut grid, mut sim_swap_buffer) in &mut grids {
         // {
         //     // #[cfg(feature = "trace")]
         //     // let update_management_span = info_span!("update_management");
@@ -119,16 +119,14 @@ pub fn falling_sands(
 
         //     updates.dedup();
         // }
+
         // println!("simulating");
-        for (chunk_index, voxel_index) in sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
+        for (chunk_index, voxel_index) in grid.sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
             #[cfg(feature = "trace")]
             let update_span = info_span!("update_voxel", iteration = counter);
             // println!("chunk_index: {}, voxel_index: {}", chunk_index, voxel_index);
 
-            info!("simulating voxel: {:?}", voxel_index);
-
-
-            let sim_voxel = sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
+            let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
             // counter += 1;
             // if sim_voxel.is_simulated() {
             //     simulated_counter += 1;
@@ -140,17 +138,17 @@ pub fn falling_sands(
             match sim_voxel {
                 Voxel::Sand => {
                     // semi-solid
-                    let point = sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
-                    simulate_semisolid(&mut *sim_chunks, point, sim_voxel, &sim_tick);
+                    let point = grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    simulate_semisolid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 Voxel::Water { .. } | Voxel::Oil { .. } => {
                     // liquids
-                    let point = sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
-                    simulate_liquid(&mut *sim_chunks, point, sim_voxel, &sim_tick);
+                    let point = grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    simulate_liquid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 Voxel::Dirt => {
-                    let point = sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
-                    simulate_structured(&mut *sim_chunks, point, sim_voxel, &sim_tick);
+                    let point = grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 _ => {}, // no-op
             }

@@ -20,10 +20,9 @@ pub fn insert_voxels_sim_chunks(
         return;
     };
     // println!("adding sim chunks");
-    let sim_chunks = SimChunks::new(voxels.voxel_size);
-    let sim_swap_buffer = SimSwapBuffer(sim_chunks.create_update_buffer());
-    let render_swap_buffer = RenderSwapBuffer(sim_chunks.create_update_buffer());
-    commands.entity(trigger.target()).insert((sim_chunks, sim_swap_buffer, render_swap_buffer));
+    let sim_swap_buffer = SimSwapBuffer(voxels.sim_chunks.create_update_buffer());
+    let render_swap_buffer = RenderSwapBuffer(voxels.sim_chunks.create_update_buffer());
+    commands.entity(trigger.target()).insert((sim_swap_buffer, render_swap_buffer));
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
@@ -37,8 +36,7 @@ impl SimChunk {
     }
 }
 
-#[derive(Component, Debug, Clone, PartialEq, Eq, Hash, Reflect)]
-#[reflect(Component)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct SimChunks {
     pub chunks: Vec<SimChunk>,
     pub chunk_strides: [usize; 3],
@@ -126,6 +124,7 @@ pub struct UpdateIterator<'a> {
     pub chunk_updates: &'a mut Vec<[u64; 64]>,
     pub chunk_index: usize,
     pub mask_index: usize,
+    pub name: &'static str,
 }
 
 impl<'a> Iterator for UpdateIterator<'a> {
@@ -136,7 +135,6 @@ impl<'a> Iterator for UpdateIterator<'a> {
         while self.mask_index < 64 && self.chunk_index < self.chunk_updates.len() {
             let bitset = self.chunk_updates[self.chunk_index][self.mask_index];
             if bitset != 0 {
-                // println!("chunk_index: {}, bit_index: {}", self.chunk_index, self.mask_index);
                 // `bitset & -bitset` returns a bitset with only the lowest significant bit set
                 let t = bitset & bitset.wrapping_neg();
                 let trailing = bitset.trailing_zeros() as usize;
@@ -273,7 +271,7 @@ impl SimChunks {
         swap_buffer: &'b mut Vec<[u64; 64]>,
     ) -> UpdateIterator<'a> {
         std::mem::swap(&mut self.sim_updates, swap_buffer);
-        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0 }
+        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0, name: "sim" }
     }
 
     // separate buffer for render updates so we can accumulate over multiple frames.
@@ -282,7 +280,7 @@ impl SimChunks {
         swap_buffer: &'b mut Vec<[u64; 64]>,
     ) -> UpdateIterator<'a> {
         std::mem::swap(&mut self.render_updates, swap_buffer);
-        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0 }
+        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0, name: "render" }
     }
 
     #[inline]
