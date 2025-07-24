@@ -178,11 +178,20 @@ const DOWN_DIAGONALS: [IVec3; 4] = [
     IVec3::NEG_Y.saturating_add(IVec3::Z),
 ];
 
-const ADJACENTS: [IVec3; 4] = [
+const HORIZONTAL_ADJACENTS: [IVec3; 4] = [
     IVec3::NEG_X, // adjacent second
     IVec3::X,
     IVec3::NEG_Z,
     IVec3::Z,
+];
+
+const ALL_ADJACENTS: [IVec3; 6] = [
+    IVec3::NEG_X,
+    IVec3::X,
+    IVec3::NEG_Z,
+    IVec3::Z,
+    IVec3::NEG_Y,
+    IVec3::Y,
 ];
 
 #[inline]
@@ -195,15 +204,20 @@ pub fn simulate_semisolid(
     #[cfg(feature = "trace")]
     let simulate_semisolid_span = info_span!("simulate_semisolid");
 
-    const SWAP_POINTS: [IVec3; 5] =
-        [IVec3::NEG_Y, DOWN_DIAGONALS[0], DOWN_DIAGONALS[1], DOWN_DIAGONALS[2], DOWN_DIAGONALS[3]];
+    // let below_point = IVec3::from(point + IVec3::NEG_Y);
+    // let below_voxel = grid.get_voxel(below_point);
+    // if below_voxel.is_gas() || below_voxel.is_liquid() {
+    //     grid.set_voxel(below_point, sim_voxel);
+    //     grid.set_voxel(point, below_voxel);
+    //     return;
+    // }
 
-    for swap_point in SWAP_POINTS {
-        let voxel = grid.get_voxel(point + swap_point);
-        if voxel.is_liquid() || voxel.is_gas() {
-            grid.set_voxel(point + swap_point, Voxel::Sand);
+    for &diagonal in [IVec3::NEG_Y].iter().chain(DOWN_DIAGONALS.iter()) {
+        let voxel = grid.get_voxel(point + diagonal);
+        if voxel.is_gas() || (diagonal == IVec3::NEG_Y && voxel.is_liquid()) {
+            grid.set_voxel(point + diagonal, sim_voxel);
             grid.set_voxel(point, voxel);
-            break;
+            return;
         }
     }
 }
@@ -248,24 +262,24 @@ pub fn simulate_liquid(
         }
     }
 
-    for adjacent in ADJACENTS.iter().cycle().skip((sim_tick.0 % 4) as usize).take(4) {
+    for adjacent in HORIZONTAL_ADJACENTS.iter().cycle().skip((sim_tick.0 % 4) as usize).take(4) {
         let voxel = grid.get_voxel(IVec3::from(point + adjacent));
         if voxel.is_gas() {
             let new_sim_voxel = match sim_voxel {
                 Voxel::Water { lateral_energy } => {
                     if lateral_energy == 0 {
-                        if below_voxel.is_liquid() {
-                            // grid.set_voxel(point, Voxel::Air);
+                        if !below_voxel.is_liquid() {
+                            grid.set_voxel(point, Voxel::Air);
                         }
-                        // return;
+                        return;
                     }
 
                     Voxel::Water { lateral_energy: lateral_energy - 1 }
                 },
                 Voxel::Oil { lateral_energy } => {
                     if lateral_energy == 0 {
-                        if below_voxel.is_liquid() {
-                            // grid.set_voxel(point, Voxel::Air);
+                        if !below_voxel.is_liquid() {
+                            grid.set_voxel(point, Voxel::Air);
                         }
                         return;
                     }

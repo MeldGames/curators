@@ -85,9 +85,9 @@ pub fn point_relative_to_block(block_point: IVec3, point: IVec3) -> IVec3 {
 #[inline]
 pub fn linearize_4x4x4(relative_point: IVec3) -> usize {
     debug_assert!(
-        relative_point.x < BLOCK_VOXELS
-            && relative_point.y < BLOCK_VOXELS
-            && relative_point.z < BLOCK_VOXELS
+        relative_point.x < 4
+            && relative_point.y < 4
+            && relative_point.z < 4
             && relative_point.x >= 0
             && relative_point.y >= 0
             && relative_point.z >= 0
@@ -95,7 +95,7 @@ pub fn linearize_4x4x4(relative_point: IVec3) -> usize {
 
     // z + x * 4 + y * 16
     // zxy order for now, maybe check if yxz is better later since the most checks are vertical
-    (relative_point.z + (relative_point.x << BLOCK_VOXELS_BITSHIFT) + (relative_point.y << (BLOCK_VOXELS_BITSHIFT * 2))) as usize
+    (relative_point.z + (relative_point.x << 2) + (relative_point.y << 4)) as usize
 }
 
 #[inline]
@@ -111,6 +111,34 @@ pub fn delinearize_4x4x4(index: usize) -> IVec3 {
 }
 
 #[inline]
+pub fn linearize_16x16x16(relative_point: IVec3) -> usize {
+    debug_assert!(
+        relative_point.x < 16
+            && relative_point.y < 16
+            && relative_point.z < 16
+            && relative_point.x >= 0
+            && relative_point.y >= 0
+            && relative_point.z >= 0
+    );
+
+    // z + x * 4 + y * 16
+    // zxy order for now, maybe check if yxz is better later since the most checks are vertical
+    (relative_point.z + (relative_point.x << 4) + (relative_point.y << 8)) as usize
+}
+
+#[inline]
+pub fn delinearize_16x16x16(index: usize) -> IVec3 {
+    let mut index = index as i32;
+    debug_assert!(index < 4096);
+
+    let y = index >> 8;
+    index -= y << 8;
+    let x = index >> 4;
+    let z = index & 15; // index % 4
+    ivec3(x, y, z)
+}
+
+#[inline]
 pub fn chunk_point(point: IVec3) -> IVec3 {
     // not euclidean (point / 16)
     point >> CHUNK_VOXELS_BITSHIFT
@@ -120,15 +148,6 @@ pub fn chunk_point(point: IVec3) -> IVec3 {
 pub fn block_point(point: IVec3) -> IVec3 {
     // not euclidean (point / 4)
     point >> BLOCK_VOXELS_BITSHIFT
-}
-
-pub struct LinearizedVoxelPoint {
-    pub chunk_point: IVec3,
-    pub chunk_index: usize,
-    pub block_point: IVec3,
-    pub block_index: usize,
-    // voxel point is implied via input
-    pub voxel_index: usize,
 }
 
 pub struct UpdateIterator<'a> {
@@ -301,19 +320,8 @@ impl SimChunks {
         let chunk_index = self.chunk_linearize(chunk_point);
 
         // voxel index
-        let block_point = block_point(point);
-        let relative_block_point = block_point - (chunk_point << 2);
-        let relative_voxel_point = point - (block_point << 2);
-        let block_index = linearize_4x4x4(relative_block_point);
-        let relative_voxel_index = linearize_4x4x4(relative_voxel_point);
-        let voxel_index = block_index * 64 + relative_voxel_index;
-
-        // println!("--- linearizing ---");
-        // println!("block_point: {:?}", block_point);
-        // println!("relative_block_point: {:?}", relative_block_point);
-        // println!("relative_voxel_point: {:?}", relative_voxel_point);
-        // println!("block_index: {}, relative_voxel_index: {}", block_index, relative_voxel_index);
-        // println!("voxel_index: {}", voxel_index);
+        let relative_voxel_point = point - (chunk_point << 4);
+        let voxel_index = linearize_16x16x16(relative_voxel_point);
 
         (chunk_index, voxel_index)
     }
@@ -324,20 +332,8 @@ impl SimChunks {
         voxel_index: usize,
     ) -> IVec3 {
         let chunk_point = self.chunk_delinearize(chunk_index);
-
-        let block_index = voxel_index / 64;
-        let relative_voxel_index = voxel_index % 64;
-        let relative_voxel_point = delinearize_4x4x4(relative_voxel_index);
-        let relative_block_point = delinearize_4x4x4(block_index);
-
-        // println!("--- delinearizing --- ");
-        // println!("chunk_point: {:?}", chunk_point);
-        // println!("relative_block_point: {:?}", relative_block_point);
-        // println!("relative_voxel_point: {:?}", relative_voxel_point);
-        // println!("block_index: {}, relative_voxel_index: {}", block_index, relative_voxel_index);
-        // println!("voxel_index: {}", voxel_index);
-
-        relative_voxel_point + (relative_block_point << 2) + (chunk_point << 4)
+        let relative_voxel_point = delinearize_16x16x16(voxel_index);
+        (chunk_point << 4) + relative_voxel_point
     }
 }
 

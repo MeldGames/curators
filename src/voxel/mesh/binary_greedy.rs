@@ -12,6 +12,7 @@ use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
 use crate::voxel::mesh::{ChangedChunks, chunk::VoxelChunk};
+use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{Voxel, Voxels};
 
 pub(super) fn plugin(app: &mut App) {
@@ -88,7 +89,7 @@ pub fn update_binary_mesh(
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    // voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
+    voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
     mut mesher: Local<BgmMesher>,
     mut changed_chunks: EventReader<ChangedChunks>,
 
@@ -164,7 +165,8 @@ pub fn update_binary_mesh(
             } else {
                 if let Some(mesh) = render_mesh {
                     let mesh_handle = meshes.add(mesh);
-                    let material = materials.add(voxel.material());
+                    // let material = materials.add(voxel.material());
+                    let material = voxel_materials.get(voxel);
                     let mut voxel_mesh_commands = commands.spawn((
                         Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
                         Mesh3d(mesh_handle),
