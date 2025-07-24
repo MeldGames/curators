@@ -1,7 +1,4 @@
-use crate::voxel::{
-    Voxel, Voxels,
-    simulation::{RenderSwapBuffer, SimSwapBuffer},
-};
+use crate::voxel::{simulation::{RenderSwapBuffer, SimSwapBuffer}, Voxel, Voxels};
 use bevy::prelude::*;
 
 #[cfg(feature = "trace")]
@@ -44,7 +41,7 @@ pub struct SimChunks {
     pub chunks: Vec<SimChunk>,
     pub chunk_strides: [usize; 3],
 
-    pub sim_updates: Vec<[u64; 64]>,    // bitmask of updates
+    pub sim_updates: Vec<[u64; 64]>, // bitmask of updates
     pub render_updates: Vec<[u64; 64]>, // bitmask of updates
 
     pub chunk_size: IVec3,
@@ -226,7 +223,7 @@ impl SimChunks {
         }
 
         let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
-        Voxel::from_data(self.chunks[chunk_index].voxels[voxel_index])
+        self.get_voxel_from_indices(chunk_index, voxel_index)
     }
 
     #[inline]

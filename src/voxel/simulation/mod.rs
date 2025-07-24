@@ -127,6 +127,7 @@ pub fn falling_sands(
             // println!("chunk_index: {}, voxel_index: {}", chunk_index, voxel_index);
 
             let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
+
             // counter += 1;
             // if sim_voxel.is_simulated() {
             //     simulated_counter += 1;
