@@ -93,20 +93,21 @@ pub fn linearize_4x4x4(relative_point: IVec3) -> usize {
             && relative_point.z >= 0
     );
 
-    // x + z * 4 + y * 16
-    // xzy order for now, maybe check if yxz is better later since the most checks are vertical
+    // z + x * 4 + y * 16
+    // zxy order for now, maybe check if yxz is better later since the most checks are vertical
     (relative_point.z + (relative_point.x << BLOCK_VOXELS_BITSHIFT) + (relative_point.y << (BLOCK_VOXELS_BITSHIFT * 2))) as usize
 }
 
 #[inline]
-pub fn delinearize_4x4x4(mut index: usize) -> IVec3 {
+pub fn delinearize_4x4x4(index: usize) -> IVec3 {
+    let mut index = index as i32;
     debug_assert!(index < 64);
 
     let y = index >> 4;
     index -= y << 4;
     let x = index >> 2;
     let z = index & 3; // index % 4
-    ivec3(x as i32, y as i32, z as i32)
+    ivec3(x, y, z)
 }
 
 #[inline]
