@@ -16,17 +16,17 @@ pub fn plugin_setup() -> App {
 }
 
 pub fn paint_brush(voxels: &mut Voxels, center: IVec3, brush: &dyn Sdf, voxel: Voxel) {
-    let size = voxels.voxel_size.as_vec3a() / 2.0;
+    let half_size = voxels.voxel_size.as_vec3a() / 2.0;
     for raster_voxel in sdf::voxel_rasterize::rasterize(
         brush,
         sdf::voxel_rasterize::RasterConfig {
-            clip_bounds: Aabb3d { min: -size, max: size },
+            clip_bounds: Aabb3d { min: -half_size, max: half_size },
             grid_scale: GRID_SCALE,
             pad_bounds: Vec3::ZERO,
         },
     ) {
         if raster_voxel.distance <= 0.0 {
-            voxels.set_voxel(raster_voxel.point + center, voxel);
+            voxels.set_voxel(raster_voxel.point + half_size.as_ivec3(), voxel);
         }
     }
 }
@@ -37,6 +37,11 @@ impl<T: Sdf + Send + Sync + 'static> SdfSendSync for T {}
 pub struct BenchSetup {
     /// Name of the bench setup
     pub name: &'static str,
+
+    pub measurement_time: std::time::Duration,
+
+    pub sample_size: usize,
+
     /// Size of the voxel grid
     pub voxel_size: IVec3,
     /// How many update iterations to run
@@ -49,6 +54,8 @@ pub fn basic_benches() -> Vec<BenchSetup> {
     vec![
         BenchSetup {
             name: "torus_sand",
+            measurement_time: std::time::Duration::from_secs(10),
+            sample_size: 100,
             voxel_size: IVec3::new(60, 60, 60),
             test_steps: 40,
             brushes: vec![(
@@ -59,6 +66,8 @@ pub fn basic_benches() -> Vec<BenchSetup> {
         },
         BenchSetup {
             name: "torus_water",
+            measurement_time: std::time::Duration::from_secs(10),
+            sample_size: 100,
             voxel_size: IVec3::new(60, 60, 60),
             test_steps: 40,
             brushes: vec![(
@@ -68,31 +77,55 @@ pub fn basic_benches() -> Vec<BenchSetup> {
             )],
         },
         BenchSetup {
-            name: "blob",
-            voxel_size: IVec3::splat(256),
-            test_steps: 2000,
+            name: "sphere_sand_large",
+            measurement_time: std::time::Duration::from_secs(40),
+            sample_size: 10,
+            voxel_size: IVec3::splat(128),
+            test_steps: 100,
             brushes: vec![(
-                IVec3::splat(256) / 2,
-                Box::new(sdf::ops::Scale {
-                    scale: Vec3::splat(15.0),
-                    primitive: sdf::Blob,
-                }),
+                IVec3::splat(128) / 2,
+                Box::new(sdf::Sphere { radius: 20.0 }),
                 Voxel::Sand,
             )],
         },
         BenchSetup {
-            name: "fractal",
+            name: "sphere_water_large",
+            measurement_time: std::time::Duration::from_secs(40),
+            sample_size: 10,
             voxel_size: IVec3::splat(128),
-            test_steps: 2000,
+            test_steps: 100,
             brushes: vec![(
                 IVec3::splat(128) / 2,
-                // Box::new(sdf::Fractal),
-                Box::new(sdf::ops::Scale {
-                    scale: Vec3::splat(0.0025),
-                    primitive: sdf::Fractal,
-                }),
-                Voxel::Base,
+                Box::new(sdf::Sphere { radius: 20.0 }),
+                Voxel::Water { lateral_energy: 32 },
             )],
         },
+        // BenchSetup {
+        //     name: "blob",
+        //     voxel_size: IVec3::splat(256),
+        //     test_steps: 2000,
+        //     brushes: vec![(
+        //         IVec3::splat(256) / 2,
+        //         Box::new(sdf::ops::Scale {
+        //             scale: Vec3::splat(15.0),
+        //             primitive: sdf::Blob,
+        //         }),
+        //         Voxel::Sand,
+        //     )],
+        // },
+        // BenchSetup {
+        //     name: "fractal",
+        //     voxel_size: IVec3::splat(256),
+        //     test_steps: 2000,
+        //     brushes: vec![(
+        //         IVec3::splat(256) / 2,
+        //         // Box::new(sdf::Fractal),
+        //         Box::new(sdf::ops::Scale {
+        //             scale: Vec3::splat(0.0001),
+        //             primitive: sdf::Fractal,
+        //         }),
+        //         Voxel::Base,
+        //     )],
+        // },
     ]
 }

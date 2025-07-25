@@ -261,20 +261,20 @@ pub fn simulate_liquid(
             let new_sim_voxel = match sim_voxel {
                 Voxel::Water { lateral_energy } => {
                     if lateral_energy == 0 {
-                        if !below_voxel.is_liquid() {
-                            grid.set_voxel(point, Voxel::Air);
-                        }
-                        return;
+                        // if !below_voxel.is_liquid() {
+                        //     grid.set_voxel(point, Voxel::Air);
+                        // }
+                        // return;
                     }
 
                     Voxel::Water { lateral_energy: lateral_energy - 1 }
                 },
                 Voxel::Oil { lateral_energy } => {
                     if lateral_energy == 0 {
-                        if !below_voxel.is_liquid() {
-                            grid.set_voxel(point, Voxel::Air);
-                        }
-                        return;
+                        // if !below_voxel.is_liquid() {
+                        //     grid.set_voxel(point, Voxel::Air);
+                        // }
+                        // return;
                     }
                     Voxel::Oil { lateral_energy: lateral_energy - 1 }
                 },

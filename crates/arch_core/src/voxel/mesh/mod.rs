@@ -11,6 +11,9 @@ pub mod chunk;
 pub mod binary_greedy;
 pub mod surface_net;
 
+pub use binary_greedy::BinaryGreedy;
+pub use surface_net::SurfaceNet;
+
 #[derive(SystemSet, Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct UpdateVoxelMeshSet;
 
@@ -78,7 +81,7 @@ impl RenderChunks {
     }
 
     #[inline]
-    fn get_voxel(&self, point: IVec3) -> Voxel {
+    pub fn get_voxel(&self, point: IVec3) -> Voxel {
         #[cfg(feature = "trace")]
         let get_voxel_span = info_span!("get_render_voxel");
 

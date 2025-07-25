@@ -86,7 +86,8 @@ impl Sdf for Blob {
         if p.x < p.y.max(p.z) {
             p = Vec3::new(p.y, p.z, p.x);
         }
-        let b = p.dot(Vec3::new(1.0, 1.0, 1.0).normalize())
+        let b = p
+            .dot(Vec3::new(1.0, 1.0, 1.0).normalize())
             .max(Vec2::new(p.x, p.z).dot(Vec2::new(PHI + 1.0, 1.0).normalize()))
             .max(Vec2::new(p.y, p.x).dot(Vec2::new(1.0, PHI).normalize()))
             .max(Vec2::new(p.x, p.z).dot(Vec2::new(1.0, PHI).normalize()));

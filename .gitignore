@@ -2,3 +2,4 @@ target/
 crates/*/target/
 
 tracy/
+profile.json.gz

@@ -5,10 +5,10 @@ use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use super::raycast::Hit;
-use crate::voxel::mesh::RenderChunks;
+use crate::voxel::mesh::{BinaryGreedy, RenderChunks};
 use crate::voxel::raycast::VoxelHit;
 use crate::voxel::simulation::data::SimChunks;
-use crate::voxel::{UpdateVoxelMeshSet, Voxel, VoxelAabb};
+use crate::voxel::{GRID_SCALE, UpdateVoxelMeshSet, Voxel, VoxelAabb};
 
 #[cfg(feature = "trace")]
 use tracing::*;
@@ -18,7 +18,7 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Debug, Component, Clone, PartialEq, Eq)]
-#[require(Name::new("Voxels"))]
+#[require(Name::new("Voxels"), Transform { scale: GRID_SCALE, ..default() }, BinaryGreedy)]
 pub struct Voxels {
     // Meshing data
     pub render_chunks: RenderChunks,

@@ -23,7 +23,7 @@ pub(super) fn plugin(app: &mut App) {
     );
 }
 
-#[derive(Component)]
+#[derive(Component, Default, Reflect)]
 pub struct BinaryGreedy;
 
 pub fn add_buffers(trigger: Trigger<OnAdd, BinaryGreedy>, mut commands: Commands) {

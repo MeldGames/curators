@@ -1,5 +1,5 @@
 use arch_core::voxel::simulation::FallingSandTick;
-use bench::falling_sands::{ basic_benches, paint_brush};
+use bench::falling_sands::{basic_benches, paint_brush};
 use bevy::core_pipeline::core_3d::graph::Node3d;
 use bevy::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
@@ -36,9 +36,7 @@ pub fn main() {
     // .add_plugins(arch::core::voxel::raycast::plugin)
 
     app.add_systems(Startup, arch::core::voxel::spawn_directional_lights);
-    app.add_systems(Startup, arch::core::voxel::spawn_voxel_grid);
 
-    // .add_plugins(crate::voxel::VoxelPlugin)
     app.add_systems(Update, cycle_benches);
     app.run();
 }
@@ -63,19 +61,19 @@ impl CurrentBench {
 }
 
 pub fn should_run(input: Res<ButtonInput<KeyCode>>, current_bench: Res<CurrentBench>) -> bool {
-    (input.just_pressed(KeyCode::KeyK) || current_bench.running)
-        && current_bench.step < current_bench.max_steps
+    (current_bench.running && current_bench.step < current_bench.max_steps)
+        || input.just_pressed(KeyCode::KeyK)
+        || (input.pressed(KeyCode::ShiftLeft) && input.pressed(KeyCode::KeyK))
 }
 
 pub fn increment_step(mut current_bench: ResMut<CurrentBench>) {
-    if current_bench.step < current_bench.max_steps {
-        current_bench.step += 1;
-        println!("step {}", current_bench.step);
-    }
+    current_bench.step += 1;
+    println!("step {}", current_bench.step);
 }
 
 pub fn cycle_benches(
-    mut voxels: Query<&mut Voxels>,
+    mut commands: Commands,
+    voxels: Query<Entity, With<Voxels>>,
     input: Res<ButtonInput<KeyCode>>,
     mut current_bench: ResMut<CurrentBench>,
 ) {
@@ -103,10 +101,14 @@ pub fn cycle_benches(
     current_bench.step = 0;
     current_bench.max_steps = bench.test_steps;
 
-    let mut voxels = voxels.single_mut().unwrap();
-    *voxels = Voxels::new(bench.voxel_size);
-
-    for (center, brush, voxel) in &bench.brushes {
-        paint_brush(&mut *voxels, *center, &**brush, *voxel);
+    for entity in voxels.iter() {
+        commands.entity(entity).despawn();
     }
+
+    let mut new_voxels = Voxels::new(bench.voxel_size);
+    for (center, brush, voxel) in &bench.brushes {
+        paint_brush(&mut new_voxels, *center, &**brush, *voxel);
+    }
+
+    commands.spawn(new_voxels);
 }
