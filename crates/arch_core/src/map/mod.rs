@@ -73,9 +73,9 @@ pub fn create_basic_map(mut commands: Commands) {
         (MapParams {
             terrain: TerrainParams {
                 aabb: VoxelAabb {
-                    min: IVec3::new(-61 * 4, 1, -61 * 4),
+                    min: IVec3::ZERO,
                     // max: IVec3::new(61 * 4, 48, 61 * 4),
-                    max: IVec3::new(61 * 4, 250, 61 * 4),
+                    max: IVec3::new(256, 256, 256),
                 },
                 // aabb: VoxelAabb::from_size(IVec3::new(3, 3, 3), IVec3::new(2, 4, 2)),
                 // kind: TerrainKind::Hilly,

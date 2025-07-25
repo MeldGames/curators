@@ -3,101 +3,73 @@ name = "arch"
 version = "0.1.0"
 edition = "2024"
 
-[features]
-default = []
-trace = [
-    # "tracy-client",
-    "bevy/trace_tracy",
-    "tracing",
+[workspace]
+resolver = "3"
+members = [
+  "crates/*",
 ]
 
+[features]
+default = []
+trace = [ "arch_core/trace"]
+
 [dependencies]
+# Internal
+arch_core = { path = "crates/arch_core" }
+
 # Bevy
 bevy = { version = "0.16.1", default-features = false, features = [
-  "experimental_pbr_pcss",
+    "experimental_pbr_pcss",
 
-  # default features
-  "std",
-  "async_executor",
-  "android-game-activity",
-  "android_shared_stdcxx",
-  "animation",
-  "bevy_asset",
-  "bevy_audio",
-  "bevy_color",
-  "bevy_core_pipeline",
-#   "bevy_core_widgets",
-#   "bevy_anti_aliasing",
-  "bevy_gilrs",
-  "bevy_gizmos",
-  "bevy_gltf",
-  "bevy_input_focus",
-  "bevy_log",
-  "bevy_mesh_picking_backend",
-  "bevy_pbr",
-  "bevy_picking",
-  "bevy_render",
-  "bevy_scene",
-#   "bevy_scene2",
-  "bevy_sprite",
-  "bevy_sprite_picking_backend",
-  "bevy_state",
-  "bevy_text",
-  "bevy_ui",
-  "bevy_ui_picking_backend",
-#   "bevy_ui_render",
-  "bevy_window",
-  "bevy_winit",
-  "custom_cursor",
-  "default_font",
-  "hdr",
-#   "multi_threaded",
-  "png",
-  "smaa_luts",
-  "sysinfo_plugin",
-  "tonemapping_luts",
-  "vorbis",
-  "webgl2",
-  "x11",
-#   "debug",
-#   "zstd_rust",
-#   "experimental_bevy_feathers",
-
+    # default features
+    "std",
+    "async_executor",
+    "android-game-activity",
+    "android_shared_stdcxx",
+    "animation",
+    "bevy_asset",
+    "bevy_audio",
+    "bevy_color",
+    "bevy_core_pipeline",
+    #   "bevy_core_widgets",
+    #   "bevy_anti_aliasing",
+    "bevy_gilrs",
+    "bevy_gizmos",
+    "bevy_gltf",
+    "bevy_input_focus",
+    "bevy_log",
+    "bevy_mesh_picking_backend",
+    "bevy_pbr",
+    "bevy_picking",
+    "bevy_render",
+    "bevy_scene",
+    #   "bevy_scene2",
+    "bevy_sprite",
+    "bevy_sprite_picking_backend",
+    "bevy_state",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_ui_picking_backend",
+    #   "bevy_ui_render",
+    "bevy_window",
+    "bevy_winit",
+    "custom_cursor",
+    "default_font",
+    "hdr",
+    #   "multi_threaded",
+    "png",
+    "smaa_luts",
+    "sysinfo_plugin",
+    "tonemapping_luts",
+    "vorbis",
+    "webgl2",
+    "x11",
+    #   "debug",
+    #   "zstd_rust",
+    #   "experimental_bevy_feathers",
 ] }
+
 bevy_math = { version = "0.16.1", features = ["approx"] }
-#bevy = { version = "0.16.0", features = ["dynamic_linking", "trace_tracy"] }
-# Set max log levels. This helps avoid unwanted low-severity log spam, which can affect performance.
-log = { version = "0.4", features = [
-    "max_level_debug",
-    # "release_max_level_warn",
-] }
-tracing = { version = "0.1", features = [
-    "max_level_debug",
-    # "release_max_level_warn",
-], optional = true}
-
-# Bevy crates
-bevy_enhanced_input = "0.14.1"
-avian3d = "0.3.1"
-#avian3d = { git = "https://github.com/Jondolf/avian", rev = "8a6953298" }
-bevy_replicon = "0.34.3"
-bevy_mod_outline = "0.10.2"
-# bevy_edge_detection = { git = "https://github.com/aceeri/bevy_edge_detection", branch = "fixes" }
-bevy_edge_detection = { path = "../bevy_edge_detection" }
-
-# Randomness
-rand_core = "0.9"
-bevy_rand = { version = "0.11.1", features = ["rand_chacha", "wyrand"] }
-bevy_prng = { version = "0.11.1", features = ["rand_chacha", "wyrand"] }
-noiz = "0.2.0"
-
-# Meshing
-fast-surface-nets = "0.2.1"
-# binary-greedy-meshing = "0.4.1"
-binary-greedy-meshing = { git = "https://github.com/Aceeri/binary-greedy-meshing", branch = "main" }
-# binary-greedy-meshing = { path = "../binary-greedy-meshing" }
-bevy_meshem = { git = "https://github.com/aceeri/Meshem", branch = "bevy-0.16" }
-#bevy_meshem = { path = "../Meshem" }
 
 # Debug
 iyes_perf_ui = "0.5.0"
@@ -105,23 +77,13 @@ iyes_perf_ui = "0.5.0"
 bevy-inspector-egui = "0.32.0"
 # tracy-client = { version = "0.17.3", optional = true }
 
-# Other
-rand = "0.9.1"
-serde = "1.0.219"
-mem_dbg = "0.3"
-num-traits = "0.2"
-num-derive = "0.4"
-dashmap = "6.1.0"
-thiserror = "2"
-approx = "0.5.1"
-lazy_static = "1"
+[dev-dependencies]
+bench = { path = "crates/bench" }
+criterion = { version = "0.6.0", features = ["html_reports"] }
+pprof = { version = "0.15.0", features = ["flamegraph", "criterion"] }
 
 [patch.crates-io]
 #bevy_enhanced_input = { git = "https://github.com/projectharmonia/bevy_enhanced_input", rev = "21ddc08755" }
-
-[dev-dependencies]
-criterion = { version = "0.6.0", features = ["html_reports"] }
-pprof = { version = "0.15.0", features = ["flamegraph", "criterion"] }
 
 [profile.release]
 debug = true
@@ -147,11 +109,18 @@ too_many_arguments = "allow"
 # Queries that access many components may trigger this lint.
 type_complexity = "allow"
 
+[[bench]]
+name = "voxels"
+harness = false
 
 [[bench]]
 name = "falling_sands"
 harness = false
 
-[[bench]]
-name = "voxels"
-harness = false
+[[example]]
+name = "sdf_viewer"
+path = "examples/sdf_viewer.rs"
+
+[[example]]
+name = "bench_viewer"
+path = "examples/bench_viewer.rs"

@@ -1,19 +1,14 @@
-use bevy::core_pipeline::core_3d::graph::Node3d;
 use bevy::prelude::*;
-use bevy_edge_detection::EdgeDetectionPlugin;
-use bevy_enhanced_input::prelude::*;
-use bevy_inspector_egui::bevy_egui::EguiPlugin;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-use arch::camera::{FlyingCamera, FlyingSettings, FlyingState, camera_components};
-use arch::sdf::voxel_rasterize::RasterConfig;
-use arch::sdf::{self, Sdf, ops, voxel_rasterize};
-use arch::voxel::{Voxel, Voxels};
+use arch::core::sdf::voxel_rasterize::RasterConfig;
+use arch::core::sdf::{self, Sdf, ops, voxel_rasterize};
+use arch::core::voxel::{Voxel, Voxels};
 use bevy_math::bounding::Aabb3d;
 
 pub fn main() {
     let mut app = App::new();
-    arch::viewer(&mut app);
+    arch::core::viewer(&mut app);
+    app.add_plugins(arch::core::voxel::VoxelPlugin);
     app.run();
 }
 
@@ -70,7 +65,7 @@ pub fn rasterize_sdf(mut voxels: Query<&mut Voxels>, input: Res<ButtonInput<KeyC
         sdf,
         RasterConfig {
             clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-            grid_scale: arch::voxel::GRID_SCALE,
+            grid_scale: arch::core::voxel::GRID_SCALE,
             pad_bounds: Vec3::splat(3.0),
         },
     ) {

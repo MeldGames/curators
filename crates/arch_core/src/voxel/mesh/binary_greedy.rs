@@ -165,8 +165,8 @@ pub fn update_binary_mesh(
             } else {
                 if let Some(mesh) = render_mesh {
                     let mesh_handle = meshes.add(mesh);
-                    // let material = materials.add(voxel.material());
-                    let material = voxel_materials.get(voxel);
+                    let material = materials.add(voxel.material());
+                    // let material = voxel_materials.get(voxel);
                     let mut voxel_mesh_commands = commands.spawn((
                         Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
                         Mesh3d(mesh_handle),

@@ -69,7 +69,6 @@ pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer
                 grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
             let voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
             grid.render_chunks.set_voxel(point, voxel);
-            // info!("updating point: {:?}", point);
         }
     }
 }
@@ -124,7 +123,6 @@ pub fn falling_sands(
         for (chunk_index, voxel_index) in grid.sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
             #[cfg(feature = "trace")]
             let update_span = info_span!("update_voxel", iteration = counter);
-            // println!("chunk_index: {}, voxel_index: {}", chunk_index, voxel_index);
 
             let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
 
@@ -185,14 +183,8 @@ const HORIZONTAL_ADJACENTS: [IVec3; 4] = [
     IVec3::Z,
 ];
 
-const ALL_ADJACENTS: [IVec3; 6] = [
-    IVec3::NEG_X,
-    IVec3::X,
-    IVec3::NEG_Z,
-    IVec3::Z,
-    IVec3::NEG_Y,
-    IVec3::Y,
-];
+const ALL_ADJACENTS: [IVec3; 6] =
+    [IVec3::NEG_X, IVec3::X, IVec3::NEG_Z, IVec3::Z, IVec3::NEG_Y, IVec3::Y];
 
 #[inline]
 pub fn simulate_semisolid(
@@ -217,6 +209,7 @@ pub fn simulate_semisolid(
         if voxel.is_gas() || (diagonal == IVec3::NEG_Y && voxel.is_liquid()) {
             grid.set_voxel(point + diagonal, sim_voxel);
             grid.set_voxel(point, voxel);
+            // println!("simulated semisolid at {:?}", point + diagonal);
             return;
         }
     }

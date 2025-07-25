@@ -129,13 +129,13 @@ impl RenderChunks {
 
     #[inline]
     pub fn get_chunk(&self, chunk_point: IVec3) -> Option<&VoxelChunk> {
-        let chunk_index = self.chunk_index(chunk_point);
+        let chunk_index = self.chunk_index(chunk_point)?;
         self.chunks.get(chunk_index)
         // self.chunks.get(&chunk_point)
     }
 
     pub fn get_chunk_mut(&mut self, chunk_point: IVec3) -> Option<&mut VoxelChunk> {
-        let chunk_index = self.chunk_index(chunk_point);
+        let chunk_index = self.chunk_index(chunk_point)?;
         self.chunks.get_mut(chunk_index)
         // self.chunks.get_mut(&chunk_point)
     }
@@ -201,10 +201,22 @@ impl RenderChunks {
     }
 
     #[inline]
-    pub fn chunk_index(&self, chunk_point: IVec3) -> usize {
-        chunk_point.z as usize
-            + chunk_point.x as usize * self.strides[1]
-            + chunk_point.y as usize * self.strides[2]
+    pub fn chunk_index(&self, chunk_point: IVec3) -> Option<usize> {
+        if chunk_point.x < 0
+            || chunk_point.y < 0
+            || chunk_point.z < 0
+            || chunk_point.x >= self.chunk_size.x
+            || chunk_point.y >= self.chunk_size.y
+            || chunk_point.z >= self.chunk_size.z
+        {
+            return None;
+        }
+
+        Some(
+            chunk_point.z as usize
+                + chunk_point.x as usize * self.strides[1]
+                + chunk_point.y as usize * self.strides[2],
+        )
     }
 
     // pub fn chunk_delinearize(&self, chunk_index: usize) -> IVec3 {

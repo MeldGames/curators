@@ -1,14 +1,15 @@
-use bevy_math::bounding::Aabb3d;
+
+use bevy::math::bounding::Aabb3d;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 
 use bevy::prelude::*;
 
-use arch::sdf::{
+use arch::core::sdf::{
     self,
     voxel_rasterize::{RasterConfig, RasterVoxel, rasterize},
 };
-use arch::voxel::{self, Voxel, Voxels};
+use arch::core::voxel::{self, Voxel, Voxels};
 
 criterion_group!(benches, get_voxel, set_voxel);
 criterion_main!(benches);

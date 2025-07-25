@@ -1,0 +1,11 @@
+[package]
+name = "bench"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+arch_core = { path = "../arch_core" }
+
+criterion = { version = "0.6.0", features = ["html_reports"] }
+lazy_static = "1.4.0"
+# pprof = { version = "0.15.0", features = ["flamegraph", "criterion"] }
