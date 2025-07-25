@@ -14,7 +14,7 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
 /// Scale the underlying primitive.
 ///
 /// Non uniform scaling is supported, but may cause some issues.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Scale<P: Sdf> {
     pub primitive: P,
     pub scale: Vec3,

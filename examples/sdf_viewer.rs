@@ -9,6 +9,7 @@ pub fn main() {
     let mut app = App::new();
     arch::core::viewer(&mut app);
     app.add_plugins(arch::core::voxel::VoxelPlugin);
+    app.insert_resource(AmbientLight { brightness: 2500.0, ..default() });
     app.run();
 }
 

@@ -16,10 +16,11 @@ pub fn plugin_setup() -> App {
 }
 
 pub fn paint_brush(voxels: &mut Voxels, center: IVec3, brush: &dyn Sdf, voxel: Voxel) {
+    let size = voxels.voxel_size.as_vec3a() / 2.0;
     for raster_voxel in sdf::voxel_rasterize::rasterize(
         brush,
         sdf::voxel_rasterize::RasterConfig {
-            clip_bounds: Aabb3d::new(Vec3::ZERO, Vec3::splat(1000.0)),
+            clip_bounds: Aabb3d { min: -size, max: size },
             grid_scale: GRID_SCALE,
             pad_bounds: Vec3::ZERO,
         },
@@ -33,7 +34,6 @@ pub fn paint_brush(voxels: &mut Voxels, center: IVec3, brush: &dyn Sdf, voxel: V
 pub trait SdfSendSync: Sdf + Send + Sync + 'static {}
 impl<T: Sdf + Send + Sync + 'static> SdfSendSync for T {}
 
-#[derive(Clone)]
 pub struct BenchSetup {
     /// Name of the bench setup
     pub name: &'static str,
@@ -42,31 +42,57 @@ pub struct BenchSetup {
     /// How many update iterations to run
     pub test_steps: usize,
     /// Paint voxels in the world each step: (center, brush, voxel)
-    pub brushes: Vec<(IVec3, &'static (dyn Sdf + Send + Sync), Voxel)>,
+    pub brushes: Vec<(IVec3, Box<dyn Sdf + Send + Sync>, Voxel)>,
 }
 
-lazy_static::lazy_static! {
-    pub static ref BASIC_BENCHES: Vec<BenchSetup> =
-        [
-            BenchSetup {
-                name: "torus_sand",
-                voxel_size: IVec3::new(60, 60, 60),
-                test_steps: 40,
-                brushes: vec![(
-                    IVec3::new(30, 30, 30),
-                    &sdf::Torus { minor_radius: 2.0, major_radius: 3.0 },
-                    Voxel::Sand,
-                )],
-            },
-            BenchSetup {
-                name: "torus_water",
-                voxel_size: IVec3::new(60, 60, 60),
-                test_steps: 40,
-                brushes: vec![(
-                    IVec3::new(30, 30, 30),
-                    &sdf::Torus { minor_radius: 2.0, major_radius: 3.0 },
-                    Voxel::Water { lateral_energy: 32 },
-                )],
-            },
-        ].to_vec();
+pub fn basic_benches() -> Vec<BenchSetup> {
+    vec![
+        BenchSetup {
+            name: "torus_sand",
+            voxel_size: IVec3::new(60, 60, 60),
+            test_steps: 40,
+            brushes: vec![(
+                IVec3::new(30, 30, 30),
+                Box::new(sdf::Torus { minor_radius: 2.0, major_radius: 3.0 }),
+                Voxel::Sand,
+            )],
+        },
+        BenchSetup {
+            name: "torus_water",
+            voxel_size: IVec3::new(60, 60, 60),
+            test_steps: 40,
+            brushes: vec![(
+                IVec3::new(30, 30, 30),
+                Box::new(sdf::Torus { minor_radius: 2.0, major_radius: 3.0 }),
+                Voxel::Water { lateral_energy: 32 },
+            )],
+        },
+        BenchSetup {
+            name: "blob",
+            voxel_size: IVec3::splat(256),
+            test_steps: 2000,
+            brushes: vec![(
+                IVec3::splat(256) / 2,
+                Box::new(sdf::ops::Scale {
+                    scale: Vec3::splat(15.0),
+                    primitive: sdf::Blob,
+                }),
+                Voxel::Sand,
+            )],
+        },
+        BenchSetup {
+            name: "fractal",
+            voxel_size: IVec3::splat(128),
+            test_steps: 2000,
+            brushes: vec![(
+                IVec3::splat(128) / 2,
+                // Box::new(sdf::Fractal),
+                Box::new(sdf::ops::Scale {
+                    scale: Vec3::splat(0.0025),
+                    primitive: sdf::Fractal,
+                }),
+                Voxel::Base,
+            )],
+        },
+    ]
 }

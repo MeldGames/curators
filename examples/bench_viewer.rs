@@ -1,5 +1,5 @@
 use arch_core::voxel::simulation::FallingSandTick;
-use bench::falling_sands::{BASIC_BENCHES, paint_brush};
+use bench::falling_sands::{ basic_benches, paint_brush};
 use bevy::core_pipeline::core_3d::graph::Node3d;
 use bevy::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
@@ -19,6 +19,7 @@ pub fn main() {
     app.register_type::<FallingSandTick>();
     app.insert_resource(FallingSandTick(0));
     app.insert_resource(CurrentBench::new(0));
+    app.insert_resource(AmbientLight { brightness: 2500.0, ..default() });
 
     app.add_systems(
         Update,
@@ -55,7 +56,7 @@ impl CurrentBench {
         Self {
             bench_index,
             step: 0,
-            max_steps: BASIC_BENCHES[bench_index].test_steps,
+            max_steps: basic_benches()[bench_index].test_steps,
             running: false,
         }
     }
@@ -78,13 +79,14 @@ pub fn cycle_benches(
     input: Res<ButtonInput<KeyCode>>,
     mut current_bench: ResMut<CurrentBench>,
 ) {
+    let mut benches = basic_benches();
     if input.just_pressed(KeyCode::KeyN) {
-        current_bench.bench_index = (current_bench.bench_index + 1) % BASIC_BENCHES.len();
+        current_bench.bench_index = (current_bench.bench_index + 1) % benches.len();
     } else if input.just_pressed(KeyCode::KeyB) {
         if current_bench.bench_index > 0 {
-            current_bench.bench_index = (current_bench.bench_index - 1) % BASIC_BENCHES.len();
+            current_bench.bench_index = (current_bench.bench_index - 1) % benches.len();
         } else {
-            current_bench.bench_index = BASIC_BENCHES.len() - 1;
+            current_bench.bench_index = benches.len() - 1;
         }
     }
 
@@ -96,7 +98,7 @@ pub fn cycle_benches(
         return;
     }
 
-    let bench = &BASIC_BENCHES[current_bench.bench_index];
+    let bench = benches.remove(current_bench.bench_index);
     info!("showing bench {:?}", bench.name);
     current_bench.step = 0;
     current_bench.max_steps = bench.test_steps;
@@ -105,6 +107,6 @@ pub fn cycle_benches(
     *voxels = Voxels::new(bench.voxel_size);
 
     for (center, brush, voxel) in &bench.brushes {
-        paint_brush(&mut *voxels, *center, *brush, *voxel);
+        paint_brush(&mut *voxels, *center, &**brush, *voxel);
     }
 }

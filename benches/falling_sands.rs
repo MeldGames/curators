@@ -13,7 +13,7 @@ use arch::core::{
     },
     voxel::simulation::{SimSwapBuffer, data::SimChunks},
 };
-use bench::falling_sands::{plugin_setup, BASIC_BENCHES, BenchSetup, paint_brush};
+use bench::falling_sands::{plugin_setup, BenchSetup, paint_brush};
 
 criterion_group!(benches, falling_sand_torus);
 criterion_main!(benches);
@@ -23,7 +23,7 @@ fn falling_sand_torus(c: &mut Criterion) {
     // group.sample_size(10);
     group.measurement_time(std::time::Duration::from_secs(10));
 
-    for bench in &*BASIC_BENCHES {
+    for bench in bench::falling_sands::basic_benches() {
         group.bench_function(bench.name, |b| {
             b.iter_batched(
                 || 
@@ -37,7 +37,7 @@ fn falling_sand_torus(c: &mut Criterion) {
                     let mut voxels = query.single_mut(world).unwrap();
 
                     for (center, brush, voxel) in &bench.brushes {
-                        paint_brush(&mut *voxels, *center, *brush, *voxel);
+                        paint_brush(&mut *voxels, *center, &**brush, *voxel);
                     }
 
                     app
