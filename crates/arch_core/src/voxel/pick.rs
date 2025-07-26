@@ -113,12 +113,10 @@ pub fn draw_cursor(
             // &sdf::Sphere { radius: 0.2 },
         ];
 
-        let brush_voxels: Vec<Voxel> = vec![
-            Voxel::Dirt,
-            Voxel::Sand,
-            Voxel::Water { lateral_energy: 4 },
-            Voxel::Oil { lateral_energy: 4 },
-        ];
+        let brush_voxels: Vec<Voxel> =
+            vec![Voxel::Dirt, Voxel::Sand, Voxel::Water { lateral_energy: 4 }, Voxel::Oil {
+                lateral_energy: 4,
+            }];
 
         if key_input.just_pressed(KeyCode::KeyB) {
             *brush_index = (*brush_index + 1) % brushes.len();
@@ -137,14 +135,11 @@ pub fn draw_cursor(
             // Place block
             let normal_block = point_ivec + normal_ivec;
 
-            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
-                brush,
-                RasterConfig {
-                    clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-                    grid_scale: crate::voxel::GRID_SCALE,
-                    pad_bounds: Vec3::splat(3.0),
-                },
-            ) {
+            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(brush, RasterConfig {
+                clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
+                grid_scale: crate::voxel::GRID_SCALE,
+                pad_bounds: Vec3::splat(3.0),
+            }) {
                 let point = normal_block + raster_voxel.point;
                 if raster_voxel.distance < 0.0 {
                     if voxels.get_voxel(point) == Voxel::Air && point.y > -10 {
@@ -160,14 +155,11 @@ pub fn draw_cursor(
             // Remove block
             let break_point = point_ivec;
 
-            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
-                brush,
-                RasterConfig {
-                    clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-                    grid_scale: crate::voxel::GRID_SCALE,
-                    pad_bounds: Vec3::splat(3.0),
-                },
-            ) {
+            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(brush, RasterConfig {
+                clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
+                grid_scale: crate::voxel::GRID_SCALE,
+                pad_bounds: Vec3::splat(3.0),
+            }) {
                 let point = break_point + raster_voxel.point;
                 if raster_voxel.distance < 0.0 {
                     if voxels.get_voxel(point).breakable() && point.y > -10 {
@@ -176,17 +168,14 @@ pub fn draw_cursor(
                 }
             }
         } else if key_input.pressed(KeyCode::KeyU) {
-            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
-                brush,
-                RasterConfig {
-                    clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-                    grid_scale: crate::voxel::GRID_SCALE,
-                    pad_bounds: Vec3::splat(3.0),
-                },
-            ) {
+            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(brush, RasterConfig {
+                clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
+                grid_scale: crate::voxel::GRID_SCALE,
+                pad_bounds: Vec3::splat(3.0),
+            }) {
                 let point = point_ivec + raster_voxel.point;
                 if raster_voxel.distance < 0.0 {
-                    voxels.sim_chunks.add_update_point(point);
+                    voxels.sim_chunks.push_point_update(point);
                 }
             }
         }

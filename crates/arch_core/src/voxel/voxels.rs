@@ -3,15 +3,14 @@ use std::ops::RangeInclusive;
 
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
+#[cfg(feature = "trace")]
+use tracing::*;
 
 use super::raycast::Hit;
 use crate::voxel::mesh::{BinaryGreedy, RenderChunks};
 use crate::voxel::raycast::VoxelHit;
 use crate::voxel::simulation::data::SimChunks;
 use crate::voxel::{GRID_SCALE, UpdateVoxelMeshSet, Voxel, VoxelAabb};
-
-#[cfg(feature = "trace")]
-use tracing::*;
 
 pub fn plugin(app: &mut App) {
     // app.add_plugins(super::voxel::plugin);
@@ -46,7 +45,8 @@ impl Voxels {
 
     #[inline]
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
-        // self.render_chunks.set_voxel(point, voxel); // is this necessary? the sim chunks should update this later
+        // self.render_chunks.set_voxel(point, voxel); // is this necessary? the sim
+        // chunks should update this later
         self.sim_chunks.set_voxel(point, voxel);
     }
 
@@ -74,15 +74,17 @@ impl Voxels {
     //     // let SCALED_CHUNK_SIZE: Vec3 = CHUNK_SIZE * crate::voxel::GRID_SCALE;
 
     //     let inv_matrix = grid_transform.compute_matrix().inverse();
-    //     let Ok(local_direction) = Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3()))
-    //     else {
-    //         panic!();
+    //     let Ok(local_direction) =
+    // Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3()))     else
+    // {         panic!();
     //     };
     //     let chunk_scaled = Transform { scale: 1.0 / CHUNK_SIZE, ..default() };
     //     let local_origin =
-    //         chunk_scaled.compute_matrix().transform_point3(inv_matrix.transform_point3(ray.origin));
+    //         chunk_scaled.compute_matrix().transform_point3(inv_matrix.
+    // transform_point3(ray.origin));
 
-    //     let local_ray = Ray3d { origin: local_origin, direction: local_direction };
+    //     let local_ray = Ray3d { origin: local_origin, direction: local_direction
+    // };
 
     //     let (min, max) = self.chunk_bounds();
     //     let volume = VoxelAabb { min, max };
@@ -205,10 +207,10 @@ impl Voxels {
         }
     }
 
-    pub fn point_iter(&self) -> impl Iterator<Item = IVec3> {
-        (0..self.voxel_size.x).flat_map(move |x| {
-            (0..self.voxel_size.z)
-                .flat_map(move |z| (0..self.voxel_size.y).map(move |y| IVec3::new(x, y, z)))
+    pub fn point_iter<'a, 'b>(&'b self) -> impl Iterator<Item = IVec3> + 'a {
+        let voxel_size = self.voxel_size;
+        (0..voxel_size.x).flat_map(move |x| {
+            (0..voxel_size.z).flat_map(move |z| (0..voxel_size.y).map(move |y| IVec3::new(x, y, z)))
         })
     }
 

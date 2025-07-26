@@ -1,11 +1,9 @@
-use crate::voxel::{
-    Voxel, Voxels,
-    simulation::{RenderSwapBuffer, SimSwapBuffer},
-};
 use bevy::prelude::*;
-
 #[cfg(feature = "trace")]
 use tracing::*;
+
+use crate::voxel::simulation::{RenderSwapBuffer, SimSwapBuffer};
+use crate::voxel::{Voxel, Voxels};
 
 pub const BLOCK_VOXELS_BITSHIFT: i32 = 2; // 4 voxels
 pub const BLOCK_VOXELS: i32 = 1 << BLOCK_VOXELS_BITSHIFT;
@@ -97,7 +95,8 @@ pub fn linearize_4x4x4(relative_point: IVec3) -> usize {
     );
 
     // z + x * 4 + y * 16
-    // zxy order for now, maybe check if yxz is better later since the most checks are vertical
+    // zxy order for now, maybe check if yxz is better later since the most checks
+    // are vertical
     (relative_point.z + (relative_point.x << 2) + (relative_point.y << 4)) as usize
 }
 
@@ -125,7 +124,8 @@ pub fn linearize_16x16x16(relative_point: IVec3) -> usize {
     );
 
     // z + x * 4 + y * 16
-    // zxy order for now, maybe check if yxz is better later since the most checks are vertical
+    // zxy order for now, maybe check if yxz is better later since the most checks
+    // are vertical
     (relative_point.z + (relative_point.x << 4) + (relative_point.y << 8)) as usize
 }
 
@@ -161,7 +161,9 @@ pub struct UpdateIterator<'a> {
 }
 
 impl<'a> Iterator for UpdateIterator<'a> {
-    type Item = (usize, usize); // (chunk_index, voxel_index)
+    type Item = (usize, usize);
+
+    // (chunk_index, voxel_index)
 
     fn next(&mut self) -> Option<Self::Item> {
         // println!("UPDATE ITERATOR NEXT");
@@ -188,6 +190,36 @@ impl<'a> Iterator for UpdateIterator<'a> {
 }
 
 impl SimChunks {
+    pub const NEIGHBOR_OFFSETS: [IVec3; 27] = [
+        ivec3(-1, -1, -1),
+        ivec3(-1, -1, 0),
+        ivec3(-1, -1, 1),
+        ivec3(0, -1, -1),
+        ivec3(0, -1, 0),
+        ivec3(0, -1, 1),
+        ivec3(1, -1, -1),
+        ivec3(1, -1, 0),
+        ivec3(1, -1, 1),
+        ivec3(-1, 0, -1),
+        ivec3(-1, 0, 0),
+        ivec3(-1, 0, 1),
+        ivec3(0, 0, -1),
+        ivec3(0, 0, 0),
+        ivec3(0, 0, 1),
+        ivec3(1, 0, -1),
+        ivec3(1, 0, 0),
+        ivec3(1, 0, 1),
+        ivec3(-1, 1, -1),
+        ivec3(-1, 1, 0),
+        ivec3(-1, 1, 1),
+        ivec3(0, 1, -1),
+        ivec3(0, 1, 0),
+        ivec3(0, 1, 1),
+        ivec3(1, 1, -1),
+        ivec3(1, 1, 0),
+        ivec3(1, 1, 1),
+    ];
+
     pub fn new(voxel_size: IVec3) -> Self {
         let chunk_size = (voxel_size / IVec3::splat(16)) + IVec3::ONE;
         // println!("chunk_size: {:?}", chunk_size);
@@ -249,8 +281,8 @@ impl SimChunks {
     //     let chunk_point = chunk_point(point);
     //     let chunk_index = self.chunk_index(chunk_point);
     //     let block_point = block_point(point);
-    //     let block_index = block_index(point_relative_to_block(block_point, point));
-    //     let voxel_index = voxel_index(point);
+    //     let block_index = block_index(point_relative_to_block(block_point,
+    // point));     let voxel_index = voxel_index(point);
     // }
 
     #[inline]
@@ -291,36 +323,6 @@ impl SimChunks {
         chunk.voxels[voxel_index] = voxel.data();
     }
 
-    pub const NEIGHBOR_OFFSETS: [IVec3; 27] = [
-        ivec3(-1, -1, -1),
-        ivec3(-1, -1, 0),
-        ivec3(-1, -1, 1),
-        ivec3(0, -1, -1),
-        ivec3(0, -1, 0),
-        ivec3(0, -1, 1),
-        ivec3(1, -1, -1),
-        ivec3(1, -1, 0),
-        ivec3(1, -1, 1),
-        ivec3(-1, 0, -1),
-        ivec3(-1, 0, 0),
-        ivec3(-1, 0, 1),
-        ivec3(0, 0, -1),
-        ivec3(0, 0, 0),
-        ivec3(0, 0, 1),
-        ivec3(1, 0, -1),
-        ivec3(1, 0, 0),
-        ivec3(1, 0, 1),
-        ivec3(-1, 1, -1),
-        ivec3(-1, 1, 0),
-        ivec3(-1, 1, 1),
-        ivec3(0, 1, -1),
-        ivec3(0, 1, 0),
-        ivec3(0, 1, 1),
-        ivec3(1, 1, -1),
-        ivec3(1, 1, 0),
-        ivec3(1, 1, 1),
-    ];
-
     #[inline]
     pub fn push_neighbor_updates(&mut self, point: IVec3) {
         for y in -1..=1 {
@@ -328,14 +330,14 @@ impl SimChunks {
                 for z in -1..=1 {
                     let offset = ivec3(x, y, z);
                     let neighbor = point + offset;
-                    self.add_update_point(neighbor);
+                    self.push_point_update(neighbor);
                 }
             }
         }
     }
 
     #[inline]
-    pub fn add_update_point(&mut self, point: IVec3) {
+    pub fn push_point_update(&mut self, point: IVec3) {
         if self.in_bounds(point) {
             let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
             // info!("adding update point: {:?}", point);
@@ -344,12 +346,26 @@ impl SimChunks {
     }
 
     #[inline]
-    pub fn add_update_mask(&mut self, chunk_index: usize, index: usize) {
-        // info!("adding update mask: {:?}", (chunk_index, index));
-        let mask_index = index >> 6; // index / 64
-        let bit_index = index & 63; // index % 64
+    pub fn add_update_mask(&mut self, chunk_index: usize, voxel_index: usize) {
+        // info!("adding update mask: {:?}", (chunk_index, voxel_index));
+        let mask_index = voxel_index >> 6; // voxel_index / 64
+        let bit_index = voxel_index & 63; // voxel_index % 64
         self.sim_updates[chunk_index][mask_index] |= 1 << bit_index;
         self.render_updates[chunk_index][mask_index] |= 1 << bit_index;
+    }
+
+    pub fn clear_updates(&mut self) {
+        for mask in &mut self.sim_updates {
+            for bits in mask {
+                *bits = 0;
+            }
+        }
+
+        for mask in &mut self.render_updates {
+            for bits in mask {
+                *bits = 0;
+            }
+        }
     }
 
     pub fn sim_updates<'a, 'b: 'a>(

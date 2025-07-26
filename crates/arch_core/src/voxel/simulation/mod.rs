@@ -5,11 +5,12 @@
 
 use std::collections::BTreeSet;
 
-use crate::voxel::{Voxel, Voxels, simulation::data::SimChunks};
 use bevy::prelude::*;
-
 #[cfg(feature = "trace")]
 use tracing::*;
+
+use crate::voxel::simulation::data::SimChunks;
+use crate::voxel::{Voxel, Voxels};
 
 pub mod data;
 
@@ -20,6 +21,9 @@ pub fn plugin(app: &mut App) {
     app.add_systems(FixedUpdate, update_render_voxels);
     // app.add_systems(Update, falling_sands);
 
+    app.add_systems(Startup, || {
+        info!("available parallelism: {:?}", std::thread::available_parallelism());
+    });
     app.add_plugins(data::plugin);
 }
 
@@ -38,17 +42,21 @@ pub struct FallingSandTick(pub u32);
 // - no overlaps with other work groups for parallelism
 // - no more than ~6000 voxels simulated per work group
 
-// 62x1x62 chunks aligns with xz plane which has better contiguous memory ~12kb of memory for the surrounding 62x3x62 voxels
-// what to do about boundaries?
-// need at least somewhat uniform simulation, so spreading it out over multiple chunks would be good
-// maybe offset spirals?:
+// 62x1x62 chunks aligns with xz plane which has better contiguous memory ~12kb
+// of memory for the surrounding 62x3x62 voxels what to do about boundaries?
+// need at least somewhat uniform simulation, so spreading it out over multiple
+// chunks would be good maybe offset spirals?:
 //
 
 // Take 2 on parallelization:
-// - each thread has a work pool of a chunk, each chunk keeps a record of dirty voxels (need to figure out a good way to store these too that isn't too rough to set)
+// - each thread has a work pool of a chunk, each chunk keeps a record of dirty
+//   voxels (need to figure out a good way to store these too that isn't too
+//   rough to set)
 // - thread runs through each dirty voxel and marks where it'd like to go
-// - collect all of the commands/movements, flatten duplicates based on distance of the movement for determinism
-// - give each thread a couple of dirty chunks to apply movements to and the lists of movements
+// - collect all of the commands/movements, flatten duplicates based on distance
+//   of the movement for determinism
+// - give each thread a couple of dirty chunks to apply movements to and the
+//   lists of movements
 // 1 other thing is I really need to smooth this processing over multiple frames
 
 // pub struct ChunkMovements {
@@ -102,17 +110,17 @@ pub fn falling_sands(
         //     std::mem::swap(&mut *updates, &mut grid.update_voxels);
         //     match sim_tick.0 % 4 {
         //         0 => {
-        //             updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));
-        //         },
+        //             updates.sort_by(|a, b|
+        // a.y.cmp(&b.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));         },
         //         1 => {
-        //             updates.sort_by(|a, b| a.y.cmp(&b.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));
-        //         },
+        //             updates.sort_by(|a, b|
+        // a.y.cmp(&b.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));         },
         //         2 => {
-        //             updates.sort_by(|a, b| a.y.cmp(&b.y).then(a.x.cmp(&b.x)).then(a.z.cmp(&b.z)));
-        //         },
+        //             updates.sort_by(|a, b|
+        // a.y.cmp(&b.y).then(a.x.cmp(&b.x)).then(a.z.cmp(&b.z)));         },
         //         3 => {
-        //             updates.sort_by(|a, b| a.y.cmp(&b.y).then(a.z.cmp(&b.z)).then(a.x.cmp(&b.x)));
-        //         },
+        //             updates.sort_by(|a, b|
+        // a.y.cmp(&b.y).then(a.z.cmp(&b.z)).then(a.x.cmp(&b.x)));         },
         //         _ => unreachable!(),
         //     }
 
@@ -165,8 +173,8 @@ pub fn falling_sands(
     }
 
     // if simulated_counter > 0 {
-    // info!("simulated {} voxels, static {} voxels", simulated_counter, static_counter);
-    // }
+    // info!("simulated {} voxels, static {} voxels", simulated_counter,
+    // static_counter); }
 }
 
 const DOWN_DIAGONALS: [IVec3; 4] = [

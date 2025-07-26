@@ -1,16 +1,13 @@
-use bevy::math::bounding::Aabb3d;
-use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 
-use bevy::prelude::*;
-
-use arch::core::sdf::{
-    self,
-    voxel_rasterize::{RasterConfig, RasterVoxel, rasterize},
-};
+use arch::core::sdf::voxel_rasterize::{RasterConfig, RasterVoxel, rasterize};
+use arch::core::sdf::{self};
 use arch::core::voxel::{self, Voxel, Voxels};
+use bevy::math::bounding::Aabb3d;
+use bevy::prelude::*;
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
-criterion_group!(benches, get_voxel, set_voxel);
+criterion_group!(benches, get_voxel, set_voxel, updates_iterator);
 criterion_main!(benches);
 
 fn get_voxel(c: &mut Criterion) {
@@ -38,19 +35,13 @@ fn get_voxel(c: &mut Criterion) {
 
 fn set_voxel(c: &mut Criterion) {
     let mut group = c.benchmark_group("set_voxels");
-    let size = 16;
-    let len = size * size * size;
-    let point_iter = (0..size).flat_map(move |y| {
-        (0..size).flat_map(move |x| (0..size).map(move |z| IVec3::new(x, y, z)))
-    });
-    let voxel_iter = (0..len).map(|_| Voxel::Sand);
 
     group.bench_function("set_voxel_sim", |b| {
         let mut voxels = Voxels::new(IVec3::splat(128));
 
         b.iter(|| {
-            for (point, voxel) in point_iter.clone().zip(voxel_iter.clone()) {
-                black_box(voxels.sim_chunks.set_voxel(point, voxel));
+            for point in voxels.point_iter() {
+                black_box(voxels.sim_chunks.set_voxel(point, Voxel::Sand));
             }
         })
     });
@@ -59,8 +50,8 @@ fn set_voxel(c: &mut Criterion) {
         let mut voxels = Voxels::new(IVec3::splat(128));
 
         b.iter(|| {
-            for (point, voxel) in point_iter.clone().zip(voxel_iter.clone()) {
-                black_box(voxels.render_chunks.set_voxel(point, voxel));
+            for point in voxels.point_iter() {
+                black_box(voxels.render_chunks.set_voxel(point, Voxel::Sand));
             }
         })
     });
@@ -69,9 +60,71 @@ fn set_voxel(c: &mut Criterion) {
     //     let mut voxels = Voxels::new(IVec3::splat(128));
 
     //     b.iter(|| {
-    //         for (point, voxel) in point_iter.clone().zip(voxel_iter.clone()) {
-    //             black_box(voxels.sim_chunks.set_voxel(point, voxel));
+    //         for (point, voxel) in point_iter.clone().zip(voxel_iter.clone())
+    // {             black_box(voxels.sim_chunks.set_voxel(point, voxel));
     //         }
     //     })
     // });
+}
+
+fn updates_iterator(c: &mut Criterion) {
+    let mut group = c.benchmark_group("update_iterator");
+
+    group.bench_function("update_set", |b| {
+        b.iter_batched(
+            || {
+                let mut voxels = Voxels::new(IVec3::splat(128));
+                voxels.sim_chunks.clear_updates();
+
+                voxels
+            },
+            |mut voxels| {
+                for point in voxels.point_iter() {
+                    voxels.sim_chunks.push_point_update(point);
+                }
+
+                black_box(&voxels.sim_chunks.sim_updates);
+                black_box(&voxels.sim_chunks.render_updates);
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
+    group.bench_function("update_iter_dense", |b| {
+        b.iter_batched(
+            || {
+                let voxels = Voxels::new(IVec3::splat(128));
+                let swap_buffer = voxels.sim_chunks.create_update_buffer();
+                (voxels, swap_buffer)
+            },
+            |(mut voxels, mut swap_buffer)| {
+                for (chunk_index, voxel_index) in voxels.sim_chunks.sim_updates(&mut swap_buffer) {
+                    black_box((chunk_index, voxel_index));
+                }
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
+    group.bench_function("update_iter_sparse", |b| {
+        b.iter_batched(
+            || {
+                let mut voxels = Voxels::new(IVec3::splat(128));
+                voxels.sim_chunks.clear_updates();
+
+                for point in voxels.point_iter().step_by(34) {
+                    voxels.sim_chunks.push_point_update(point);
+                }
+
+                let swap_buffer = voxels.sim_chunks.create_update_buffer();
+                (voxels, swap_buffer)
+            },
+            |(mut voxels, mut swap_buffer)| {
+                for (chunk_index, voxel_index) in voxels.sim_chunks.sim_updates(&mut swap_buffer) {
+                    black_box((chunk_index, voxel_index));
+                }
+            },
+            BatchSize::SmallInput,
+        );
+    });
 }

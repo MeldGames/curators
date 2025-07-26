@@ -11,7 +11,8 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
-use crate::voxel::mesh::{ChangedChunks, chunk::VoxelChunk};
+use crate::voxel::mesh::ChangedChunks;
+use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{Voxel, Voxels};
 
