@@ -18,6 +18,11 @@ use crate::voxel::{Voxel, Voxels};
 
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
+
+    app.register_type::<Remesh>();
+
+    app.insert_resource(Remesh::default());
+
     app.add_systems(
         PostUpdate,
         (spawn_chunk_entities, update_binary_mesh, update_binary_mesh_collider)
@@ -85,6 +90,19 @@ pub fn spawn_chunk_entities(
     }
 }
 
+#[derive(Resource, Clone, Copy, Debug, Reflect)]
+#[reflect(Resource)]
+pub struct Remesh {
+    pub render_per_frame: usize,
+    pub collider_per_frame: usize,
+}
+
+impl Default for Remesh {
+    fn default() -> Self {
+        Self { render_per_frame: 8, collider_per_frame: 2 }
+    }
+}
+
 pub fn update_binary_mesh(
     mut commands: Commands,
     mut grids: Query<(&Voxels, &Chunks), Changed<Voxels>>,
@@ -98,6 +116,8 @@ pub fn update_binary_mesh(
 
     mut queue: Local<VecDeque<(Entity, IVec3)>>,
     mut dedup: Local<HashSet<(Entity, IVec3)>>,
+
+    remesh: Res<Remesh>,
 ) {
     for ChangedChunks { voxel_entity, changed_chunks } in changed_chunks.read() {
         for chunk in changed_chunks {
@@ -109,10 +129,8 @@ pub fn update_binary_mesh(
         }
     }
 
-    const PER_FRAME: usize = 16;
     let mut pop_count = 0;
-
-    while pop_count < PER_FRAME {
+    while pop_count < remesh.render_per_frame {
         pop_count += 1;
         let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
             break;
@@ -201,6 +219,8 @@ pub fn update_binary_mesh_collider(
 
     mut queue: Local<VecDeque<(Entity, IVec3)>>,
     mut dedup: Local<HashSet<(Entity, IVec3)>>,
+
+    remesh: Res<Remesh>,
 ) {
     for ChangedChunks { voxel_entity, changed_chunks } in changed_chunks.read() {
         for chunk in changed_chunks {
@@ -212,10 +232,8 @@ pub fn update_binary_mesh_collider(
         }
     }
 
-    const PER_FRAME: usize = 2;
     let mut pop_count = 0;
-
-    while pop_count < PER_FRAME {
+    while pop_count < remesh.collider_per_frame {
         pop_count += 1;
         let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
             break;
