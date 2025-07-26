@@ -20,7 +20,9 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(add_buffers);
     app.add_systems(
         PostUpdate,
-        (spawn_chunk_entities, update_binary_mesh).chain().in_set(UpdateVoxelMeshSet),
+        (spawn_chunk_entities, update_binary_mesh, update_binary_mesh_collider)
+            .chain()
+            .in_set(UpdateVoxelMeshSet),
     );
 }
 
@@ -85,8 +87,8 @@ pub fn spawn_chunk_entities(
 
 pub fn update_binary_mesh(
     mut commands: Commands,
-    mut grids: Query<(&Voxels, &mut Chunks), Changed<Voxels>>,
-    mut chunk_mesh_entities: Query<(&mut ChunkMeshes, &mut ChunkCollider)>,
+    mut grids: Query<(&Voxels, &Chunks), Changed<Voxels>>,
+    mut chunk_mesh_entities: Query<&mut ChunkMeshes>,
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -130,15 +132,13 @@ pub fn update_binary_mesh(
 
         // info!("chunk {:?} changed, updating binary mesh", chunk_pos);
         let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
-        let collider_mesh = chunk.generate_collider_mesh(&mut mesher.0);
         // collider_mesh_buffer.combine(&collider_mesh);
 
         let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
             continue;
         };
 
-        let Ok((mut chunk_meshes, mut chunk_collider)) = chunk_mesh_entities.get_mut(*chunk_entity)
-        else {
+        let Ok(mut chunk_meshes) = chunk_mesh_entities.get_mut(*chunk_entity) else {
             continue;
         };
 
@@ -188,8 +188,62 @@ pub fn update_binary_mesh(
                 }
             }
         }
+    }
+}
 
-        let collider_mesh = collider_mesh.to_mesh();
+pub fn update_binary_mesh_collider(
+    mut commands: Commands,
+    mut grids: Query<(&Voxels, &Chunks), Changed<Voxels>>,
+    mut chunk_mesh_entities: Query<&mut ChunkCollider>,
+
+    mut mesher: Local<BgmMesher>,
+    mut changed_chunks: EventReader<ChangedChunks>,
+
+    mut queue: Local<VecDeque<(Entity, IVec3)>>,
+    mut dedup: Local<HashSet<(Entity, IVec3)>>,
+) {
+    for ChangedChunks { voxel_entity, changed_chunks } in changed_chunks.read() {
+        for chunk in changed_chunks {
+            let new_entry = (*voxel_entity, *chunk);
+            if !dedup.contains(&new_entry) {
+                queue.push_back(new_entry);
+                dedup.insert(new_entry);
+            }
+        }
+    }
+
+    const PER_FRAME: usize = 2;
+    let mut pop_count = 0;
+
+    while pop_count < PER_FRAME {
+        pop_count += 1;
+        let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
+            break;
+        };
+        dedup.remove(&(voxel_entity, chunk_point));
+
+        let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
+            warn!("No voxels for entity {voxel_entity:?}");
+            continue;
+        };
+        // collider_mesh_buffer.clear();
+
+        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
+            warn!("No chunk at {chunk_point:?}");
+            continue;
+        };
+
+        let collider_mesh = chunk.generate_collider_mesh(&mut mesher.0).to_mesh();
+
+        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
+            continue;
+        };
+
+        let Ok(mut chunk_collider) = chunk_mesh_entities.get_mut(*chunk_entity) else {
+            continue;
+        };
+
+        // 몰리
 
         let flags = TrimeshFlags::FIX_INTERNAL_EDGES
             | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES

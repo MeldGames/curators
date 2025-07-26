@@ -3,3 +3,4 @@ crates/*/target/
 
 tracy/
 profile.json.gz
+flamegraph.svg
