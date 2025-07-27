@@ -17,8 +17,8 @@ pub mod data;
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>();
     app.insert_resource(FallingSandTick(0));
-    app.add_systems(FixedPreUpdate, falling_sands);
-    app.add_systems(FixedUpdate, update_render_voxels);
+    app.add_systems(FixedPostUpdate, falling_sands);
+    app.add_systems(PostUpdate, update_render_voxels);
     // app.add_systems(Update, falling_sands);
 
     app.add_systems(Startup, || {
@@ -217,6 +217,8 @@ pub fn simulate_semisolid(
         if voxel.is_gas() || (diagonal == IVec3::NEG_Y && voxel.is_liquid()) {
             grid.set_voxel(point + diagonal, sim_voxel);
             grid.set_voxel(point, voxel);
+
+            // grid.add_update_mask(chunk_index, voxel_index);
             // println!("simulated semisolid at {:?}", point + diagonal);
             return;
         }
@@ -325,5 +327,46 @@ pub fn simulate_structured(
             grid.set_voxel(point + IVec3::new(0, -1, 0), Voxel::Dirt);
             grid.set_voxel(point, below_voxel);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::prelude::*;
+
+    use crate::voxel::simulation::DOWN_DIAGONALS;
+
+    fn neighbors(point: IVec3) -> Vec<IVec3> {
+        let mut neighbors = Vec::new();
+        for y in -1..=1 {
+            for x in -1..=1 {
+                for z in -1..=1 {
+                    neighbors.push(point + IVec3::new(x, y, z));
+                }
+            }
+        }
+
+        neighbors
+    }
+
+    #[test]
+    fn updates_for_swaps() {
+        // merge 2 update masks for a point + a swap point, so we don't try to access
+        // the bitmasks as much.
+        let points = DOWN_DIAGONALS;
+
+        for point in points {
+            let mut offsets = neighbors(IVec3::ZERO).extend(neighbors(point).iter());
+            offsets.dedup();
+            offsets.sort_by(|&a, &b| a.y.cmp(&b.y).then(a.x.cmp(&b.x).then(a.z.cmp(&b.z))));
+        }
+
+        let name = "DIAGONALS";
+        println!("const {}_UPDATE_OFFSETS: [IVec3; {}] = [", name, offsets.len());
+        for offset in offsets {
+            println!("    IVec3::new({}, {}, {})", offset.x, offset.y, offset.z);
+        }
+
+        println!("];");
     }
 }
