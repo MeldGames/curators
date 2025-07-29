@@ -16,8 +16,8 @@ pub mod voxel_aabb;
 pub mod voxels;
 
 // pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
-pub const GRID_SCALE: Vec3 = Vec3::splat(0.35);
-// pub const GRID_SCALE: Vec3 = Vec3::splat(0.15);
+pub const GRID_SCALE: Vec3 = Vec3::splat(0.5);
+// pub const GRID_SCALE: Vec3 = Vec3::splat(0.1);
 // pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
 
 #[derive(Default)]
@@ -43,10 +43,10 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
     commands.spawn((
         Voxels::new(IVec3::new(256, 256, 256)),
         Transform { scale: GRID_SCALE, ..default() },
-        // mesh::surface_net::SurfaceNet::default(),
+        mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
         // mesh::meshem::Meshem,
-        mesh::binary_greedy::BinaryGreedy,
+        // mesh::binary_greedy::BinaryGreedy,
     ));
 }
 fn dynamic_scene(mut suns: Query<&mut Transform, With<Sun>>, time: Res<Time>) {

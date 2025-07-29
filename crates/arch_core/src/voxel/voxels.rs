@@ -7,7 +7,8 @@ use bevy::prelude::*;
 use tracing::*;
 
 use super::raycast::Hit;
-use crate::voxel::mesh::{BinaryGreedy, RenderChunks};
+use crate::voxel::mesh::binary_greedy::Chunks;
+use crate::voxel::mesh::{BinaryGreedy, SurfaceNet, RenderChunks};
 use crate::voxel::raycast::VoxelHit;
 use crate::voxel::simulation::data::SimChunks;
 use crate::voxel::{GRID_SCALE, UpdateVoxelMeshSet, Voxel, VoxelAabb};
@@ -17,7 +18,10 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Debug, Component, Clone, PartialEq, Eq)]
-#[require(Name::new("Voxels"), Transform { scale: GRID_SCALE, ..default() }, BinaryGreedy)]
+#[require(Name::new("Voxels"), Transform { scale: GRID_SCALE, ..default() }, SurfaceNet::default(),
+    Visibility::Inherited,
+    Chunks::default(),
+)]
 pub struct Voxels {
     // Meshing data
     pub render_chunks: RenderChunks,

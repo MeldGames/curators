@@ -17,7 +17,7 @@ pub mod data;
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>();
     app.insert_resource(FallingSandTick(0));
-    app.add_systems(FixedPostUpdate, falling_sands);
+    app.add_systems(PostUpdate, falling_sands);
     app.add_systems(PostUpdate, update_render_voxels);
     // app.add_systems(Update, falling_sands);
 
@@ -131,12 +131,12 @@ pub fn falling_sands(
                         .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
                     simulate_liquid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
-                Voxel::Dirt => {
-                    let point = grid
-                        .sim_chunks
-                        .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
-                    simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
-                },
+                // Voxel::Dirt => {
+                //     let point = grid
+                //         .sim_chunks
+                //         .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    // simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
+                // },
                 _ => {}, // no-op
             }
 

@@ -1,78 +1,188 @@
-use bevy::asset::RenderAssetUsages;
-use bevy::prelude::*;
-use bevy::render::mesh::{Indices, VertexAttributeValues};
-use bevy::render::render_resource::PrimitiveTopology;
-use fast_surface_nets::SurfaceNetsBuffer;
-use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape};
+use std::collections::VecDeque;
 
+use bevy::asset::RenderAssetUsages;
+use bevy::pbr::{NotShadowCaster, NotShadowReceiver};
+use bevy::platform::collections::HashSet;
+use bevy::prelude::*;
+use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
+use bevy::render::render_resource::PrimitiveTopology;
+use fast_surface_nets::{surface_nets, SurfaceNetsBuffer};
+use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape, Shape};
+
+use crate::voxel::mesh::binary_greedy::{ChunkMeshes, Chunks};
+use crate::voxel::mesh::ChangedChunks;
 use crate::voxel::mesh::{chunk::VoxelChunk, padded};
+use crate::voxel::{Voxel, Voxels};
+use crate::voxel::mesh::binary_greedy::Remesh;
 
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, update_surface_net_mesh);
+        app.add_systems(PostUpdate, update_surface_net_mesh);
     }
 }
 
 #[derive(Component, Default)]
-pub struct SurfaceNet {
-    buffer: SurfaceNetsBuffer,
-}
+pub struct SurfaceNet;
 
 #[derive(Component, Default)]
 pub struct SurfaceNetMesh;
 
+// pub fn update_surface_net_mesh(
+//     mut commands: Commands,
+//     mut surface_nets: Query<
+//         (Entity, &VoxelChunk, &mut SurfaceNet, Option<&Children>),
+//         Changed<VoxelChunk>,
+//     >,
+//     mut meshes: ResMut<Assets<Mesh>>,
+//     mut materials: ResMut<Assets<StandardMaterial>>,
+//     net_meshes: Query<(), With<SurfaceNetMesh>>,
+// ) {
+//     for (entity, grid, mut net, children) in &mut surface_nets {
+//         let material = MeshMaterial3d(materials.add(StandardMaterial {
+//             base_color: Color::srgb(0.4, 0.4, 0.4),
+//             // base_color_texture: Some(texture_mesh),
+//             perceptual_roughness: 1.0,
+//             reflectance: 0.0,
+//             ..default()
+//         }));
+
+//         grid.update_surface_net(&mut net.buffer);
+
+//         let mesh = surface_net_to_mesh(&net.buffer);
+//         // mesh.duplicate_vertices();
+//         // mesh.compute_flat_normals();
+
+//         let mut mesh_entity = None;
+//         if let Some(children) = children {
+//             mesh_entity = children.iter().find(|child_entity| net_meshes.contains(*child_entity));
+//         }
+
+//         let mesh_entity = if let Some(mesh_entity) = mesh_entity {
+//             mesh_entity
+//         } else {
+//             let new_mesh_entity = commands
+//                 .spawn((
+//                     Transform { translation: -Vec3::new(0.5, 0.5, 0.5), ..default() },
+//                     SurfaceNetMesh,
+//                     Name::new("Surface nets mesh"),
+//                 ))
+//                 .id();
+
+//             commands.entity(entity).add_child(new_mesh_entity);
+
+//             new_mesh_entity
+//         };
+
+//         commands.entity(mesh_entity).insert((Mesh3d(meshes.add(mesh)), material));
+//     }
+// }
+
 pub fn update_surface_net_mesh(
     mut commands: Commands,
-    mut surface_nets: Query<
-        (Entity, &VoxelChunk, &mut SurfaceNet, Option<&Children>),
-        Changed<VoxelChunk>,
-    >,
+    mut grids: Query<(&Voxels, &Chunks), (Changed<Voxels>, With<SurfaceNet>)>,
+    mut chunk_mesh_entities: Query<&mut ChunkMeshes>,
+
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    net_meshes: Query<(), With<SurfaceNetMesh>>,
+    // voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
+    // mut mesher: Local<BgmMesher>,
+    mut surface_net_buffer: Local<SurfaceNetsBuffer>,
+    mut changed_chunks: EventReader<ChangedChunks>,
+
+    mut queue: Local<VecDeque<(Entity, IVec3)>>,
+    mut dedup: Local<HashSet<(Entity, IVec3)>>,
+
+    remesh: Res<Remesh>,
+
+    mut tick: Local<usize>,
 ) {
-    for (entity, grid, mut net, children) in &mut surface_nets {
-        let material = MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(0.4, 0.4, 0.4),
-            // base_color_texture: Some(texture_mesh),
-            perceptual_roughness: 1.0,
-            reflectance: 0.0,
-            ..default()
-        }));
+    *tick += 1;
+    // if *tick % 8 != 0 {
+    //     return;
+    // }
 
-        grid.update_surface_net(&mut net.buffer);
-
-        let mesh = surface_net_to_mesh(&net.buffer);
-        // mesh.duplicate_vertices();
-        // mesh.compute_flat_normals();
-
-        let mut mesh_entity = None;
-        if let Some(children) = children {
-            mesh_entity = children.iter().find(|child_entity| net_meshes.contains(*child_entity));
+    for ChangedChunks { voxel_entity, changed_chunks } in changed_chunks.read() {
+        for chunk in changed_chunks {
+            let new_entry = (*voxel_entity, *chunk);
+            if !dedup.contains(&new_entry) {
+                queue.push_back(new_entry);
+                dedup.insert(new_entry);
+            }
         }
+    }
 
-        let mesh_entity = if let Some(mesh_entity) = mesh_entity {
-            mesh_entity
-        } else {
-            let new_mesh_entity = commands
-                .spawn((
-                    Transform { translation: -Vec3::new(0.5, 0.5, 0.5), ..default() },
-                    SurfaceNetMesh,
-                    Name::new("Surface nets mesh"),
-                ))
-                .id();
+    let mut pop_count = 0;
+    while pop_count < remesh.render_per_frame {
+        pop_count += 1;
+        let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
+            break;
+        };
+        dedup.remove(&(voxel_entity, chunk_point));
 
-            commands.entity(entity).add_child(new_mesh_entity);
+        let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
+            warn!("No voxels for entity {voxel_entity:?}");
+            continue;
+        };
+        // collider_mesh_buffer.clear();
 
-            new_mesh_entity
+        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
+            warn!("No chunk at {chunk_point:?}");
+            continue;
         };
 
-        commands.entity(mesh_entity).insert((Mesh3d(meshes.add(mesh)), material));
+        chunk.update_surface_net(&mut surface_net_buffer);
+        let mut mesh = surface_net_to_mesh(&surface_net_buffer);
+        mesh.duplicate_vertices();
+        mesh.compute_flat_normals();
+        info!("mesh indices: {:?}", mesh.indices().unwrap().len());
+
+        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
+            continue;
+        };
+
+        let Ok(mut chunk_meshes) = chunk_mesh_entities.get_mut(*chunk_entity) else {
+            continue;
+        };
+
+        // 몰리
+
+        if let Some(entity) = chunk_meshes.get(&Voxel::Base) {
+            let mut entity_commands = commands.entity(*entity);
+            let aabb = mesh.compute_aabb();
+            let mesh_handle = meshes.add(mesh);
+            entity_commands.insert(Mesh3d(mesh_handle));
+            if let Some(aabb) = aabb {
+                entity_commands.insert(aabb);
+            }
+        } else {
+            // if let Some(mesh) = render_mesh {
+                let mesh_handle = meshes.add(mesh);
+                let material = materials.add(Voxel::Base.material());
+                // let material = materials.add(voxel.material());
+                // let material = voxel_materials.get(voxel);
+                let mut voxel_mesh_commands = commands.spawn((
+                    // Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
+                    Mesh3d(mesh_handle),
+                    MeshMaterial3d(material),
+                    ChildOf(*chunk_entity),
+                ));
+
+                // if !voxel.shadow_caster() {
+                //     voxel_mesh_commands.insert(NotShadowCaster);
+                // }
+                // if !voxel.shadow_receiver() {
+                //     voxel_mesh_commands.insert(NotShadowReceiver);
+                // }
+
+                let id = voxel_mesh_commands.id();
+
+                chunk_meshes.insert(Voxel::Base, id);
+            // }
+        }
     }
 }
 
-pub type VoxelShape = RuntimeShape<u32, 3>;
 
 pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
     let num_vertices = buffer.positions.len();
@@ -96,37 +206,23 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
 }
 
 pub type ChunkShape =
-    ConstPow2Shape3u32<{ padded::SIZE as u32 }, { padded::SIZE as u32 }, { padded::SIZE as u32 }>; // 62^3 with 1 padding
+    ConstPow2Shape3u32<{ 6 as u32 }, { 6 as u32 }, { 6 as u32 }>; // 62^3 with 1 padding
 
 impl VoxelChunk {
-    pub fn update_surface_net(&self, _buffer: &mut SurfaceNetsBuffer) {
-        // let mut samples = vec![1.0; padded::ARR_STRIDE];
+    pub fn update_surface_net(&self, buffer: &mut SurfaceNetsBuffer) {
+        let mut samples = vec![1.0; padded::ARR_STRIDE];
 
-        // let chunk_shape = ChunkShape {};
-        // for (i, voxel) in self.voxels.iter().enumerate() {
-        //     let sample = match self.voxel_from_index(i) {
-        //         Voxel::Air => 1.0,
-        //         _ => -1.0,
-        //     };
-        //     samples[i] = sample;
-        // }
-        // // unpadded
-        // for i in 0..self.size() {
-        //     let point = self.delinearize(i);
+        let shape = ChunkShape {};
+        for (i, voxel) in self.voxels.iter().enumerate() {
+            let sample = match self.voxel_from_index(i) {
+                Voxel::Air => 1.0,
+                _ => -1.0,
+            };
+            let point = padded::delinearize(i);
+            let shape_index = shape.linearize(point.map(|x| x as u32));
+            samples[shape_index as usize] = sample;
+        }
 
-        //     let sample = match self.voxel(point) {
-        //         Voxel::Air => 1.0,
-        //         _ => -1.0,
-        //     };
-
-        //     let padded_point =
-        //         [(point[0] + 1) as u32, (point[1] + 1) as u32, (point[2] + 1) as u32];
-        //     let padded_linear = shape.linearize(padded_point);
-        //     samples[padded_linear as usize] = sample;
-        // }
-        // info!("SIZES {:?} < {:?}", shape.linearize(padded_grid_array),
-        // shape.usize());
-
-        // surface_nets(&samples, &ChunkShape {}, [0; 3], [padded::SIZE as u32 - 1; 3], buffer);
+        surface_nets(&samples, &shape, [0; 3], [padded::SIZE as u32 - 1; 3], buffer);
     }
 }
