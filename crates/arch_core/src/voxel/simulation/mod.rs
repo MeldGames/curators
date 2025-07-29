@@ -9,7 +9,7 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::data::{ChunkUpdateIterator, SimChunks};
+use crate::voxel::simulation::data::SimChunks;
 use crate::voxel::{Voxel, Voxels};
 
 pub mod data;
@@ -63,15 +63,14 @@ pub struct FallingSandTick(pub u32);
 //     pub movements: Vec<IVec3>,
 // }
 
-#[derive(Component)]
-pub struct SimSwapBuffer(pub Vec<ChunkUpdateIterator>);
+#[derive(Component, Clone)]
+pub struct SimSwapBuffer(pub Vec<[u64; 64]>);
 
-#[derive(Component)]
-pub struct RenderSwapBuffer(pub Vec<ChunkUpdateIterator>);
+#[derive(Component, Clone)]
+pub struct RenderSwapBuffer(pub Vec<[u64; 64]>);
 
 pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer)>) {
     for (mut grid, mut render_swap_buffer) in &mut grids {
-        render_swap_buffer.0.clear();
         for (chunk_index, voxel_index) in grid.sim_chunks.render_updates(&mut render_swap_buffer.0)
         {
             let point =
@@ -129,7 +128,6 @@ pub fn falling_sands(
         // }
 
         // println!("simulating");
-        sim_swap_buffer.0.clear();
         for (chunk_index, voxel_index) in grid.sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
             #[cfg(feature = "trace")]
             let update_span = info_span!("update_voxel", iteration = counter);
@@ -358,17 +356,16 @@ mod tests {
         let points = DOWN_DIAGONALS;
 
         for point in points {
-            let mut offsets = neighbors(IVec3::ZERO);
-            offsets.extend(neighbors(point).iter());
+            let mut offsets = neighbors(IVec3::ZERO).extend(neighbors(point).iter());
             offsets.dedup();
             offsets.sort_by(|&a, &b| a.y.cmp(&b.y).then(a.x.cmp(&b.x).then(a.z.cmp(&b.z))));
         }
 
-        // let name = "DIAGONALS";
-        // println!("const {}_UPDATE_OFFSETS: [IVec3; {}] = [", name, offsets.len());
-        // for offset in offsets {
-        //     println!("    IVec3::new({}, {}, {})", offset.x, offset.y, offset.z);
-        // }
+        let name = "DIAGONALS";
+        println!("const {}_UPDATE_OFFSETS: [IVec3; {}] = [", name, offsets.len());
+        for offset in offsets {
+            println!("    IVec3::new({}, {}, {})", offset.x, offset.y, offset.z);
+        }
 
         println!("];");
     }

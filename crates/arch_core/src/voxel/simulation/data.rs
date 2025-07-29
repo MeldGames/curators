@@ -31,24 +31,19 @@ pub fn insert_voxels_sim_chunks(
         return;
     };
     // println!("adding sim chunks");
-    // let sim_swap_buffer = SimSwapBuffer(voxels.sim_chunks.create_update_buffer());
-    // let render_swap_buffer = RenderSwapBuffer(voxels.sim_chunks.create_update_buffer());
-    let sim_swap_buffer = SimSwapBuffer(Vec::new());
-    let render_swap_buffer = RenderSwapBuffer(Vec::new());
+    let sim_swap_buffer = SimSwapBuffer(voxels.sim_chunks.create_update_buffer());
+    let render_swap_buffer = RenderSwapBuffer(voxels.sim_chunks.create_update_buffer());
     commands.entity(trigger.target()).insert((sim_swap_buffer, render_swap_buffer));
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub struct SimChunk {
     pub voxels: [u16; CHUNK_STRIDE as usize], // 4x4x4 voxels in blocks, 4x4x4 blocks in chunk
-
-    pub sim_updates: [u64; 64],    // bitmask of updates
-    pub render_updates: [u64; 64], // bitmask of updates
 }
 
 impl SimChunk {
     pub fn new() -> Self {
-        Self { voxels: [0; CHUNK_STRIDE as usize], sim_updates: [0; 64], render_updates: [0; 64] }
+        Self { voxels: [0; CHUNK_STRIDE as usize] }
     }
 }
 
@@ -56,6 +51,9 @@ impl SimChunk {
 pub struct SimChunks {
     pub chunks: Vec<SimChunk>,
     pub chunk_strides: [usize; 3],
+
+    pub sim_updates: Vec<[u64; 64]>,    // bitmask of updates
+    pub render_updates: Vec<[u64; 64]>, // bitmask of updates
 
     pub chunk_size: IVec3,
     pub voxel_size: IVec3,
@@ -155,53 +153,35 @@ pub fn block_point(point: IVec3) -> IVec3 {
     point >> BLOCK_VOXELS_BITSHIFT
 }
 
-/// Chain a bunch of chunk update iterators together.
-pub struct ChainChunkUpdateIterator<'a> {
-    pub chunk_updates: &'a mut Vec<ChunkUpdateIterator>, // re-use buffer because allocations suck
+pub struct UpdateIterator<'a> {
+    pub chunk_updates: &'a mut Vec<[u64; 64]>,
     pub chunk_index: usize,
-}
-
-impl<'a> Iterator for ChainChunkUpdateIterator<'a> {
-    type Item = (usize, usize); // chunk_index, voxel_index
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if self.chunk_index >= self.chunk_updates.len() {
-                return None;
-            }
-
-            let chunk_update = &mut self.chunk_updates[self.chunk_index];
-            if let Some(voxel_index) = chunk_update.next() {
-                return Some((self.chunk_index, voxel_index));
-            }
-
-            self.chunk_index += 1;
-        }
-    }
-}
-
-pub struct ChunkUpdateIterator {
-    pub chunk_updates: [u64; 64],
     pub mask_index: usize,
+    pub name: &'static str,
 }
 
-impl Iterator for ChunkUpdateIterator {
-    type Item = usize; // voxel_index
+impl<'a> Iterator for UpdateIterator<'a> {
+    type Item = (usize, usize);
 
     // (chunk_index, voxel_index)
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.mask_index < 64 {
-            let bitset = self.chunk_updates[self.mask_index];
+        // println!("UPDATE ITERATOR NEXT");
+        while self.mask_index < 64 && self.chunk_index < self.chunk_updates.len() {
+            let bitset = self.chunk_updates[self.chunk_index][self.mask_index];
             if bitset != 0 {
                 // `bitset & -bitset` returns a bitset with only the lowest significant bit set
                 let t = bitset & bitset.wrapping_neg();
                 let trailing = bitset.trailing_zeros() as usize;
                 let voxel_index = self.mask_index * 64 + trailing;
-                self.chunk_updates[self.mask_index] ^= t;
-                return Some(voxel_index);
+                self.chunk_updates[self.chunk_index][self.mask_index] ^= t;
+                return Some((self.chunk_index, voxel_index));
             } else {
                 self.mask_index += 1;
+                if self.mask_index == 64 {
+                    self.mask_index = 0;
+                    self.chunk_index += 1;
+                }
             }
         }
 
@@ -210,6 +190,36 @@ impl Iterator for ChunkUpdateIterator {
 }
 
 impl SimChunks {
+    pub const NEIGHBOR_OFFSETS: [IVec3; 27] = [
+        ivec3(-1, -1, -1),
+        ivec3(-1, -1, 0),
+        ivec3(-1, -1, 1),
+        ivec3(0, -1, -1),
+        ivec3(0, -1, 0),
+        ivec3(0, -1, 1),
+        ivec3(1, -1, -1),
+        ivec3(1, -1, 0),
+        ivec3(1, -1, 1),
+        ivec3(-1, 0, -1),
+        ivec3(-1, 0, 0),
+        ivec3(-1, 0, 1),
+        ivec3(0, 0, -1),
+        ivec3(0, 0, 0),
+        ivec3(0, 0, 1),
+        ivec3(1, 0, -1),
+        ivec3(1, 0, 0),
+        ivec3(1, 0, 1),
+        ivec3(-1, 1, -1),
+        ivec3(-1, 1, 0),
+        ivec3(-1, 1, 1),
+        ivec3(0, 1, -1),
+        ivec3(0, 1, 0),
+        ivec3(0, 1, 1),
+        ivec3(1, 1, -1),
+        ivec3(1, 1, 0),
+        ivec3(1, 1, 1),
+    ];
+
     pub fn new(voxel_size: IVec3) -> Self {
         let chunk_size = (voxel_size / IVec3::splat(16)) + IVec3::ONE;
         // println!("chunk_size: {:?}", chunk_size);
@@ -220,6 +230,8 @@ impl SimChunks {
         let chunk_strides = [1, chunk_size.x as usize, (chunk_size.x * chunk_size.z) as usize];
         Self {
             chunks: vec![SimChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
+            sim_updates: Self::create_update_buffer_from_size(chunk_size),
+            render_updates: Self::create_update_buffer_from_size(chunk_size),
             chunk_strides,
             chunk_size,
             voxel_size,
@@ -338,46 +350,41 @@ impl SimChunks {
         // info!("adding update mask: {:?}", (chunk_index, voxel_index));
         let mask_index = voxel_index >> 6; // voxel_index / 64
         let bit_index = voxel_index & 63; // voxel_index % 64
-        self.chunks[chunk_index].sim_updates[mask_index] |= 1 << bit_index;
-        self.chunks[chunk_index].render_updates[mask_index] |= 1 << bit_index;
+        self.sim_updates[chunk_index][mask_index] |= 1 << bit_index;
+        self.render_updates[chunk_index][mask_index] |= 1 << bit_index;
     }
 
     pub fn clear_updates(&mut self) {
-        for chunk in self.chunks.iter_mut() {
-            for mask in &mut chunk.sim_updates {
-                *mask = 0;
+        for mask in &mut self.sim_updates {
+            for bits in mask {
+                *bits = 0;
             }
-            for mask in &mut chunk.render_updates {
-                *mask = 0;
+        }
+
+        for mask in &mut self.render_updates {
+            for bits in mask {
+                *bits = 0;
             }
         }
     }
 
-    pub fn sim_updates<'a, 'b>(
-        &'a mut self,
-        buffer: &'b mut Vec<ChunkUpdateIterator>,
-    ) -> ChainChunkUpdateIterator<'b> {
-        // debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
-        for chunk in self.chunks.iter_mut() {
-            let mut updates = [0; 64];
-            std::mem::swap(&mut chunk.sim_updates, &mut updates);
-            buffer.push(ChunkUpdateIterator { chunk_updates: updates, mask_index: 0 });
-        }
-        ChainChunkUpdateIterator { chunk_updates: buffer, chunk_index: 0 }
+    pub fn sim_updates<'a, 'b: 'a>(
+        &mut self,
+        swap_buffer: &'b mut Vec<[u64; 64]>,
+    ) -> UpdateIterator<'a> {
+        debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
+        std::mem::swap(&mut self.sim_updates, swap_buffer);
+        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0, name: "sim" }
     }
 
     // separate buffer for render updates so we can accumulate over multiple frames.
-    pub fn render_updates<'a, 'b>(
-        &'a mut self,
-        buffer: &'b mut Vec<ChunkUpdateIterator>,
-    ) -> ChainChunkUpdateIterator<'b> {
-        // debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
-        for chunk in self.chunks.iter_mut() {
-            let mut updates = [0; 64];
-            std::mem::swap(&mut chunk.render_updates, &mut updates);
-            buffer.push(ChunkUpdateIterator { chunk_updates: updates, mask_index: 0 });
-        }
-        ChainChunkUpdateIterator { chunk_updates: buffer, chunk_index: 0 }
+    pub fn render_updates<'a, 'b: 'a>(
+        &mut self,
+        swap_buffer: &'b mut Vec<[u64; 64]>,
+    ) -> UpdateIterator<'a> {
+        debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
+        std::mem::swap(&mut self.render_updates, swap_buffer);
+        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0, name: "render" }
     }
 
     #[inline]
@@ -515,7 +522,7 @@ mod tests {
     fn update_iterator() {
         let mut chunks = SimChunks::new(ivec3(32, 32, 32));
         chunks.push_neighbor_updates(ivec3(0, 0, 0));
-        let mut buffer = Vec::new();
+        let mut buffer = chunks.create_update_buffer();
         let updates = chunks.sim_updates(&mut buffer);
         for (chunk_index, voxel_index) in updates {
             println!("chunk_index: {}, voxel_index: {}", chunk_index, voxel_index);
@@ -523,7 +530,6 @@ mod tests {
 
         chunks.add_update_mask(0, 0);
         chunks.add_update_mask(0, 100);
-        buffer.clear();
         let updates = chunks.sim_updates(&mut buffer);
         println!("second round");
         for (chunk_index, voxel_index) in updates {
@@ -546,27 +552,27 @@ mod tests {
         println!("{}", x >> 1); // divide by 2
     }
 
-    // #[test]
-    // fn test_neighbor_offsets() {
-    //     let rolled = (-1..=1)
-    //         .flat_map(move |y| (-1..=1).flat_map(move |x| (-1..=1).map(move |z| ivec3(x, y, z))));
+    #[test]
+    fn test_neighbor_offsets() {
+        let rolled = (-1..=1)
+            .flat_map(move |y| (-1..=1).flat_map(move |x| (-1..=1).map(move |z| ivec3(x, y, z))));
 
-    //     // println!("pub const NEIGHBOR_OFFSETS: [IVec3; 27] = [");
-    //     for (index, (rolled, unrolled)) in
-    //         rolled.clone().zip(SimChunks::NEIGHBOR_OFFSETS).enumerate()
-    //     {
-    //         // println!("    ivec3({}, {}, {}),", rolled.x, rolled.y, rolled.z);
-    //         // println!("    ivec3({}, {}, {}),", rolled.x, rolled.y, rolled.z);
+        // println!("pub const NEIGHBOR_OFFSETS: [IVec3; 27] = [");
+        for (index, (rolled, unrolled)) in
+            rolled.clone().zip(SimChunks::NEIGHBOR_OFFSETS).enumerate()
+        {
+            // println!("    ivec3({}, {}, {}),", rolled.x, rolled.y, rolled.z);
+            // println!("    ivec3({}, {}, {}),", rolled.x, rolled.y, rolled.z);
 
-    //         println!(
-    //             "let point{} = point + ivec3({}, {}, {});",
-    //             index, rolled.x, rolled.y, rolled.z
-    //         );
-    //         assert_eq!(rolled, unrolled);
-    //     }
-    //     for (index, (rolled, unrolled)) in rolled.zip(SimChunks::NEIGHBOR_OFFSETS).enumerate() {
-    //         println!("self.add_update_point(point{});", index,);
-    //     }
-    //     // println!("];");
-    // }
+            println!(
+                "let point{} = point + ivec3({}, {}, {});",
+                index, rolled.x, rolled.y, rolled.z
+            );
+            assert_eq!(rolled, unrolled);
+        }
+        for (index, (rolled, unrolled)) in rolled.zip(SimChunks::NEIGHBOR_OFFSETS).enumerate() {
+            println!("self.add_update_point(point{});", index,);
+        }
+        // println!("];");
+    }
 }

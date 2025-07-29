@@ -83,7 +83,8 @@ fn updates_iterator(c: &mut Criterion) {
                     voxels.sim_chunks.push_point_update(point);
                 }
 
-                black_box(&voxels.sim_chunks);
+                black_box(&voxels.sim_chunks.sim_updates);
+                black_box(&voxels.sim_chunks.render_updates);
             },
             BatchSize::SmallInput,
         );
@@ -93,11 +94,10 @@ fn updates_iterator(c: &mut Criterion) {
         b.iter_batched(
             || {
                 let voxels = Voxels::new(IVec3::splat(128));
-                let swap_buffer = Vec::new();
+                let swap_buffer = voxels.sim_chunks.create_update_buffer();
                 (voxels, swap_buffer)
             },
             |(mut voxels, mut swap_buffer)| {
-                swap_buffer.clear();
                 for (chunk_index, voxel_index) in voxels.sim_chunks.sim_updates(&mut swap_buffer) {
                     black_box((chunk_index, voxel_index));
                 }
@@ -116,11 +116,10 @@ fn updates_iterator(c: &mut Criterion) {
                     voxels.sim_chunks.push_point_update(point);
                 }
 
-                let swap_buffer = Vec::new();
+                let swap_buffer = voxels.sim_chunks.create_update_buffer();
                 (voxels, swap_buffer)
             },
             |(mut voxels, mut swap_buffer)| {
-                swap_buffer.clear();
                 for (chunk_index, voxel_index) in voxels.sim_chunks.sim_updates(&mut swap_buffer) {
                     black_box((chunk_index, voxel_index));
                 }
