@@ -5,15 +5,11 @@ use tracing::*;
 use crate::voxel::simulation::{RenderSwapBuffer, SimSwapBuffer};
 use crate::voxel::{Voxel, Voxels};
 
-pub const BLOCK_VOXELS_BITSHIFT: i32 = 2; // 4 voxels
-pub const BLOCK_VOXELS: i32 = 1 << BLOCK_VOXELS_BITSHIFT;
-pub const BLOCK_STRIDE: i32 = BLOCK_VOXELS * BLOCK_VOXELS * BLOCK_VOXELS;
-
-pub const CHUNK_BLOCKS_BITSHIFT: i32 = 2; // 4;
-pub const CHUNK_BLOCKS: i32 = 1 << CHUNK_BLOCKS_BITSHIFT; // 4 blocks per chunk
-pub const CHUNK_VOXELS_BITSHIFT: i32 = BLOCK_VOXELS_BITSHIFT * CHUNK_BLOCKS_BITSHIFT;
-pub const CHUNK_VOXELS: i32 = 1 << CHUNK_VOXELS_BITSHIFT;
-pub const CHUNK_STRIDE: i32 = CHUNK_VOXELS * CHUNK_VOXELS * CHUNK_VOXELS;
+pub const CHUNK_WIDTH_BITSHIFT: usize = 4;
+pub const CHUNK_WIDTH_BITSHIFT_Y: usize = CHUNK_WIDTH_BITSHIFT * 2;
+pub const CHUNK_REMAINDER: i32 = (CHUNK_WIDTH - 1) as i32;
+pub const CHUNK_WIDTH: usize = 1 << CHUNK_WIDTH_BITSHIFT;
+pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
@@ -38,12 +34,13 @@ pub fn insert_voxels_sim_chunks(
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub struct SimChunk {
-    pub voxels: [u16; CHUNK_STRIDE as usize], // 4x4x4 voxels in blocks, 4x4x4 blocks in chunk
+    // lets try just a 4x4x4 chunk
+    pub voxels: [u16; CHUNK_LENGTH],
 }
 
 impl SimChunk {
     pub fn new() -> Self {
-        Self { voxels: [0; CHUNK_STRIDE as usize] }
+        Self { voxels: [0; CHUNK_LENGTH] }
     }
 }
 
@@ -52,35 +49,11 @@ pub struct SimChunks {
     pub chunks: Vec<SimChunk>,
     pub chunk_strides: [usize; 3],
 
-    pub sim_updates: Vec<[u64; 64]>,    // bitmask of updates
-    pub render_updates: Vec<[u64; 64]>, // bitmask of updates
+    pub sim_updates: Vec<[u64; CHUNK_LENGTH / 64]>,    // bitmask of updates
+    pub render_updates: Vec<[u64; CHUNK_LENGTH / 64]>, // bitmask of updates
 
     pub chunk_size: IVec3,
     pub voxel_size: IVec3,
-}
-
-// | |-| | // basic layout of memory
-// | | | |
-// | | | |
-// |-| |-|
-
-// pub fn voxel_index(point: IVec3) -> usize {
-//     let chunk_point = chunk_point(point); // chunks are every 16 voxels
-//     // let chunk_index = ... need chunk_strides to get this
-//     let block_point = point >> 2; // blocks are every 4 voxels
-//     let relative_block_point = block_point - chunk_point << 2;
-// }
-
-#[inline]
-pub fn block_relative_to_chunk(chunk_point: IVec3, point: IVec3) -> IVec3 {
-    // not euclidean (point / 4)
-    point - (chunk_point << CHUNK_BLOCKS_BITSHIFT)
-}
-
-#[inline]
-pub fn point_relative_to_block(block_point: IVec3, point: IVec3) -> IVec3 {
-    // (point - block_point * 4)
-    point - (block_point << BLOCK_VOXELS_BITSHIFT)
 }
 
 #[inline]
@@ -109,6 +82,35 @@ pub fn delinearize_4x4x4(index: usize) -> IVec3 {
     index -= y << 4;
     let x = index >> 2;
     let z = index & 3; // index % 4
+    ivec3(x, y, z)
+}
+
+
+#[inline]
+pub fn linearize(relative_point: IVec3) -> usize {
+    debug_assert!(
+        relative_point.x < CHUNK_WIDTH as i32
+            && relative_point.y < CHUNK_WIDTH as i32
+            && relative_point.z < CHUNK_WIDTH as i32
+            && relative_point.x >= 0
+            && relative_point.y >= 0
+            && relative_point.z >= 0
+    );
+
+    // z + x * 4 + y * 16
+    // zxy order for now, maybe check if yxz is better later since the most checks
+    // are vertical
+    (relative_point.z + (relative_point.x << CHUNK_WIDTH_BITSHIFT) + (relative_point.y << CHUNK_WIDTH_BITSHIFT_Y)) as usize
+}
+
+pub fn delinearize(index: usize) -> IVec3 {
+    debug_assert!(index < CHUNK_LENGTH);
+
+    let mut index = index as i32;
+    let y = index >> CHUNK_WIDTH_BITSHIFT_Y;
+    index -= y << CHUNK_WIDTH_BITSHIFT_Y;
+    let x = index >> CHUNK_WIDTH_BITSHIFT;
+    let z = index & CHUNK_REMAINDER; // index % CHUNK_WIDTH 
     ivec3(x, y, z)
 }
 
@@ -144,17 +146,11 @@ pub fn delinearize_16x16x16(index: usize) -> IVec3 {
 #[inline]
 pub fn chunk_point(point: IVec3) -> IVec3 {
     // not euclidean (point / 16)
-    point >> CHUNK_VOXELS_BITSHIFT
-}
-
-#[inline]
-pub fn block_point(point: IVec3) -> IVec3 {
-    // not euclidean (point / 4)
-    point >> BLOCK_VOXELS_BITSHIFT
+    point >> (CHUNK_WIDTH_BITSHIFT as i32)
 }
 
 pub struct UpdateIterator<'a> {
-    pub chunk_updates: &'a mut Vec<[u64; 64]>,
+    pub chunk_updates: &'a mut Vec<[u64; CHUNK_LENGTH / 64]>,
     pub chunk_index: usize,
     pub mask_index: usize,
     pub name: &'static str,
@@ -166,8 +162,9 @@ impl<'a> Iterator for UpdateIterator<'a> {
     // (chunk_index, voxel_index)
 
     fn next(&mut self) -> Option<Self::Item> {
+        const MASK_LENGTH: usize = CHUNK_LENGTH / 64;
         // println!("UPDATE ITERATOR NEXT");
-        while self.mask_index < 64 && self.chunk_index < self.chunk_updates.len() {
+        while self.mask_index < MASK_LENGTH && self.chunk_index < self.chunk_updates.len() {
             let bitset = self.chunk_updates[self.chunk_index][self.mask_index];
             if bitset != 0 {
                 // `bitset & -bitset` returns a bitset with only the lowest significant bit set
@@ -178,7 +175,7 @@ impl<'a> Iterator for UpdateIterator<'a> {
                 return Some((self.chunk_index, voxel_index));
             } else {
                 self.mask_index += 1;
-                if self.mask_index == 64 {
+                if self.mask_index == MASK_LENGTH {
                     self.mask_index = 0;
                     self.chunk_index += 1;
                 }
@@ -190,38 +187,8 @@ impl<'a> Iterator for UpdateIterator<'a> {
 }
 
 impl SimChunks {
-    pub const NEIGHBOR_OFFSETS: [IVec3; 27] = [
-        ivec3(-1, -1, -1),
-        ivec3(-1, -1, 0),
-        ivec3(-1, -1, 1),
-        ivec3(0, -1, -1),
-        ivec3(0, -1, 0),
-        ivec3(0, -1, 1),
-        ivec3(1, -1, -1),
-        ivec3(1, -1, 0),
-        ivec3(1, -1, 1),
-        ivec3(-1, 0, -1),
-        ivec3(-1, 0, 0),
-        ivec3(-1, 0, 1),
-        ivec3(0, 0, -1),
-        ivec3(0, 0, 0),
-        ivec3(0, 0, 1),
-        ivec3(1, 0, -1),
-        ivec3(1, 0, 0),
-        ivec3(1, 0, 1),
-        ivec3(-1, 1, -1),
-        ivec3(-1, 1, 0),
-        ivec3(-1, 1, 1),
-        ivec3(0, 1, -1),
-        ivec3(0, 1, 0),
-        ivec3(0, 1, 1),
-        ivec3(1, 1, -1),
-        ivec3(1, 1, 0),
-        ivec3(1, 1, 1),
-    ];
-
     pub fn new(voxel_size: IVec3) -> Self {
-        let chunk_size = (voxel_size / IVec3::splat(16)) + IVec3::ONE;
+        let chunk_size = (voxel_size / CHUNK_WIDTH as i32) + IVec3::ONE;
         // println!("chunk_size: {:?}", chunk_size);
 
         // stride[0] = x;
@@ -238,16 +205,16 @@ impl SimChunks {
         }
     }
 
-    pub fn create_update_buffer_from_size(chunk_size: IVec3) -> Vec<[u64; 64]> {
+    pub fn create_update_buffer_from_size(chunk_size: IVec3) -> Vec<[u64; CHUNK_LENGTH / 64]> {
         info!(
             "creating update buffer from size: {:?} -> {}",
             chunk_size,
             (chunk_size.x * chunk_size.y * chunk_size.z) as usize
         );
-        vec![[0; 64]; (chunk_size.x * chunk_size.y * chunk_size.z) as usize]
+        vec![[0; CHUNK_LENGTH / 64]; (chunk_size.x * chunk_size.y * chunk_size.z) as usize]
     }
 
-    pub fn create_update_buffer(&self) -> Vec<[u64; 64]> {
+    pub fn create_update_buffer(&self) -> Vec<[u64; CHUNK_LENGTH / 64]> {
         Self::create_update_buffer_from_size(self.chunk_size)
     }
 
@@ -277,17 +244,11 @@ impl SimChunks {
             && point.z < self.voxel_size.z
     }
 
-    // pub fn linearize(&self, point: IVec3) -> LinearizedVoxelPoint {
-    //     let chunk_point = chunk_point(point);
-    //     let chunk_index = self.chunk_index(chunk_point);
-    //     let block_point = block_point(point);
-    //     let block_index = block_index(point_relative_to_block(block_point,
-    // point));     let voxel_index = voxel_index(point);
-    // }
-
     #[inline]
     pub fn get_voxel_from_indices(&self, chunk_index: usize, voxel_index: usize) -> Voxel {
-        Voxel::from_data(self.chunks[chunk_index].voxels[voxel_index])
+        let chunk = &self.chunks[chunk_index];
+        let voxel = chunk.voxels[voxel_index];
+        Voxel::from_data(voxel)
     }
 
     #[inline]
@@ -370,7 +331,7 @@ impl SimChunks {
 
     pub fn sim_updates<'a, 'b: 'a>(
         &mut self,
-        swap_buffer: &'b mut Vec<[u64; 64]>,
+        swap_buffer: &'b mut Vec<[u64; CHUNK_LENGTH / 64]>,
     ) -> UpdateIterator<'a> {
         debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.sim_updates, swap_buffer);
@@ -380,7 +341,7 @@ impl SimChunks {
     // separate buffer for render updates so we can accumulate over multiple frames.
     pub fn render_updates<'a, 'b: 'a>(
         &mut self,
-        swap_buffer: &'b mut Vec<[u64; 64]>,
+        swap_buffer: &'b mut Vec<[u64; CHUNK_LENGTH / 64]>,
     ) -> UpdateIterator<'a> {
         debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.render_updates, swap_buffer);
@@ -394,8 +355,9 @@ impl SimChunks {
         let chunk_index = self.chunk_linearize(chunk_point);
 
         // voxel index
-        let relative_voxel_point = point - (chunk_point << 4);
-        let voxel_index = linearize_16x16x16(relative_voxel_point);
+        let relative_voxel_point = point - (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32));
+        // let voxel_index = linearize_16x16x16(relative_voxel_point);
+        let voxel_index = linearize(relative_voxel_point);
 
         (chunk_index, voxel_index)
     }
@@ -406,8 +368,8 @@ impl SimChunks {
         voxel_index: usize,
     ) -> IVec3 {
         let chunk_point = self.chunk_delinearize(chunk_index);
-        let relative_voxel_point = delinearize_16x16x16(voxel_index);
-        (chunk_point << 4) + relative_voxel_point
+        let relative_voxel_point = delinearize(voxel_index);
+        (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32)) + relative_voxel_point
     }
 }
 
@@ -550,29 +512,5 @@ mod tests {
         let x = 2;
         println!("{}", x << 1); // multiply by 2
         println!("{}", x >> 1); // divide by 2
-    }
-
-    #[test]
-    fn test_neighbor_offsets() {
-        let rolled = (-1..=1)
-            .flat_map(move |y| (-1..=1).flat_map(move |x| (-1..=1).map(move |z| ivec3(x, y, z))));
-
-        // println!("pub const NEIGHBOR_OFFSETS: [IVec3; 27] = [");
-        for (index, (rolled, unrolled)) in
-            rolled.clone().zip(SimChunks::NEIGHBOR_OFFSETS).enumerate()
-        {
-            // println!("    ivec3({}, {}, {}),", rolled.x, rolled.y, rolled.z);
-            // println!("    ivec3({}, {}, {}),", rolled.x, rolled.y, rolled.z);
-
-            println!(
-                "let point{} = point + ivec3({}, {}, {});",
-                index, rolled.x, rolled.y, rolled.z
-            );
-            assert_eq!(rolled, unrolled);
-        }
-        for (index, (rolled, unrolled)) in rolled.zip(SimChunks::NEIGHBOR_OFFSETS).enumerate() {
-            println!("self.add_update_point(point{});", index,);
-        }
-        // println!("];");
     }
 }

@@ -9,7 +9,7 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::data::SimChunks;
+use crate::voxel::simulation::data::{SimChunks, CHUNK_LENGTH};
 use crate::voxel::{Voxel, Voxels};
 
 pub mod data;
@@ -64,10 +64,10 @@ pub struct FallingSandTick(pub u32);
 // }
 
 #[derive(Component, Clone)]
-pub struct SimSwapBuffer(pub Vec<[u64; 64]>);
+pub struct SimSwapBuffer(pub Vec<[u64; CHUNK_LENGTH / 64]>);
 
 #[derive(Component, Clone)]
-pub struct RenderSwapBuffer(pub Vec<[u64; 64]>);
+pub struct RenderSwapBuffer(pub Vec<[u64; CHUNK_LENGTH / 64]>);
 
 pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer)>) {
     for (mut grid, mut render_swap_buffer) in &mut grids {
@@ -102,32 +102,6 @@ pub fn falling_sands(
     let mut static_counter = 0;
 
     for (mut grid, mut sim_swap_buffer) in &mut grids {
-        // {
-        //     // #[cfg(feature = "trace")]
-        //     // let update_management_span = info_span!("update_management");
-
-        //     updates.clear();
-        //     std::mem::swap(&mut *updates, &mut grid.update_voxels);
-        //     match sim_tick.0 % 4 {
-        //         0 => {
-        //             updates.sort_by(|a, b|
-        // a.y.cmp(&b.y).then(b.z.cmp(&a.z)).then(b.x.cmp(&a.x)));         },
-        //         1 => {
-        //             updates.sort_by(|a, b|
-        // a.y.cmp(&b.y).then(b.x.cmp(&a.x)).then(b.z.cmp(&a.z)));         },
-        //         2 => {
-        //             updates.sort_by(|a, b|
-        // a.y.cmp(&b.y).then(a.x.cmp(&b.x)).then(a.z.cmp(&b.z)));         },
-        //         3 => {
-        //             updates.sort_by(|a, b|
-        // a.y.cmp(&b.y).then(a.z.cmp(&b.z)).then(a.x.cmp(&b.x)));         },
-        //         _ => unreachable!(),
-        //     }
-
-        //     updates.dedup();
-        // }
-
-        // println!("simulating");
         for (chunk_index, voxel_index) in grid.sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
             #[cfg(feature = "trace")]
             let update_span = info_span!("update_voxel", iteration = counter);
@@ -349,24 +323,24 @@ mod tests {
         neighbors
     }
 
-    #[test]
-    fn updates_for_swaps() {
-        // merge 2 update masks for a point + a swap point, so we don't try to access
-        // the bitmasks as much.
-        let points = DOWN_DIAGONALS;
+    // #[test]
+    // fn updates_for_swaps() {
+    //     // merge 2 update masks for a point + a swap point, so we don't try to access
+    //     // the bitmasks as much.
+    //     let points = DOWN_DIAGONALS;
 
-        for point in points {
-            let mut offsets = neighbors(IVec3::ZERO).extend(neighbors(point).iter());
-            offsets.dedup();
-            offsets.sort_by(|&a, &b| a.y.cmp(&b.y).then(a.x.cmp(&b.x).then(a.z.cmp(&b.z))));
-        }
+    //     for point in points {
+    //         let mut offsets = neighbors(IVec3::ZERO).extend(neighbors(point).iter());
+    //         offsets.dedup();
+    //         offsets.sort_by(|&a, &b| a.y.cmp(&b.y).then(a.x.cmp(&b.x).then(a.z.cmp(&b.z))));
+    //     }
 
-        let name = "DIAGONALS";
-        println!("const {}_UPDATE_OFFSETS: [IVec3; {}] = [", name, offsets.len());
-        for offset in offsets {
-            println!("    IVec3::new({}, {}, {})", offset.x, offset.y, offset.z);
-        }
+    //     let name = "DIAGONALS";
+    //     println!("const {}_UPDATE_OFFSETS: [IVec3; {}] = [", name, offsets.len());
+    //     for offset in offsets {
+    //         println!("    IVec3::new({}, {}, {})", offset.x, offset.y, offset.z);
+    //     }
 
-        println!("];");
-    }
+    //     println!("];");
+    // }
 }
