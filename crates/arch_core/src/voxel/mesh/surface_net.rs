@@ -78,6 +78,14 @@ pub struct SurfaceNetMesh;
 //     }
 // }
 
+// Data for surface net meshing instead of converting from the binary greedy mesh chunk data.
+pub struct SurfaceNetChunk {
+    // Mask per voxel type aside from air.
+    pub base: Vec<u64>, // padded::ARR_STRIDE / 64 length
+    pub sand: Vec<u64>,
+    pub water: Vec<u64>,
+}
+
 pub struct SampleBuffers {
     pub base: Vec<f32>,
 }
@@ -236,7 +244,7 @@ impl VoxelChunk {
 
         let shape = ChunkShape {};
         for (i, voxel) in self.voxels.iter().enumerate() {
-            let sample = match self.voxel_from_index(i) {
+            let sample = match Voxel::from_data(*voxel) {
                 Voxel::Air => 1.0,
                 Voxel::Water {..} => -0.1,
                 _ => -1.0,

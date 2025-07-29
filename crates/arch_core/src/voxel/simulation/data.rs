@@ -153,7 +153,6 @@ pub struct UpdateIterator<'a> {
     pub chunk_updates: &'a mut Vec<[u64; CHUNK_LENGTH / 64]>,
     pub chunk_index: usize,
     pub mask_index: usize,
-    pub name: &'static str,
 }
 
 impl<'a> Iterator for UpdateIterator<'a> {
@@ -165,13 +164,26 @@ impl<'a> Iterator for UpdateIterator<'a> {
         const MASK_LENGTH: usize = CHUNK_LENGTH / 64;
         // println!("UPDATE ITERATOR NEXT");
         while self.mask_index < MASK_LENGTH && self.chunk_index < self.chunk_updates.len() {
-            let bitset = self.chunk_updates[self.chunk_index][self.mask_index];
+            let bitset = if cfg!(feature = "safe-bounds") {
+                self.chunk_updates[self.chunk_index][self.mask_index]
+            } else {
+                unsafe {
+                    *self.chunk_updates.get_unchecked(self.chunk_index).get_unchecked(self.mask_index)
+                }
+            };
+
             if bitset != 0 {
                 // `bitset & -bitset` returns a bitset with only the lowest significant bit set
                 let t = bitset & bitset.wrapping_neg();
                 let trailing = bitset.trailing_zeros() as usize;
                 let voxel_index = self.mask_index * 64 + trailing;
-                self.chunk_updates[self.chunk_index][self.mask_index] ^= t;
+                if cfg!(feature = "safe-bounds") {
+                    self.chunk_updates[self.chunk_index][self.mask_index] ^= t;
+                } else {
+                    unsafe {
+                        *self.chunk_updates.get_unchecked_mut(self.chunk_index).get_unchecked_mut(self.mask_index) ^= t;
+                    }
+                }
                 return Some((self.chunk_index, voxel_index));
             } else {
                 self.mask_index += 1;
@@ -359,7 +371,7 @@ impl SimChunks {
     ) -> UpdateIterator<'a> {
         debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.sim_updates, swap_buffer);
-        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0, name: "sim" }
+        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0 }
     }
 
     // separate buffer for render updates so we can accumulate over multiple frames.
@@ -369,7 +381,7 @@ impl SimChunks {
     ) -> UpdateIterator<'a> {
         debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.render_updates, swap_buffer);
-        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0, name: "render" }
+        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0 }
     }
 
     #[inline]
