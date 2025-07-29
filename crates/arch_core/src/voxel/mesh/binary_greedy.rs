@@ -103,7 +103,8 @@ impl Default for Remesh {
 
 pub fn update_binary_mesh(
     mut commands: Commands,
-    mut grids: Query<(&Voxels, &Chunks), (Changed<Voxels>, With<BinaryGreedy>)>,
+    is_binary_greedy: Query<(), With<BinaryGreedy>>,
+    mut grids: Query<(&Voxels, &Chunks), Changed<Voxels>>,
     mut chunk_mesh_entities: Query<&mut ChunkMeshes>,
 
     mut meshes: ResMut<Assets<Mesh>>,
@@ -135,8 +136,12 @@ pub fn update_binary_mesh(
         };
         dedup.remove(&(voxel_entity, chunk_point));
 
+        if !is_binary_greedy.contains(voxel_entity) {
+            continue;
+        }
+
         let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
-            // warn!("No voxels for entity {voxel_entity:?}");
+            warn!("No voxels for entity {voxel_entity:?}");
             continue;
         };
         // collider_mesh_buffer.clear();
@@ -209,7 +214,9 @@ pub fn update_binary_mesh(
 
 pub fn update_binary_mesh_collider(
     mut commands: Commands,
-    mut grids: Query<(&Voxels, &Chunks), (Changed<Voxels>, With<BinaryGreedy>)>,
+
+    binary_greedy: Query<(), With<BinaryGreedy>>,
+    mut grids: Query<(&Voxels, &Chunks), Changed<Voxels>>,
     mut chunk_mesh_entities: Query<&mut ChunkCollider>,
 
     mut mesher: Local<BgmMesher>,
@@ -237,6 +244,10 @@ pub fn update_binary_mesh_collider(
             break;
         };
         dedup.remove(&(voxel_entity, chunk_point));
+
+        if !binary_greedy.contains(voxel_entity) {
+            continue;
+        }
 
         let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
             warn!("No voxels for entity {voxel_entity:?}");

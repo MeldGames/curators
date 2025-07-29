@@ -246,8 +246,16 @@ impl SimChunks {
 
     #[inline]
     pub fn get_voxel_from_indices(&self, chunk_index: usize, voxel_index: usize) -> Voxel {
-        let chunk = &self.chunks[chunk_index];
-        let voxel = chunk.voxels[voxel_index];
+        let voxel = if cfg!(feature = "safe-bounds") {
+            let chunk = &self.chunks[chunk_index];
+            chunk.voxels[voxel_index]
+        } else {
+            unsafe {
+                let chunk = self.chunks.get_unchecked(chunk_index);
+                *chunk.voxels.get_unchecked(voxel_index)
+            }
+        };
+
         Voxel::from_data(voxel)
     }
 
@@ -268,8 +276,16 @@ impl SimChunks {
         }
 
         let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
-        let chunk = &mut self.chunks[chunk_index];
-        chunk.voxels[voxel_index] = voxel.data();
+        if cfg!(feature = "safe-bounds") {
+            let chunk = &mut self.chunks[chunk_index];
+            chunk.voxels[voxel_index] = voxel.data();
+        } else {
+            unsafe {
+                let chunk = self.chunks.get_unchecked_mut(chunk_index);
+                *chunk.voxels.get_unchecked_mut(voxel_index) = voxel.data();
+            }
+        }
+
         self.push_neighbor_updates(point);
     }
 
@@ -311,8 +327,16 @@ impl SimChunks {
         // info!("adding update mask: {:?}", (chunk_index, voxel_index));
         let mask_index = voxel_index >> 6; // voxel_index / 64
         let bit_index = voxel_index & 63; // voxel_index % 64
-        self.sim_updates[chunk_index][mask_index] |= 1 << bit_index;
-        self.render_updates[chunk_index][mask_index] |= 1 << bit_index;
+ 
+        if cfg!(feature = "safe-bounds") {
+            self.sim_updates[chunk_index][mask_index] |= 1 << bit_index;
+            self.render_updates[chunk_index][mask_index] |= 1 << bit_index;
+        } else {
+            unsafe { // 5% faster, use when we feel fine with callers of this
+                *self.sim_updates.get_unchecked_mut(chunk_index).get_unchecked_mut(mask_index) |= 1 << bit_index;
+                *self.render_updates.get_unchecked_mut(chunk_index).get_unchecked_mut(mask_index) |= 1 << bit_index;
+            }
+        }
     }
 
     pub fn clear_updates(&mut self) {

@@ -78,9 +78,22 @@ pub struct SurfaceNetMesh;
 //     }
 // }
 
+pub struct SampleBuffers {
+    pub base: Vec<f32>,
+}
+
+impl Default for SampleBuffers {
+    fn default() -> Self {
+        Self {
+            base: vec![1.0; padded::ARR_STRIDE],
+        }
+    }
+}
+
 pub fn update_surface_net_mesh(
     mut commands: Commands,
-    mut grids: Query<(&Voxels, &Chunks), (Changed<Voxels>, With<SurfaceNet>)>,
+    is_surface_nets: Query<(), With<SurfaceNet>>,
+    mut grids: Query<(&Voxels, &Chunks), Changed<Voxels>>,
     mut chunk_mesh_entities: Query<&mut ChunkMeshes>,
 
     mut meshes: ResMut<Assets<Mesh>>,
@@ -96,6 +109,7 @@ pub fn update_surface_net_mesh(
     remesh: Res<Remesh>,
 
     mut tick: Local<usize>,
+    mut samples: Local<SampleBuffers>,
 ) {
     *tick += 1;
     // if *tick % 8 != 0 {
@@ -120,6 +134,10 @@ pub fn update_surface_net_mesh(
         };
         dedup.remove(&(voxel_entity, chunk_point));
 
+        if !is_surface_nets.contains(voxel_entity) {
+            continue;
+        }
+
         let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
             warn!("No voxels for entity {voxel_entity:?}");
             continue;
@@ -131,11 +149,16 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
-        chunk.update_surface_net(&mut surface_net_buffer);
+        chunk.update_surface_net(&mut surface_net_buffer, &mut samples.base);
+        for normal in surface_net_buffer.normals.iter_mut() {
+            *normal = (Vec3::from(*normal).normalize()).into();
+        }
+
+        // info!("surface net buffer: {:?}", surface_net_buffer.positions.len());
         let mut mesh = surface_net_to_mesh(&surface_net_buffer);
         mesh.duplicate_vertices();
         mesh.compute_flat_normals();
-        info!("mesh indices: {:?}", mesh.indices().unwrap().len());
+        // info!("mesh indices: {:?}", mesh.indices().unwrap().len());
 
         let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
             continue;
@@ -209,13 +232,13 @@ pub type ChunkShape =
     ConstPow2Shape3u32<{ 6 as u32 }, { 6 as u32 }, { 6 as u32 }>; // 62^3 with 1 padding
 
 impl VoxelChunk {
-    pub fn update_surface_net(&self, buffer: &mut SurfaceNetsBuffer) {
-        let mut samples = vec![1.0; padded::ARR_STRIDE];
+    pub fn update_surface_net(&self, buffer: &mut SurfaceNetsBuffer, samples: &mut Vec<f32>) {
 
         let shape = ChunkShape {};
         for (i, voxel) in self.voxels.iter().enumerate() {
             let sample = match self.voxel_from_index(i) {
                 Voxel::Air => 1.0,
+                Voxel::Water {..} => -0.1,
                 _ => -1.0,
             };
             let point = padded::delinearize(i);

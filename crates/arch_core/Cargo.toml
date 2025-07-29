@@ -10,6 +10,7 @@ trace = [
     "bevy/trace_tracy",
     "tracing",
 ]
+safe-bounds = [] # Remove bounds checks for some operations
 
 [dependencies]
 # Bevy
