@@ -99,10 +99,6 @@ pub fn cycle_benches(
         commands.entity(entity).despawn();
     }
 
-    let mut new_voxels = Voxels::new(bench.voxel_size);
-    for (center, brush, voxel) in &bench.brushes {
-        new_voxels.set_voxel_brush(*center, &**brush, *voxel);
-    }
-
+    let new_voxels = bench.voxel.new_with_applied_brushes();
     commands.spawn((new_voxels, SurfaceNet));
 }

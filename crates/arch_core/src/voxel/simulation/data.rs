@@ -13,7 +13,6 @@ pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
-    // app.add_systems(Update, falling_sands);
 
     app.add_observer(insert_voxels_sim_chunks);
 }

@@ -109,7 +109,7 @@ pub fn update_binary_mesh(
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
+    // voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
     mut mesher: Local<BgmMesher>,
     mut changed_chunks: EventReader<ChangedChunks>,
 

@@ -466,8 +466,10 @@ impl VoxelMaterials {
         }
     }
 
-    pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
-        commands.insert_resource(VoxelMaterials::new(&mut materials));
+    pub fn setup(mut commands: Commands, materials: Option<ResMut<Assets<StandardMaterial>>>) {
+        if let Some(mut materials) = materials {
+            commands.insert_resource(VoxelMaterials::new(&mut *materials));
+        }
     }
 }
 
