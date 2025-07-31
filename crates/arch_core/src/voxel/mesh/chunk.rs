@@ -85,7 +85,7 @@ pub mod padded {
     }
 }
 
-/// Single voxel chunk, 64^3 (1 padding on the edges for meshing)
+/// Single render voxel chunk, 64^3 (1 padding on the edges for meshing)
 #[derive(Debug, Component, Clone, PartialEq, Eq)]
 #[require(Name::new("Voxel Chunk"))]
 pub struct VoxelChunk {
