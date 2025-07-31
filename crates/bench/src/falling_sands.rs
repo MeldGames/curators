@@ -1,7 +1,6 @@
 use arch_core::bevy;
-use arch_core::bevy::math::bounding::Aabb3d;
 use arch_core::sdf::{self, Sdf};
-use arch_core::voxel::{self, GRID_SCALE, Voxel, Voxels};
+use arch_core::voxel::{self, Voxel};
 use bevy::prelude::*;
 
 pub fn plugin_setup() -> App {
@@ -14,25 +13,6 @@ pub fn plugin_setup() -> App {
         .add_plugins(voxel::simulation::data::plugin);
     app
 }
-
-pub fn paint_brush(voxels: &mut Voxels, center: IVec3, brush: &dyn Sdf, voxel: Voxel) {
-    let half_size = voxels.voxel_size.as_vec3a() / 2.0;
-    for raster_voxel in sdf::voxel_rasterize::rasterize(
-        brush,
-        sdf::voxel_rasterize::RasterConfig {
-            clip_bounds: Aabb3d { min: -half_size, max: half_size },
-            grid_scale: GRID_SCALE,
-            pad_bounds: Vec3::ZERO,
-        },
-    ) {
-        if raster_voxel.distance <= 0.0 {
-            voxels.set_voxel(raster_voxel.point + half_size.as_ivec3(), voxel);
-        }
-    }
-}
-
-pub trait SdfSendSync: Sdf + Send + Sync + 'static {}
-impl<T: Sdf + Send + Sync + 'static> SdfSendSync for T {}
 
 pub struct BenchSetup {
     /// Name of the bench setup

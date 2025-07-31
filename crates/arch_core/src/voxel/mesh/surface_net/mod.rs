@@ -109,7 +109,7 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
-        for voxel in Voxel::iter() {
+        for voxel in [Voxel::Base, Voxel::Dirt, Voxel::Sand, Voxel::Water { lateral_energy: 4 }] {
             if !voxel.rendered() {
                 continue;
             }
