@@ -128,7 +128,7 @@ pub fn update_surface_net_mesh(
     //     return;
     // }
 
-    *apply_later = apply_later.drain(..).filter(|(_, _, _, count)| *count != 0).collect::<Vec<_>>();
+    apply_later.retain(|(_, _, _, count)| *count != 0);
 
     for (entity, mesh, aabb, count) in &mut apply_later {
         // info!("count: {:?}", count);
