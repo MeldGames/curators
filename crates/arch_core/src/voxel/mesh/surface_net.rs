@@ -5,6 +5,7 @@ use bevy::pbr::{NotShadowCaster, NotShadowReceiver};
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
+use bevy::render::primitives::Aabb;
 use bevy::render::render_resource::PrimitiveTopology;
 use fast_surface_nets::{surface_nets, SurfaceNetsBuffer};
 use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape, Shape};
@@ -18,7 +19,7 @@ use crate::voxel::mesh::binary_greedy::Remesh;
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, update_surface_net_mesh);
+        app.add_systems(PreUpdate, update_surface_net_mesh);
     }
 }
 
@@ -118,11 +119,29 @@ pub fn update_surface_net_mesh(
 
     mut tick: Local<usize>,
     mut samples: Local<SampleBuffers>,
+    input: Res<ButtonInput<KeyCode>>,
+
+    mut apply_later: Local<Vec<(Entity, Handle<Mesh>, Option<Aabb>, usize)>>,
 ) {
     *tick += 1;
     // if *tick % 8 != 0 {
     //     return;
     // }
+
+    *apply_later = apply_later.drain(..).filter(|(_, _, _, count)| *count != 0).collect::<Vec<_>>();
+
+    for (entity, mesh, aabb, count) in &mut apply_later {
+        // info!("count: {:?}", count);
+        *count -= 1;
+        if *count == 0 {
+            // info!("adding mesh");
+            let mut entity_commands = commands.entity(*entity);
+            entity_commands.insert(Mesh3d(mesh.clone()));
+            if let Some(aabb) = aabb {
+                entity_commands.insert(*aabb);
+            }
+        }
+    }
 
     for ChangedChunks { voxel_entity, changed_chunks } in changed_chunks.read() {
         for chunk in changed_chunks {
@@ -133,6 +152,10 @@ pub fn update_surface_net_mesh(
             }
         }
     }
+
+    // if !input.just_pressed(KeyCode::KeyY) {
+    //     return;
+    // }
 
     let mut pop_count = 0;
     while pop_count < remesh.render_per_frame {
@@ -157,7 +180,8 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
-        chunk.update_surface_net(&mut surface_net_buffer, &mut samples.base);
+        chunk.update_surface_net_samples(&mut samples.base);
+        chunk.create_surface_net(&mut surface_net_buffer, &mut samples.base);
         for normal in surface_net_buffer.normals.iter_mut() {
             *normal = (Vec3::from(*normal).normalize()).into();
         }
@@ -179,13 +203,15 @@ pub fn update_surface_net_mesh(
         // 몰리
 
         if let Some(entity) = chunk_meshes.get(&Voxel::Base) {
-            let mut entity_commands = commands.entity(*entity);
+            // let mut entity_commands = commands.entity(*entity);
             let aabb = mesh.compute_aabb();
             let mesh_handle = meshes.add(mesh);
-            entity_commands.insert(Mesh3d(mesh_handle));
-            if let Some(aabb) = aabb {
-                entity_commands.insert(aabb);
-            }
+
+            apply_later.push((*entity, mesh_handle, aabb, 1));
+            // entity_commands.insert(Mesh3d(mesh_handle));
+            // if let Some(aabb) = aabb {
+            //     entity_commands.insert(aabb);
+            // }
         } else {
             // if let Some(mesh) = render_mesh {
                 let mesh_handle = meshes.add(mesh);
@@ -240,12 +266,11 @@ pub type ChunkShape =
     ConstPow2Shape3u32<{ 6 as u32 }, { 6 as u32 }, { 6 as u32 }>; // 62^3 with 1 padding
 
 impl VoxelChunk {
-    pub fn update_surface_net(&self, buffer: &mut SurfaceNetsBuffer, samples: &mut Vec<f32>) {
-
+    pub fn update_surface_net_samples(&self, samples: &mut Vec<f32>) {
         let shape = ChunkShape {};
         for (i, voxel) in self.voxels.iter().enumerate() {
             let sample = match Voxel::from_data(*voxel) {
-                Voxel::Air => 1.0,
+                Voxel::Air | Voxel::Barrier => 1.0,
                 Voxel::Water {..} => -0.1,
                 _ => -1.0,
             };
@@ -253,7 +278,10 @@ impl VoxelChunk {
             let shape_index = shape.linearize(point.map(|x| x as u32));
             samples[shape_index as usize] = sample;
         }
+    }
 
+    pub fn create_surface_net(&self, buffer: &mut SurfaceNetsBuffer, samples: &Vec<f32>) {
+        let shape = ChunkShape {};
         surface_nets(&samples, &shape, [0; 3], [padded::SIZE as u32 - 1; 3], buffer);
     }
 }

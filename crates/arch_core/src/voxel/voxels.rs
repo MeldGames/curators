@@ -18,7 +18,9 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Debug, Component, Clone, PartialEq, Eq)]
-#[require(Name::new("Voxels"), Transform { scale: GRID_SCALE, ..default() }, SurfaceNet::default(),
+#[require(
+    Name::new("Voxels"),
+    Transform { scale: GRID_SCALE, ..default() },
     Visibility::Inherited,
     Chunks::default(),
 )]
