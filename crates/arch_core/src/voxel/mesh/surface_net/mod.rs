@@ -7,8 +7,8 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
 use bevy::render::primitives::Aabb;
 use bevy::render::render_resource::PrimitiveTopology;
-// use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape, Shape};
-// use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
+use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape, Shape};
+use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
 use crate::voxel::mesh::ChangedChunks;
 use crate::voxel::mesh::binary_greedy::Remesh;
@@ -16,12 +16,17 @@ use crate::voxel::mesh::binary_greedy::{ChunkMeshes, Chunks};
 use crate::voxel::mesh::{chunk::VoxelChunk, padded};
 use crate::voxel::{Voxel, Voxels};
 
-pub mod fast_surface_nets;
-
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PreUpdate, update_surface_net_mesh);
+    }
+}
+
+pub struct SamplesBuffer(Vec<f32>);
+impl Default for SamplesBuffer {
+    fn default() -> Self {
+        Self(vec![1.0; padded::ARR_STRIDE])
     }
 }
 
@@ -43,6 +48,8 @@ pub fn update_surface_net_mesh(
     // mut mesher: Local<BgmMesher>,
     mut surface_net_buffer: Local<SurfaceNetsBuffer>,
     mut changed_chunks: EventReader<ChangedChunks>,
+
+    mut samples: Local<SamplesBuffer>,
 
     mut queue: Local<VecDeque<(Entity, IVec3)>>,
     mut dedup: Local<HashSet<(Entity, IVec3)>>,
@@ -96,7 +103,6 @@ pub fn update_surface_net_mesh(
             warn!("No voxels for entity {voxel_entity:?}");
             continue;
         };
-        // collider_mesh_buffer.clear();
 
         let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
             warn!("No chunk at {chunk_point:?}");
@@ -108,16 +114,15 @@ pub fn update_surface_net_mesh(
                 continue;
             }
 
-            chunk.create_surface_net(&mut surface_net_buffer, &mut samples.base);
+            chunk.update_surface_net_samples(&mut samples.0, voxel.id());
+            chunk.create_surface_net(&mut surface_net_buffer, &mut samples.0);
             for normal in surface_net_buffer.normals.iter_mut() {
                 *normal = (Vec3::from(*normal).normalize()).into();
             }
 
-            // info!("surface net buffer: {:?}", surface_net_buffer.positions.len());
             let mut mesh = surface_net_to_mesh(&surface_net_buffer);
             mesh.duplicate_vertices();
             mesh.compute_flat_normals();
-            // info!("mesh indices: {:?}", mesh.indices().unwrap().len());
 
             let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
                 continue;
@@ -129,7 +134,7 @@ pub fn update_surface_net_mesh(
 
             // 몰리
 
-            if let Some(entity) = chunk_meshes.get(&Voxel::Base) {
+            if let Some(entity) = chunk_meshes.get(&voxel) {
                 // let mut entity_commands = commands.entity(*entity);
                 let aabb = mesh.compute_aabb();
                 let mesh_handle = meshes.add(mesh);
@@ -142,7 +147,7 @@ pub fn update_surface_net_mesh(
             } else {
                 // if let Some(mesh) = render_mesh {
                 let mesh_handle = meshes.add(mesh);
-                let material = materials.add(Voxel::Base.material());
+                let material = materials.add(voxel.material());
                 // let material = materials.add(voxel.material());
                 // let material = voxel_materials.get(voxel);
                 let mut voxel_mesh_commands = commands.spawn((
@@ -161,7 +166,7 @@ pub fn update_surface_net_mesh(
 
                 let id = voxel_mesh_commands.id();
 
-                chunk_meshes.insert(Voxel::Base, id);
+                chunk_meshes.insert(voxel, id);
                 // }
             }
         }
@@ -192,14 +197,18 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
 pub type ChunkShape = ConstPow2Shape3u32<{ 6 as u32 }, { 6 as u32 }, { 6 as u32 }>; // 62^3 with 1 padding
 
 impl VoxelChunk {
-    pub fn update_surface_net_samples(&self, samples: &mut Vec<f32>) {
+    pub fn update_surface_net_samples(&self, samples: &mut Vec<f32>, mesh_voxel_id: u16) {
         let shape = ChunkShape {};
         for (i, voxel) in self.voxels.iter().enumerate() {
-            let sample = match Voxel::from_data(*voxel) {
-                Voxel::Air | Voxel::Barrier => 1.0,
-                Voxel::Water { .. } => -0.1,
-                _ => -1.0,
+            let voxel = Voxel::from_data(*voxel);
+            let voxel_id = voxel.id();
+
+            let sample = if mesh_voxel_id == voxel_id {
+                -1.0
+            } else {
+                1.0
             };
+
             let point = padded::delinearize(i);
             let shape_index = shape.linearize(point.map(|x| x as u32));
             samples[shape_index as usize] = sample;
@@ -208,6 +217,6 @@ impl VoxelChunk {
 
     pub fn create_surface_net(&self, buffer: &mut SurfaceNetsBuffer, samples: &Vec<f32>) {
         let shape = ChunkShape {};
-        surface_nets(&self, &shape, buffer);
+        surface_nets(&samples, &shape, [0; 3], [padded::SIZE as u32 - 1; 3], buffer);
     }
 }
