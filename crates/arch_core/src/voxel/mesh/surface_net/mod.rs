@@ -28,13 +28,6 @@ impl Plugin for SurfaceNetPlugin {
     }
 }
 
-pub struct SamplesBuffer(Vec<f32>);
-impl Default for SamplesBuffer {
-    fn default() -> Self {
-        Self(vec![1.0; padded::ARR_STRIDE])
-    }
-}
-
 #[derive(Component, Default)]
 pub struct SurfaceNet;
 
@@ -53,8 +46,6 @@ pub fn update_surface_net_mesh(
     // mut mesher: Local<BgmMesher>,
     mut surface_net_buffer: Local<SurfaceNetsBuffer>,
     mut changed_chunks: EventReader<ChangedChunks>,
-
-    mut samples: Local<SamplesBuffer>,
 
     mut queue: Local<VecDeque<(Entity, IVec3)>>,
     mut dedup: Local<HashSet<(Entity, IVec3)>>,
@@ -121,9 +112,9 @@ pub fn update_surface_net_mesh(
 
             // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
             chunk.create_surface_net(&mut surface_net_buffer, voxel.id());
-            for normal in surface_net_buffer.normals.iter_mut() {
-                *normal = (Vec3::from(*normal).normalize()).into();
-            }
+            // for normal in surface_net_buffer.normals.iter_mut() {
+            //     *normal = (Vec3::from(*normal).normalize()).into();
+            // }
 
             let mut mesh = surface_net_to_mesh(&surface_net_buffer);
             mesh.duplicate_vertices();

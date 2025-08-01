@@ -43,6 +43,8 @@ fn meshing(c: &mut Criterion) {
                     },
                     |mut app: App| {
                         app.update();
+                        app.update();
+                        app.update();
                         black_box(app);
                     },
                     BatchSize::LargeInput,
