@@ -50,23 +50,23 @@
 //! assert!(!buffer.indices.is_empty());
 //! ```
 
-pub use glam;
-pub use ndshape;
+use bevy::prelude::*;
 
-use glam::{Vec3A, Vec3Swizzles};
-use ndshape::Shape;
+use crate::voxel::{mesh::padded, Voxel};
 
-use crate::voxel::mesh::padded;
-
-pub trait SignedDistance: Into<f32> + Copy {
-    fn is_negative(self) -> bool;
+pub fn linearize([x, y, z]: [u32; 3]) -> u32 {
+    // padded::linearize([x as i32, y as i32, z as i32]) as u32
+    z + (x << 6) + (y << 12)
 }
 
-impl SignedDistance for f32 {
-    fn is_negative(self) -> bool {
-        self < 0.0
-    }
+pub fn delinearize(index: u32) -> [u32; 3] {
+    padded::delinearize(index as usize).map(|n| n as u32)
 }
+
+pub type VoxelData = u16;
+pub type VoxelId = u16;
+pub const MIN: UVec3 = UVec3::ZERO;
+pub const MAX: UVec3 = UVec3::splat(padded::SIZE as u32 - 1);
 
 /// The output buffers used by [`surface_nets`]. These buffers can be reused to avoid reallocating memory.
 #[derive(Default, Clone)]
@@ -131,8 +131,8 @@ pub const NULL_VERTEX: u32 = u32::MAX;
 /// Note that the scheme illustrated above implies that chunks must be padded with a 1-voxel border copied from neighboring
 /// voxels in order to connect seamlessly.
 pub fn surface_nets(
-    voxels: &[u16], // voxel buffer
-    voxel: u16,     // voxel id to mesh
+    voxels: &[VoxelData], // voxel buffer
+    mesh_voxel_id: VoxelId,     // voxel id to mesh
     output: &mut SurfaceNetsBuffer,
 ) {
     // SAFETY
@@ -140,19 +140,19 @@ pub fn surface_nets(
 
     output.reset(padded::ARR_STRIDE);
 
-    estimate_surface(voxels, voxel, output);
-    make_all_quads(voxel, voxel, output);
+    estimate_surface(voxels, mesh_voxel_id, output);
+    make_all_quads(voxels, mesh_voxel_id, output);
 }
 
 // Find all vertex positions and normals. Also generate a map from grid position to vertex index to be used to look up vertices
 // when generating quads.
-fn estimate_surface(sdf: &[u16], voxel: u16, output: &mut SurfaceNetsBuffer) {
-    for z in 0..padded::SIZE {
-        for y in 0..padded::SIZE {
-            for x in 0..padded::SIZE {
-                let stride = padded::linearize([x, y, z]) as u32;
+fn estimate_surface(sdf: &[VoxelData], mesh_voxel_id: VoxelId, output: &mut SurfaceNetsBuffer) {
+    for x in MIN.x..MAX.x {
+        for y in MIN.y..MAX.y {
+            for z in MIN.z..MAX.z {
+                let stride = linearize([x, y, z]);
                 let p = Vec3A::from([x as f32, y as f32, z as f32]);
-                if estimate_surface_in_cube(sdf, shape, p, stride, output) {
+                if estimate_surface_in_cube(sdf, mesh_voxel_id, p, stride, output) {
                     output.stride_to_index[stride as usize] = output.positions.len() as u32 - 1;
                     output.surface_points.push([x, y, z]);
                     output.surface_strides.push(stride);
@@ -169,27 +169,26 @@ fn estimate_surface(sdf: &[u16], voxel: u16, output: &mut SurfaceNetsBuffer) {
 //
 // This is done by estimating, for each cube edge, where the isosurface crosses the edge (if it does at all). Then the estimated
 // surface point is the average of these edge crossings.
-fn estimate_surface_in_cube<T, S>(
-    sdf: &[T],
-    shape: &S,
+fn estimate_surface_in_cube(
+    sdf: &[VoxelData],
+    mesh_voxel_id: VoxelId,
     p: Vec3A,
     min_corner_stride: u32,
     output: &mut SurfaceNetsBuffer,
-) -> bool
-where
-    T: SignedDistance,
-    S: Shape<3, Coord = u32>,
-{
+) -> bool {
     // Get the signed distance values at each corner of this cube.
     let mut corner_dists = [0f32; 8];
     let mut num_negative = 0;
     for (i, dist) in corner_dists.iter_mut().enumerate() {
-        let corner_stride = min_corner_stride + shape.linearize(CUBE_CORNERS[i]);
+        let corner_stride = min_corner_stride + linearize(CUBE_CORNERS[i]);
         let d = *unsafe { sdf.get_unchecked(corner_stride as usize) };
-        *dist = d.into();
-        if d.is_negative() {
+        // let d = sdf[corner_stride as usize];
+        *dist = if Voxel::from_data(d).id() == mesh_voxel_id {
             num_negative += 1;
-        }
+            -1.0
+        } else {
+            1.0
+        };
     }
 
     if num_negative == 0 || num_negative == 8 {
@@ -270,20 +269,15 @@ fn sdf_gradient(dists: &[f32; 8], s: Vec3A) -> Vec3A {
 // For every edge that crosses the isosurface, make a quad between the "centers" of the four cubes touching that surface. The
 // "centers" are actually the vertex positions found earlier. Also make sure the triangles are facing the right way. See the
 // comments on `maybe_make_quad` to help with understanding the indexing.
-fn make_all_quads<T, S>(
-    sdf: &[T],
-    shape: &S,
-    [minx, miny, minz]: [u32; 3],
-    [maxx, maxy, maxz]: [u32; 3],
+fn make_all_quads(
+    sdf: &[VoxelData],
+    mesh_voxel_id: VoxelId,
     output: &mut SurfaceNetsBuffer,
-) where
-    T: SignedDistance,
-    S: Shape<3, Coord = u32>,
-{
+) {
     let xyz_strides = [
-        shape.linearize([1, 0, 0]) as usize,
-        shape.linearize([0, 1, 0]) as usize,
-        shape.linearize([0, 0, 1]) as usize,
+        linearize([1, 0, 0]) as usize,
+        linearize([0, 1, 0]) as usize,
+        linearize([0, 0, 1]) as usize,
     ];
 
     for (&[x, y, z], &p_stride) in output.surface_points.iter().zip(output.surface_strides.iter()) {
@@ -291,9 +285,10 @@ fn make_all_quads<T, S>(
         let eval_max_plane = cfg!(feature = "eval-max-plane");
 
         // Do edges parallel with the X axis
-        if y != miny && z != minz && (eval_max_plane || x != maxx - 1) {
+        if y != MIN.y && z != MIN.z && (eval_max_plane || x != MAX.x - 1) {
             maybe_make_quad(
                 sdf,
+                mesh_voxel_id,
                 &output.stride_to_index,
                 &output.positions,
                 p_stride,
@@ -304,9 +299,10 @@ fn make_all_quads<T, S>(
             );
         }
         // Do edges parallel with the Y axis
-        if x != minx && z != minz && (eval_max_plane || y != maxy - 1) {
+        if x != MIN.x && z != MIN.z && (eval_max_plane || y != MAX.y - 1) {
             maybe_make_quad(
                 sdf,
+                mesh_voxel_id,
                 &output.stride_to_index,
                 &output.positions,
                 p_stride,
@@ -317,9 +313,10 @@ fn make_all_quads<T, S>(
             );
         }
         // Do edges parallel with the Z axis
-        if x != minx && y != miny && (eval_max_plane || z != maxz - 1) {
+        if x != MIN.x && y != MIN.y && (eval_max_plane || z != MAX.z - 1) {
             maybe_make_quad(
                 sdf,
+                mesh_voxel_id,
                 &output.stride_to_index,
                 &output.positions,
                 p_stride,
@@ -361,8 +358,9 @@ fn make_all_quads<T, S>(
 // then we must find the other 3 quad corners by moving along the other two axes (those orthogonal to A) in the negative
 // directions; these are axis B and axis C.
 #[allow(clippy::too_many_arguments)]
-fn maybe_make_quad<T>(
-    sdf: &[T],
+fn maybe_make_quad(
+    sdf: &[VoxelData],
+    mesh_voxel_id: VoxelId,
     stride_to_index: &[u32],
     positions: &[[f32; 3]],
     p1: usize,
@@ -370,12 +368,12 @@ fn maybe_make_quad<T>(
     axis_b_stride: usize,
     axis_c_stride: usize,
     indices: &mut Vec<u32>,
-) where
-    T: SignedDistance,
-{
+) {
     let d1 = unsafe { sdf.get_unchecked(p1) };
     let d2 = unsafe { sdf.get_unchecked(p2) };
-    let negative_face = match (d1.is_negative(), d2.is_negative()) {
+    // let d1 = &sdf[p1];
+    // let d2 = &sdf[p2];
+    let negative_face = match (Voxel::from_data(*d1).id() == mesh_voxel_id, Voxel::from_data(*d2).id() == mesh_voxel_id) {
         (true, false) => false,
         (false, true) => true,
         _ => return, // No face.
