@@ -46,7 +46,7 @@ pub fn pack_voxel(voxel: Voxel) -> u16 {
 
 #[inline]
 pub fn unpack_voxel(data: u16) -> Voxel {
-    let id = data & 0xFF;
+    let id = Voxel::id_from_data(data) & 0xFF;
     let extra_data = (data >> 8) & 0xFF;
     match id {
         0 => Voxel::Air,
@@ -275,6 +275,11 @@ impl Voxel {
     #[inline]
     pub fn from_data(data: u16) -> Self {
         unpack_voxel(data)
+    }
+
+    #[inline]
+    pub fn id_from_data(data: u16) -> u16 {
+        data & 0xFF
     }
 
     #[inline]

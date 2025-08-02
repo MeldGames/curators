@@ -97,7 +97,7 @@ pub struct Remesh {
 
 impl Default for Remesh {
     fn default() -> Self {
-        Self { render_per_frame: 8, collider_per_frame: 2 }
+        Self { render_per_frame: 2, collider_per_frame: 1 }
     }
 }
 

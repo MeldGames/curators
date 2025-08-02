@@ -13,6 +13,7 @@ use crate::voxel::simulation::data::{SimChunks, CHUNK_LENGTH};
 use crate::voxel::{Voxel, Voxels};
 
 pub mod data;
+pub mod morton;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>();

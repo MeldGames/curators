@@ -183,11 +183,11 @@ fn estimate_surface_in_cube(
         let corner_stride = min_corner_stride + linearize(CUBE_CORNERS[i]);
         let d = *unsafe { sdf.get_unchecked(corner_stride as usize) };
         // let d = sdf[corner_stride as usize];
-        *dist = if Voxel::from_data(d).id() == mesh_voxel_id {
+        *dist = if Voxel::id_from_data(d) == mesh_voxel_id {
             num_negative += 1;
-            -1.0
+            -0.5
         } else {
-            1.0
+            0.5
         };
     }
 
@@ -373,7 +373,7 @@ fn maybe_make_quad(
     let d2 = unsafe { sdf.get_unchecked(p2) };
     // let d1 = &sdf[p1];
     // let d2 = &sdf[p2];
-    let negative_face = match (Voxel::from_data(*d1).id() == mesh_voxel_id, Voxel::from_data(*d2).id() == mesh_voxel_id) {
+    let negative_face = match (Voxel::id_from_data(*d1) == mesh_voxel_id, Voxel::id_from_data(*d2) == mesh_voxel_id) {
         (true, false) => false,
         (false, true) => true,
         _ => return, // No face.
