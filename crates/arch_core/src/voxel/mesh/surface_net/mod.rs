@@ -11,7 +11,7 @@ use bevy::render::render_resource::PrimitiveTopology;
 // use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
 use crate::voxel::mesh::ChangedChunks;
-use crate::voxel::mesh::binary_greedy::Remesh;
+use crate::voxel::mesh::remesh::Remesh;
 use crate::voxel::mesh::binary_greedy::{ChunkMeshes, Chunks};
 use crate::voxel::mesh::{chunk::VoxelChunk, padded};
 use crate::voxel::{Voxel, Voxels};
@@ -84,7 +84,7 @@ pub fn update_surface_net_mesh(
     // }
 
     let mut pop_count = 0;
-    while pop_count < remesh.render_per_frame {
+    while pop_count < remesh.surface_net {
         pop_count += 1;
         let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
             break;

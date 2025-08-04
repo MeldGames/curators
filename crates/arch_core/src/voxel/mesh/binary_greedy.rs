@@ -11,7 +11,7 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
-use crate::voxel::mesh::ChangedChunks;
+use crate::voxel::mesh::{ChangedChunks, Remesh};
 use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{Voxel, Voxels};
@@ -88,19 +88,6 @@ pub fn spawn_chunk_entities(
     }
 }
 
-#[derive(Resource, Clone, Copy, Debug, Reflect)]
-#[reflect(Resource)]
-pub struct Remesh {
-    pub render_per_frame: usize,
-    pub collider_per_frame: usize,
-}
-
-impl Default for Remesh {
-    fn default() -> Self {
-        Self { render_per_frame: 2, collider_per_frame: 1 }
-    }
-}
-
 pub fn update_binary_mesh(
     mut commands: Commands,
     is_binary_greedy: Query<(), With<BinaryGreedy>>,
@@ -115,6 +102,7 @@ pub fn update_binary_mesh(
 
     mut queue: Local<VecDeque<(Entity, IVec3)>>,
     mut dedup: Local<HashSet<(Entity, IVec3)>>,
+    cameras: Query<&Camera>,
 
     remesh: Res<Remesh>,
 ) {
@@ -128,8 +116,12 @@ pub fn update_binary_mesh(
         }
     }
 
+    // let camera = cameras.iter().find(|camera| camera.is_active);
+    // queue.sort_by(|a, b| { // sort by where the active camera is looking
+    // });
+
     let mut pop_count = 0;
-    while pop_count < remesh.render_per_frame {
+    while pop_count < remesh.bgm {
         pop_count += 1;
         let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
             break;
@@ -238,7 +230,7 @@ pub fn update_binary_mesh_collider(
     }
 
     let mut pop_count = 0;
-    while pop_count < remesh.collider_per_frame {
+    while pop_count < remesh.collider {
         pop_count += 1;
         let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
             break;

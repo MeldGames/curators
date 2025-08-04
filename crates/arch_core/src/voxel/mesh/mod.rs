@@ -11,8 +11,12 @@ pub mod chunk;
 pub mod binary_greedy;
 pub mod surface_net;
 
+// Perf control
+pub mod remesh;
+
 pub use binary_greedy::BinaryGreedy;
 pub use surface_net::SurfaceNet;
+pub use remesh::Remesh;
 
 #[derive(SystemSet, Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct UpdateVoxelMeshSet;
@@ -21,6 +25,7 @@ pub fn plugin(app: &mut App) {
     app.add_event::<ChangedChunks>();
 
     app.add_plugins(surface_net::SurfaceNetPlugin);
+    app.add_plugins(remesh::plugin);
     // app.add_plugins(ass_mesh::ASSMeshPlugin);
     // app.add_plugins(meshem::MeshemPlugin);
     app.add_plugins(binary_greedy::plugin);

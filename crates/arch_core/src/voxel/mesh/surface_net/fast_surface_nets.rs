@@ -185,9 +185,9 @@ fn estimate_surface_in_cube(
         // let d = sdf[corner_stride as usize];
         *dist = if Voxel::id_from_data(d) == mesh_voxel_id {
             num_negative += 1;
-            -0.5
+            -1.0
         } else {
-            0.5
+            1.0
         };
     }
 

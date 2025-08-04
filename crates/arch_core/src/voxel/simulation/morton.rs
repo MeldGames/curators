@@ -7,9 +7,6 @@ use bevy::prelude::*;
 /// Used to prepare coordinates for Morton encoding
 #[inline]
 fn spread_bits(mut value: usize) -> usize {
-    // Ensure value is within 4-bit range (0-15)
-    // value &= 0xF;
-
     // Spread the 4 bits across 12 bits with 2 zeros between each bit
     // 0000abcd -> 00a00b00c00d
     value = (value | (value << 8)) & 0x00F00F; // 0000abcd -> 0000ab0000cd
@@ -19,11 +16,8 @@ fn spread_bits(mut value: usize) -> usize {
     value
 }
 
-/// Compacts spread bits back to original value
-/// Reverses the spread_bits operation
 #[inline]
 fn compact_bits(mut value: usize) -> usize {
-    // Compact the spread bits back to 4 bits
     value &= 0x249249;
     value = (value | (value >> 2)) & 0x0C30C3;
     value = (value | (value >> 4)) & 0x00F00F;

@@ -85,13 +85,7 @@ pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer
 pub fn falling_sands(
     mut grids: Query<(&mut Voxels, &mut SimSwapBuffer)>,
     mut sim_tick: ResMut<FallingSandTick>,
-    mut ignore: Local<usize>,
 ) {
-    *ignore = (*ignore + 1) % 4; // 60 / 4 ticks per second
-    if *ignore != 0 {
-        // return;
-    }
-
     #[cfg(feature = "trace")]
     let falling_sands_span = info_span!("falling_sands");
 
@@ -109,14 +103,6 @@ pub fn falling_sands(
 
             let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
 
-            // counter += 1;
-            // if sim_voxel.is_simulated() {
-            //     simulated_counter += 1;
-            // } else {
-            //     static_counter += 1;
-            // };
-
-            // TODO: delinearize indices into a point
             match sim_voxel {
                 Voxel::Sand => {
                     // semi-solid
