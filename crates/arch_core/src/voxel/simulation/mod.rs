@@ -72,13 +72,13 @@ pub struct RenderSwapBuffer(pub Vec<[u64; CHUNK_LENGTH / 64]>);
 
 pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer)>) {
     for (mut grid, mut render_swap_buffer) in &mut grids {
-        for (chunk_index, voxel_index) in grid.sim_chunks.render_updates(&mut render_swap_buffer.0)
-        {
-            let point =
-                grid.sim_chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
-            let voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
-            grid.render_chunks.set_voxel(point, voxel);
-        }
+        let Voxels {
+            sim_chunks,
+            render_chunks,
+            ..
+        } = &mut *grid;
+
+        sim_chunks.propagate_sim_updates(render_chunks, &mut render_swap_buffer.0);
     }
 }
 

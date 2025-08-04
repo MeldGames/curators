@@ -1,3 +1,4 @@
+use arch_core::voxel::mesh::surface_net::fast_surface_nets::SurfaceNetsBuffer;
 use arch_core::voxel::mesh::SurfaceNet;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
@@ -21,31 +22,45 @@ fn meshing(c: &mut Criterion) {
     let mut group = c.benchmark_group("surface_net");
 
     for bench in bench::surface_net::mesh_benches() {
+        let mut surface_net_buffer = SurfaceNetsBuffer::default();
+
         group
             .bench_function(bench.name, |b| {
                 b.iter_batched(
                     || {
-                        let mut app = App::new();
-                        app.add_plugins(MinimalPlugins);
-                        app.add_plugins(AssetPlugin::default());
-                        app.insert_resource(Assets::<Mesh>::default());
-                        app.insert_resource(Assets::<StandardMaterial>::default());
-                        app.add_plugins(bench_setup);
-                        app.world_mut().spawn((bench.voxel.new_voxels(), SurfaceNet));
-                        app.update(); // initialization stuffs
-
-                        let world = app.world_mut();
-                        let mut query = world.query::<&mut Voxels>();
-                        let mut voxels = query.single_mut(world).unwrap();
-
+                        let mut voxels = bench.voxel.new_voxels();
                         bench.voxel.apply_brushes(&mut voxels);
-                        app
+                        let mut swap_buffer = voxels.sim_chunks.create_update_buffer();
+                        let Voxels {
+                            sim_chunks,
+                            render_chunks,
+                            ..
+                        } = &mut voxels;
+                        sim_chunks.propagate_sim_updates(render_chunks, &mut swap_buffer);
+
+                        voxels
                     },
-                    |mut app: App| {
-                        app.update();
-                        app.update();
-                        app.update();
-                        black_box(app);
+                    |voxels: Voxels| {
+                        for (_chunk_pos, chunk) in voxels.render_chunks.chunk_iter() {
+                            for voxel in chunk.voxel_type_updates() {
+                                if !voxel.rendered() {
+                                    continue;
+                                }
+
+                                // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
+                                chunk.create_surface_net(&mut surface_net_buffer, voxel.id());
+                                // for normal in surface_net_buffer.normals.iter_mut() {
+                                //     *normal = (Vec3::from(*normal).normalize()).into();
+                                // }
+
+                                // let mut mesh = surface_net_to_mesh(&surface_net_buffer);
+                                // mesh.duplicate_vertices();
+                                // mesh.compute_flat_normals();
+                                black_box(&surface_net_buffer);
+                            }
+
+                            chunk.update_prev_counts();
+                        }
                     },
                     BatchSize::LargeInput,
                 );

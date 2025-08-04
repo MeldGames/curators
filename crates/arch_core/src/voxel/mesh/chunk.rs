@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{platform::collections::HashSet, prelude::*};
 
 use crate::voxel::Voxel;
 
@@ -91,15 +91,27 @@ pub struct VoxelChunk {
     pub voxels: Vec<u16>,           // padded::ARR_STRIDE length
     pub opaque_mask: Vec<u64>,      // padded::SIZE^2 length, bit masks of 64^3 voxels
     pub transparent_mask: Vec<u64>, // padded::SIZE^2 length
+
+
+    pub changed_voxel_types: HashSet<Voxel>,
+    // pub counts: Vec<u32>, // counts of each voxel type
+    // pub prev_counts: Vec<u32>,
 }
 
 impl Default for VoxelChunk {
     fn default() -> Self {
+        // let mut counts = vec![0u32; Voxel::iter().count()];
+        // counts[0] = padded::ARR_STRIDE as u32;
+
         Self {
             voxels: vec![Voxel::Air.id(); padded::ARR_STRIDE],
 
             opaque_mask: vec![0u64; padded::SIZE * padded::SIZE],
             transparent_mask: vec![0u64; padded::SIZE * padded::SIZE],
+
+            changed_voxel_types: HashSet::with_capacity(Voxel::iter().count()),
+            // counts: counts.clone(),
+            // prev_counts: counts.clone(),
         }
     }
 }
@@ -151,8 +163,12 @@ impl VoxelChunk {
 
         let index = padded::linearize(point);
 
+        let prev_voxel = self.voxels[index as usize];
         self.voxels[index as usize] = voxel.data();
-        self.set_masks(point, voxel.transparent())
+        self.set_masks(point, voxel.transparent());
+
+        self.changed_voxel_types.insert(Voxel::from_data(prev_voxel));
+        self.changed_voxel_types.insert(voxel);
     }
 
     pub fn set_masks(&mut self, padded_point: [Scalar; 3], transparent: bool) {
@@ -244,6 +260,16 @@ impl VoxelChunk {
     #[inline]
     pub fn ground_level(&self) -> Scalar {
         (self.y_size() as f32 / 2.0).ceil() as Scalar
+    }
+
+    #[inline]
+    pub fn voxel_type_updates(&self) -> impl Iterator<Item = Voxel> {
+        self.changed_voxel_types.iter().copied()
+    }
+
+    #[inline]
+    pub fn clear_voxel_type_updates(&mut self) {
+        self.changed_voxel_types.clear();
     }
 }
 

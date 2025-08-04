@@ -2,6 +2,7 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
+use crate::voxel::mesh::RenderChunks;
 use crate::voxel::simulation::{RenderSwapBuffer, SimSwapBuffer};
 use crate::voxel::{Voxel, Voxels};
 
@@ -31,6 +32,8 @@ pub fn insert_voxels_sim_chunks(
     commands.entity(trigger.target()).insert((sim_swap_buffer, render_swap_buffer));
 }
 
+pub type UpdateBuffer = Vec<[u64; CHUNK_LENGTH / 64]>;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub struct SimChunk {
     // lets try just a 4x4x4 chunk
@@ -48,8 +51,8 @@ pub struct SimChunks {
     pub chunks: Vec<SimChunk>,
     pub chunk_strides: [usize; 3],
 
-    pub sim_updates: Vec<[u64; CHUNK_LENGTH / 64]>,    // bitmask of updates
-    pub render_updates: Vec<[u64; CHUNK_LENGTH / 64]>, // bitmask of updates
+    pub sim_updates: UpdateBuffer,    // bitmask of updates
+    pub render_updates: UpdateBuffer, // bitmask of updates
 
     pub chunk_size: IVec3,
     pub voxel_size: IVec3,
@@ -58,12 +61,13 @@ pub struct SimChunks {
 #[inline]
 pub fn to_linear_index(relative_point: IVec3) -> usize {
     debug_assert!(
-        relative_point.x < CHUNK_WIDTH as i32
-            && relative_point.y < CHUNK_WIDTH as i32
-            && relative_point.z < CHUNK_WIDTH as i32
-            && relative_point.x >= 0
-            && relative_point.y >= 0
-            && relative_point.z >= 0
+        // relative_point.x < CHUNK_WIDTH as i32
+        //     && relative_point.y < CHUNK_WIDTH as i32
+        //     && relative_point.z < CHUNK_WIDTH as i32
+        //     && relative_point.x >= 0
+        //     && relative_point.y >= 0
+        //     && relative_point.z >= 0
+        ((relative_point.x | relative_point.y | relative_point.z) & !15) != 0
     );
 
     // z + x * 4 + y * 16
@@ -103,7 +107,7 @@ pub fn chunk_point(point: IVec3) -> IVec3 {
 }
 
 pub struct UpdateIterator<'a> {
-    pub chunk_updates: &'a mut Vec<[u64; CHUNK_LENGTH / 64]>,
+    pub chunk_updates: &'a mut UpdateBuffer,
     pub chunk_index: usize,
     pub mask_index: usize,
 }
@@ -170,7 +174,7 @@ impl SimChunks {
         }
     }
 
-    pub fn create_update_buffer_from_size(chunk_size: IVec3) -> Vec<[u64; CHUNK_LENGTH / 64]> {
+    pub fn create_update_buffer_from_size(chunk_size: IVec3) -> UpdateBuffer {
         info!(
             "creating update buffer from size: {:?} -> {}",
             chunk_size,
@@ -179,7 +183,7 @@ impl SimChunks {
         vec![[0; CHUNK_LENGTH / 64]; (chunk_size.x * chunk_size.y * chunk_size.z) as usize]
     }
 
-    pub fn create_update_buffer(&self) -> Vec<[u64; CHUNK_LENGTH / 64]> {
+    pub fn create_update_buffer(&self) -> UpdateBuffer {
         Self::create_update_buffer_from_size(self.chunk_size)
     }
 
@@ -207,6 +211,7 @@ impl SimChunks {
             && point.x < self.voxel_size.x
             && point.y < self.voxel_size.y
             && point.z < self.voxel_size.z
+        // ((relative_point.x | relative_point.y | relative_point.z) & !15) != 0
     }
 
     #[inline]
@@ -320,7 +325,7 @@ impl SimChunks {
 
     pub fn sim_updates<'a, 'b: 'a>(
         &mut self,
-        swap_buffer: &'b mut Vec<[u64; CHUNK_LENGTH / 64]>,
+        swap_buffer: &'b mut UpdateBuffer,
     ) -> UpdateIterator<'a> {
         debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.sim_updates, swap_buffer);
@@ -330,7 +335,7 @@ impl SimChunks {
     // separate buffer for render updates so we can accumulate over multiple frames.
     pub fn render_updates<'a, 'b: 'a>(
         &mut self,
-        swap_buffer: &'b mut Vec<[u64; CHUNK_LENGTH / 64]>,
+        swap_buffer: &'b mut UpdateBuffer,
     ) -> UpdateIterator<'a> {
         debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.render_updates, swap_buffer);
@@ -359,6 +364,15 @@ impl SimChunks {
         let chunk_point = self.chunk_delinearize(chunk_index);
         let relative_voxel_point = delinearize(voxel_index);
         (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32)) + relative_voxel_point
+    }
+
+    pub fn propagate_sim_updates(&mut self, render_chunks: &mut RenderChunks, render_swap_buffer: &mut UpdateBuffer) {
+        for (chunk_index, voxel_index) in self.render_updates(render_swap_buffer) {
+            let point =
+                self.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+            let voxel = self.get_voxel_from_indices(chunk_index, voxel_index);
+            render_chunks.set_voxel(point, voxel);
+        }
     }
 }
 

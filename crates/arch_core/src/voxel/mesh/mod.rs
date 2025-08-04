@@ -290,11 +290,12 @@ impl RenderChunks {
         self.chunk_size
     }
 
-    pub fn chunk_pos_iter(&self) -> impl Iterator<Item = IVec3> {
+    pub fn chunk_pos_iter<'a, 'b>(&'a self) -> impl Iterator<Item = IVec3> + use<'b> {
         // self.chunks.keys().copied()
-        (0..self.chunk_size.z).flat_map(move |z| {
-            (0..self.chunk_size.x)
-                .flat_map(move |x| (0..self.chunk_size.y).map(move |y| IVec3::new(x, y, z)))
+        let chunk_size = self.chunk_size;
+        (0..chunk_size.z).flat_map(move |z| {
+            (0..chunk_size.x)
+                .flat_map(move |x| (0..chunk_size.y).map(move |y| IVec3::new(x, y, z)))
         })
     }
 
@@ -307,6 +308,12 @@ impl RenderChunks {
 
     pub fn chunk_iter(&self) -> impl Iterator<Item = (IVec3, &VoxelChunk)> {
         self.chunk_pos_iter().map(|chunk_point| (chunk_point, self.get_chunk(chunk_point).unwrap()))
+
+    }
+    // pub fn chunk_iter_mut<'a, 'b: 'a>(&'b mut self) -> impl Iterator<Item = (IVec3, &'a mut VoxelChunk)> + use<'b> {
+    pub fn chunk_iter_mut(&mut self) -> impl Iterator<Item = &mut VoxelChunk>{
+        self.chunks.iter_mut()
+        // self.chunk_pos_iter().map(move |chunk_point| (chunk_point, self.get_chunk_mut(chunk_point).unwrap()))
     }
 
     pub fn changed_chunk_pos_iter(&self) -> impl Iterator<Item = IVec3> {

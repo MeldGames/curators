@@ -24,7 +24,7 @@ use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate, update_surface_net_mesh);
+        app.add_systems(PreUpdate, (update_surface_net_mesh, update_prev_counts).chain());
     }
 }
 
@@ -34,10 +34,25 @@ pub struct SurfaceNet;
 #[derive(Component, Default)]
 pub struct SurfaceNetMesh;
 
+pub fn update_prev_counts(
+    mut grids: Query<(&mut Voxels, &mut Remeshed)>,
+) {
+    for (mut grid, mut remeshed) in &mut grids {
+        for chunk_point in remeshed.0.drain() {
+            if let Some(chunk) = grid.render_chunks.get_chunk_mut(chunk_point) {
+                chunk.clear_voxel_type_updates();
+            }
+        }
+    }
+}
+
+#[derive(Component, Default)]
+pub struct Remeshed(HashSet<IVec3>);
+
 pub fn update_surface_net_mesh(
     mut commands: Commands,
     is_surface_nets: Query<(), With<SurfaceNet>>,
-    mut grids: Query<(&Voxels, &Chunks), Changed<Voxels>>,
+    mut grids: Query<(&Voxels, &Chunks, &mut Remeshed), Changed<Voxels>>,
     mut chunk_mesh_entities: Query<&mut ChunkMeshes>,
 
     mut meshes: ResMut<Assets<Mesh>>,
@@ -95,7 +110,7 @@ pub fn update_surface_net_mesh(
             continue;
         }
 
-        let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
+        let Ok((voxels, voxel_chunks, mut remeshed)) = grids.get_mut(voxel_entity) else {
             warn!("No voxels for entity {voxel_entity:?}");
             continue;
         };
@@ -105,7 +120,7 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
-        for voxel in [Voxel::Base, Voxel::Dirt, Voxel::Sand, Voxel::Water { lateral_energy: 4 }] {
+        for voxel in chunk.voxel_type_updates() {
             if !voxel.rendered() {
                 continue;
             }
@@ -119,6 +134,8 @@ pub fn update_surface_net_mesh(
             let mut mesh = surface_net_to_mesh(&surface_net_buffer);
             mesh.duplicate_vertices();
             mesh.compute_flat_normals();
+
+            remeshed.0.insert(chunk_point);
 
             let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
                 continue;
