@@ -1,15 +1,9 @@
+use arch_core::voxel::mesh::{BinaryGreedy, SurfaceNet};
 use arch_core::voxel::simulation::FallingSandTick;
-use bench::falling_sands::{basic_benches, paint_brush};
-use bevy::core_pipeline::core_3d::graph::Node3d;
+use bench::falling_sands::basic_benches;
 use bevy::prelude::*;
-use bevy_inspector_egui::bevy_egui::EguiPlugin;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-use arch::core::camera::{FlyingCamera, FlyingSettings, FlyingState, camera_components};
-use arch::core::sdf::voxel_rasterize::RasterConfig;
-use arch::core::sdf::{self, Sdf, ops, voxel_rasterize};
 use arch::core::voxel::{Voxel, Voxels};
-use bevy::math::bounding::Aabb3d;
 use bevy::prelude::*;
 
 pub fn main() {
@@ -105,10 +99,6 @@ pub fn cycle_benches(
         commands.entity(entity).despawn();
     }
 
-    let mut new_voxels = Voxels::new(bench.voxel_size);
-    for (center, brush, voxel) in &bench.brushes {
-        paint_brush(&mut new_voxels, *center, &**brush, *voxel);
-    }
-
-    commands.spawn(new_voxels);
+    let new_voxels = bench.voxel.new_with_applied_brushes();
+    commands.spawn((new_voxels, SurfaceNet));
 }

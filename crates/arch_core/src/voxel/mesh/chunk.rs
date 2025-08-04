@@ -1,4 +1,3 @@
-use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::voxel::Voxel;
@@ -85,7 +84,7 @@ pub mod padded {
     }
 }
 
-/// Single voxel chunk, 64^3 (1 padding on the edges for meshing)
+/// Single render voxel chunk, 64^3 (1 padding on the edges for meshing)
 #[derive(Debug, Component, Clone, PartialEq, Eq)]
 #[require(Name::new("Voxel Chunk"))]
 pub struct VoxelChunk {
@@ -138,19 +137,17 @@ impl VoxelChunk {
         Voxel::from_data(self.voxels[index])
     }
 
+    #[inline]
     pub fn set(&mut self, point: impl Into<[Scalar; 3]>, voxel: Voxel) {
         let point = point.into();
-        if !self.in_chunk_bounds(point.into()) {
-            panic!("Point out of bounds: {:?}", point);
-        }
+        assert!(self.in_chunk_bounds(point.into()), "Point out of bounds: {:?}", point);
         let padded_point = point.map(|p| p + 1);
         self.set_unpadded(padded_point, voxel);
     }
 
+    #[inline]
     pub fn set_unpadded(&mut self, point: [Scalar; 3], voxel: Voxel) {
-        if !self.in_chunk_bounds_unpadded(point.into()) {
-            panic!("Point out of bounds: {:?}", point);
-        }
+        assert!(self.in_chunk_bounds_unpadded(point.into()), "Point out of bounds: {:?}", point);
 
         let index = padded::linearize(point);
 
@@ -210,12 +207,13 @@ impl VoxelChunk {
     /// Is this point within the bounds of this grid?
     #[inline]
     pub fn in_chunk_bounds(&self, point: IVec3) -> bool {
-        point.x >= 0
-            && point.y >= 0
-            && point.z >= 0
-            && point.x < self.x_size()
-            && point.y < self.y_size()
-            && point.z < self.z_size()
+        self.in_chunk_bounds_unpadded(point + IVec3::ONE)
+        // point.x >= 0
+        //     && point.y >= 0
+        //     && point.z >= 0
+        //     && point.x < self.x_size()
+        //     && point.y < self.y_size()
+        //     && point.z < self.z_size()
     }
 
     #[inline]

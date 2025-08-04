@@ -46,7 +46,7 @@ pub fn pack_voxel(voxel: Voxel) -> u16 {
 
 #[inline]
 pub fn unpack_voxel(data: u16) -> Voxel {
-    let id = data & 0xFF;
+    let id = Voxel::id_from_data(data) & 0xFF;
     let extra_data = (data >> 8) & 0xFF;
     match id {
         0 => Voxel::Air,
@@ -278,6 +278,11 @@ impl Voxel {
     }
 
     #[inline]
+    pub fn id_from_data(data: u16) -> u16 {
+        data & 0xFF
+    }
+
+    #[inline]
     pub fn from_id(id: u16) -> Option<Self> {
         VOXEL_DEFINITIONS.get(id as usize).map(|def| def.voxel)
     }
@@ -466,8 +471,10 @@ impl VoxelMaterials {
         }
     }
 
-    pub fn setup(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
-        commands.insert_resource(VoxelMaterials::new(&mut materials));
+    pub fn setup(mut commands: Commands, materials: Option<ResMut<Assets<StandardMaterial>>>) {
+        if let Some(mut materials) = materials {
+            commands.insert_resource(VoxelMaterials::new(&mut *materials));
+        }
     }
 }
 

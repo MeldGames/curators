@@ -97,7 +97,7 @@ pub struct Remesh {
 
 impl Default for Remesh {
     fn default() -> Self {
-        Self { render_per_frame: 8, collider_per_frame: 2 }
+        Self { render_per_frame: 2, collider_per_frame: 1 }
     }
 }
 
@@ -109,7 +109,7 @@ pub fn update_binary_mesh(
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
+    // voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
     mut mesher: Local<BgmMesher>,
     mut changed_chunks: EventReader<ChangedChunks>,
 

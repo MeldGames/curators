@@ -13,7 +13,6 @@ pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
-    // app.add_systems(Update, falling_sands);
 
     app.add_observer(insert_voxels_sim_chunks);
 }
@@ -57,37 +56,7 @@ pub struct SimChunks {
 }
 
 #[inline]
-pub fn linearize_4x4x4(relative_point: IVec3) -> usize {
-    debug_assert!(
-        relative_point.x < 4
-            && relative_point.y < 4
-            && relative_point.z < 4
-            && relative_point.x >= 0
-            && relative_point.y >= 0
-            && relative_point.z >= 0
-    );
-
-    // z + x * 4 + y * 16
-    // zxy order for now, maybe check if yxz is better later since the most checks
-    // are vertical
-    (relative_point.z + (relative_point.x << 2) + (relative_point.y << 4)) as usize
-}
-
-#[inline]
-pub fn delinearize_4x4x4(index: usize) -> IVec3 {
-    let mut index = index as i32;
-    debug_assert!(index < 64);
-
-    let y = index >> 4;
-    index -= y << 4;
-    let x = index >> 2;
-    let z = index & 3; // index % 4
-    ivec3(x, y, z)
-}
-
-
-#[inline]
-pub fn linearize(relative_point: IVec3) -> usize {
+pub fn to_linear_index(relative_point: IVec3) -> usize {
     debug_assert!(
         relative_point.x < CHUNK_WIDTH as i32
             && relative_point.y < CHUNK_WIDTH as i32
@@ -103,7 +72,8 @@ pub fn linearize(relative_point: IVec3) -> usize {
     (relative_point.z + (relative_point.x << CHUNK_WIDTH_BITSHIFT) + (relative_point.y << CHUNK_WIDTH_BITSHIFT_Y)) as usize
 }
 
-pub fn delinearize(index: usize) -> IVec3 {
+#[inline]
+pub fn from_linear_index(index: usize) -> IVec3 {
     debug_assert!(index < CHUNK_LENGTH);
 
     let mut index = index as i32;
@@ -115,32 +85,15 @@ pub fn delinearize(index: usize) -> IVec3 {
 }
 
 #[inline]
-pub fn linearize_16x16x16(relative_point: IVec3) -> usize {
-    debug_assert!(
-        relative_point.x < 16
-            && relative_point.y < 16
-            && relative_point.z < 16
-            && relative_point.x >= 0
-            && relative_point.y >= 0
-            && relative_point.z >= 0
-    );
-
-    // z + x * 4 + y * 16
-    // zxy order for now, maybe check if yxz is better later since the most checks
-    // are vertical
-    (relative_point.z + (relative_point.x << 4) + (relative_point.y << 8)) as usize
+pub fn linearize(relative_point: IVec3) -> usize {
+    to_linear_index(relative_point)
+    // super::morton::to_morton_index(relative_point)
 }
 
 #[inline]
-pub fn delinearize_16x16x16(index: usize) -> IVec3 {
-    let mut index = index as i32;
-    debug_assert!(index < 4096);
-
-    let y = index >> 8;
-    index -= y << 8;
-    let x = index >> 4;
-    let z = index & 15; // index % 4
-    ivec3(x, y, z)
+pub fn delinearize(index: usize) -> IVec3 {
+    from_linear_index(index)
+    // super::morton::from_morton_index(index)
 }
 
 #[inline]
@@ -412,42 +365,6 @@ impl SimChunks {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn linearize() {
-        let point = ivec3(32, 3, 4);
-        let block_point = point >> 2;
-        let chunk_point = point >> 4;
-        // println!("block_point: {:?}, chunk_point: {:?}", block_point, chunk_point);
-        // println!(
-        //     "block_point as voxel: {:?}, chunk_point as block: {:?}",
-        //     block_point << 2,
-        //     chunk_point << 2
-        // );
-        let relative_block_to_chunk = block_point - (chunk_point << 2);
-        let relative_voxel_to_block = point - (block_point << 2);
-        // println!(
-        //     "relative_block_to_chunk: {:?}, relative_voxel_to_block: {:?}",
-        //     relative_block_to_chunk, relative_voxel_to_block
-        // );
-
-        assert_eq!(linearize_4x4x4(ivec3(0, 0, 0)), 0);
-        assert_eq!(linearize_4x4x4(ivec3(0, 0, 1)), 1);
-        assert_eq!(linearize_4x4x4(ivec3(1, 0, 0)), 4);
-        assert_eq!(linearize_4x4x4(ivec3(0, 1, 0)), 16);
-
-        assert_eq!(delinearize_4x4x4(0), ivec3(0, 0, 0));
-        assert_eq!(delinearize_4x4x4(1), ivec3(0, 0, 1));
-        assert_eq!(delinearize_4x4x4(4), ivec3(1, 0, 0));
-        assert_eq!(delinearize_4x4x4(16), ivec3(0, 1, 0));
-        assert_eq!(delinearize_4x4x4(16), ivec3(0, 1, 0));
-
-        assert_eq!(delinearize_4x4x4(linearize_4x4x4(ivec3(0, 0, 0))), ivec3(0, 0, 0));
-        assert_eq!(delinearize_4x4x4(linearize_4x4x4(ivec3(1, 1, 1))), ivec3(1, 1, 1));
-        assert_eq!(delinearize_4x4x4(linearize_4x4x4(ivec3(3, 0, 0))), ivec3(3, 0, 0));
-        assert_eq!(delinearize_4x4x4(linearize_4x4x4(ivec3(0, 3, 0))), ivec3(0, 3, 0));
-        assert_eq!(delinearize_4x4x4(linearize_4x4x4(ivec3(0, 0, 3))), ivec3(0, 0, 3));
-    }
 
     #[test]
     fn chunk_linearize() {

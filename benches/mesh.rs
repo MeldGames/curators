@@ -1,3 +1,4 @@
+use arch_core::voxel::mesh::SurfaceNet;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 
@@ -11,21 +12,26 @@ use arch::core::{
     },
     voxel::simulation::{SimSwapBuffer, data::SimChunks},
 };
-use bench::falling_sands::{SimBenchSetup, plugin_setup};
+use bench::surface_net::{bench_setup};
 
-criterion_group!(benches, falling_sand);
+criterion_group!(benches, meshing);
 criterion_main!(benches);
 
-fn falling_sand(c: &mut Criterion) {
-    let mut group = c.benchmark_group("falling_sand");
+fn meshing(c: &mut Criterion) {
+    let mut group = c.benchmark_group("surface_net");
 
-    for bench in bench::falling_sands::basic_benches() {
+    for bench in bench::surface_net::mesh_benches() {
         group
             .bench_function(bench.name, |b| {
                 b.iter_batched(
                     || {
-                        let mut app = plugin_setup();
-                        app.world_mut().spawn(bench.voxel.new_voxels());
+                        let mut app = App::new();
+                        app.add_plugins(MinimalPlugins);
+                        app.add_plugins(AssetPlugin::default());
+                        app.insert_resource(Assets::<Mesh>::default());
+                        app.insert_resource(Assets::<StandardMaterial>::default());
+                        app.add_plugins(bench_setup);
+                        app.world_mut().spawn((bench.voxel.new_voxels(), SurfaceNet));
                         app.update(); // initialization stuffs
 
                         let world = app.world_mut();
@@ -36,10 +42,9 @@ fn falling_sand(c: &mut Criterion) {
                         app
                     },
                     |mut app: App| {
-                        for _ in 0..bench.test_steps {
-                            app.update();
-                        }
-
+                        app.update();
+                        app.update();
+                        app.update();
                         black_box(app);
                     },
                     BatchSize::LargeInput,

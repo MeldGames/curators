@@ -164,10 +164,18 @@ harness = false
 name = "falling_sands"
 harness = false
 
+[[bench]]
+name = "mesh"
+harness = false
+
 [[example]]
 name = "sdf_viewer"
 path = "examples/sdf_viewer.rs"
 
 [[example]]
-name = "bench_viewer"
-path = "examples/bench_viewer.rs"
+name = "sim_bench_viewer"
+path = "examples/sim_bench_viewer.rs"
+
+[[example]]
+name = "mesh_bench_viewer"
+path = "examples/mesh_bench_viewer.rs"

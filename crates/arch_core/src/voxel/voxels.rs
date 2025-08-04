@@ -3,10 +3,12 @@ use std::ops::RangeInclusive;
 
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
+use bevy_math::bounding::Aabb3d;
 #[cfg(feature = "trace")]
 use tracing::*;
 
 use super::raycast::Hit;
+use crate::sdf::Sdf;
 use crate::voxel::mesh::binary_greedy::Chunks;
 use crate::voxel::mesh::{BinaryGreedy, SurfaceNet, RenderChunks};
 use crate::voxel::raycast::VoxelHit;
@@ -235,6 +237,22 @@ impl Voxels {
         }
 
         return diffs;
+    }
+
+    pub fn set_voxel_brush<S: Sdf>(&mut self, center: IVec3, brush: S, voxel: Voxel) {
+        let half_size = self.voxel_size.as_vec3a() / 2.0;
+        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
+            brush,
+            crate::sdf::voxel_rasterize::RasterConfig {
+                clip_bounds: Aabb3d { min: -half_size, max: half_size },
+                grid_scale: GRID_SCALE,
+                pad_bounds: Vec3::ZERO,
+            },
+        ) {
+            if raster_voxel.distance <= 0.0 {
+                self.set_voxel(raster_voxel.point + center, voxel);
+            }
+        }
     }
 }
 
