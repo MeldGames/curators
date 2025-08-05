@@ -51,7 +51,7 @@ pub struct VoxelsCollider(pub Option<Entity>);
 pub struct ChunkCollider(pub Option<Entity>);
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
-pub struct ChunkMeshes(HashMap<Voxel, Entity>);
+pub struct ChunkMeshes(HashMap<u16, Entity>);
 
 pub struct BgmMesher(bgm::Mesher);
 impl Default for BgmMesher {
@@ -160,7 +160,7 @@ pub fn update_binary_mesh(
         for (voxel_id, render_mesh) in render_meshes.into_iter().enumerate() {
             let voxel = Voxel::from_data(voxel_id as u16);
 
-            if let Some(entity) = chunk_meshes.get(&voxel) {
+            if let Some(entity) = chunk_meshes.get(&voxel.id()) {
                 let mut entity_commands = commands.entity(*entity);
                 match render_mesh {
                     Some(mesh) => {
@@ -197,7 +197,7 @@ pub fn update_binary_mesh(
 
                     let id = voxel_mesh_commands.id();
 
-                    chunk_meshes.insert(voxel, id);
+                    chunk_meshes.insert(voxel.id(), id);
                 }
             }
         }

@@ -148,7 +148,7 @@ pub fn update_surface_net_mesh(
 
             // 몰리
 
-            if let Some(entity) = chunk_meshes.get(&voxel) {
+            if let Some(entity) = chunk_meshes.get(&voxel.id()) {
                 // let mut entity_commands = commands.entity(*entity);
                 let aabb = mesh.compute_aabb();
                 let mesh_handle = meshes.add(mesh);
@@ -180,7 +180,7 @@ pub fn update_surface_net_mesh(
 
                 let id = voxel_mesh_commands.id();
 
-                chunk_meshes.insert(voxel, id);
+                chunk_meshes.insert(voxel.id(), id);
                 // }
             }
         }

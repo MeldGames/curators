@@ -256,7 +256,8 @@ impl SimChunks {
             }
         }
 
-        self.push_neighbor_updates(point);
+        Self::add_update_mask(&mut self.render_updates, chunk_index, voxel_index);
+        self.push_neighbor_sim_updates(point);
     }
 
     #[inline]
@@ -271,40 +272,45 @@ impl SimChunks {
     }
 
     #[inline]
-    pub fn push_neighbor_updates(&mut self, point: IVec3) {
+    pub fn push_neighbor_sim_updates(&mut self, point: IVec3) {
         for y in -1..=1 {
             for x in -1..=1 {
                 for z in -1..=1 {
                     let offset = ivec3(x, y, z);
                     let neighbor = point + offset;
-                    self.push_point_update(neighbor);
+                    self.push_sim_update(neighbor);
                 }
             }
         }
     }
 
     #[inline]
-    pub fn push_point_update(&mut self, point: IVec3) {
+    pub fn push_render_update(&mut self, point: IVec3) {
         if self.in_bounds(point) {
             let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
-            // info!("adding update point: {:?}", point);
-            self.add_update_mask(chunk_index, voxel_index);
+            Self::add_update_mask(&mut self.render_updates, chunk_index, voxel_index);
         }
     }
 
     #[inline]
-    pub fn add_update_mask(&mut self, chunk_index: usize, voxel_index: usize) {
+    pub fn push_sim_update(&mut self, point: IVec3) {
+        if self.in_bounds(point) {
+            let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
+            Self::add_update_mask(&mut self.sim_updates, chunk_index, voxel_index);
+        }
+    }
+
+    #[inline]
+    pub fn add_update_mask(mask: &mut UpdateBuffer, chunk_index: usize, voxel_index: usize) {
         // info!("adding update mask: {:?}", (chunk_index, voxel_index));
         let mask_index = voxel_index >> 6; // voxel_index / 64
         let bit_index = voxel_index & 63; // voxel_index % 64
  
         if cfg!(feature = "safe-bounds") {
-            self.sim_updates[chunk_index][mask_index] |= 1 << bit_index;
-            self.render_updates[chunk_index][mask_index] |= 1 << bit_index;
+            mask[chunk_index][mask_index] |= 1 << bit_index;
         } else {
             unsafe { // 5% faster, use when we feel fine with callers of this
-                *self.sim_updates.get_unchecked_mut(chunk_index).get_unchecked_mut(mask_index) |= 1 << bit_index;
-                *self.render_updates.get_unchecked_mut(chunk_index).get_unchecked_mut(mask_index) |= 1 << bit_index;
+                *mask.get_unchecked_mut(chunk_index).get_unchecked_mut(mask_index) |= 1 << bit_index;
             }
         }
     }
@@ -450,15 +456,15 @@ mod tests {
     #[test]
     fn update_iterator() {
         let mut chunks = SimChunks::new(ivec3(32, 32, 32));
-        chunks.push_neighbor_updates(ivec3(0, 0, 0));
+        chunks.push_neighbor_sim_updates(ivec3(0, 0, 0));
         let mut buffer = chunks.create_update_buffer();
         let updates = chunks.sim_updates(&mut buffer);
         for (chunk_index, voxel_index) in updates {
             println!("chunk_index: {}, voxel_index: {}", chunk_index, voxel_index);
         }
 
-        chunks.add_update_mask(0, 0);
-        chunks.add_update_mask(0, 100);
+        SimChunks::add_update_mask(&mut chunks.sim_updates, 0, 0);
+        SimChunks::add_update_mask(&mut chunks.sim_updates, 0, 100);
         let updates = chunks.sim_updates(&mut buffer);
         println!("second round");
         for (chunk_index, voxel_index) in updates {

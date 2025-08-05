@@ -175,7 +175,7 @@ pub fn draw_cursor(
             }) {
                 let point = point_ivec + raster_voxel.point;
                 if raster_voxel.distance < 0.0 {
-                    voxels.sim_chunks.push_point_update(point);
+                    voxels.sim_chunks.push_sim_update(point);
                 }
             }
         }
