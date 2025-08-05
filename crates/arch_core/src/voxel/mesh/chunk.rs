@@ -38,6 +38,8 @@ pub mod unpadded {
 }
 
 pub mod padded {
+    use bevy_math::IVec3;
+
     use super::Scalar;
 
     // pub const SIZE_SHIFT: usize = 6; // 64
@@ -54,9 +56,10 @@ pub mod padded {
     // Padded linearize point into a 64^3 ZXY array
     #[inline]
     pub const fn linearize([x, y, z]: [Scalar; 3]) -> usize {
-        z as usize + ((x as usize) << SIZE_SHIFT) + ((y as usize) << SIZE_SHIFT_Y)
-        // z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
-        // morton_encode(x as usize, y as usize, z as usize)
+        // z as usize + ((x as usize) << SIZE_SHIFT) + ((y as usize) << SIZE_SHIFT_Y)
+        z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
+        // crate::voxel::simulation::morton::to_morton_index_lut(x as usize, y as usize, z as usize)
+        // crate::voxel::simulation::morton::to_morton_index_shift_and(IVec3::new(x, y, z))
     }
 
     #[inline]
@@ -72,6 +75,8 @@ pub mod padded {
         let x = index >> SIZE_SHIFT;
         let z = index & (SIZE - 1);
         [x as Scalar, y as Scalar, z as Scalar]
+        // let point = crate::voxel::simulation::morton::from_morton_index(index);
+        // [point.x, point.y, point.z]
     }
 }
 

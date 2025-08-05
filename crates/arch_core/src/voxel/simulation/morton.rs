@@ -45,10 +45,13 @@ pub const fn from_morton_index(index: usize) -> IVec3 {
     IVec3 { x: x as i32, y: y as i32, z: z as i32 }
 }
 
-pub const fn to_morton_index_lut(x: usize, y: usize, z: usize) -> usize {
+pub fn to_morton_index_lut(x: usize, y: usize, z: usize) -> usize {
+    debug_assert!(!(x | y | z) & !15 == 0);
     const MORTON: [u16; 16] = [
         0x0000, 0x0001, 0x0008, 0x0009, 0x0040, 0x0041, 0x0048, 0x0049,
         0x0200, 0x0201, 0x0208, 0x0209, 0x0240, 0x0241, 0x0248, 0x0249,
     ];
-    (MORTON[z] | (2*MORTON[y]) | (4*MORTON[x])) as usize
+    unsafe {
+        (MORTON.get_unchecked(x) | (2*MORTON.get_unchecked(y)) | (4*MORTON.get_unchecked(z))) as usize
+    }
 }

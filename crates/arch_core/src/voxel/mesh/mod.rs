@@ -13,6 +13,7 @@ pub mod surface_net;
 
 // Perf control
 pub mod remesh;
+pub mod frustum_chunks;
 
 pub use binary_greedy::BinaryGreedy;
 pub use surface_net::SurfaceNet;
@@ -26,6 +27,7 @@ pub fn plugin(app: &mut App) {
 
     app.add_plugins(surface_net::SurfaceNetPlugin);
     app.add_plugins(remesh::plugin);
+    app.add_plugins(frustum_chunks::plugin);
     // app.add_plugins(ass_mesh::ASSMeshPlugin);
     // app.add_plugins(meshem::MeshemPlugin);
     app.add_plugins(binary_greedy::plugin);
