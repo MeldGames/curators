@@ -40,7 +40,7 @@ fn meshing(c: &mut Criterion) {
 
                         voxels
                     },
-                    |voxels: Voxels| {
+                    |mut voxels: Voxels| {
                         for (_chunk_pos, chunk) in voxels.render_chunks.chunk_iter() {
                             for voxel in chunk.voxel_type_updates() {
                                 if !voxel.rendered() {
@@ -59,7 +59,10 @@ fn meshing(c: &mut Criterion) {
                                 black_box(&surface_net_buffer);
                             }
 
-                            chunk.update_prev_counts();
+                        }
+
+                        for chunk in voxels.render_chunks.chunk_iter_mut() {
+                            chunk.clear_voxel_type_updates();
                         }
                     },
                     BatchSize::LargeInput,

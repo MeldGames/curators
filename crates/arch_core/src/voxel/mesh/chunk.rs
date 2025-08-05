@@ -164,9 +164,15 @@ impl VoxelChunk {
         let index = padded::linearize(point);
 
         let prev_voxel = self.voxels[index as usize];
-        self.voxels[index as usize] = voxel.data();
+        let data = voxel.data();
+        if prev_voxel == data {
+            return;
+        }
+
+        self.voxels[index as usize] = data;
         self.set_masks(point, voxel.transparent());
 
+        // info!("changing: {:?}, {:?}", Voxel::from_data(prev_voxel), voxel);
         self.changed_voxel_types.insert(Voxel::from_data(prev_voxel));
         self.changed_voxel_types.insert(voxel);
     }

@@ -125,6 +125,7 @@ pub fn update_surface_net_mesh(
                 continue;
             }
 
+            // info!("remeshing {:?}-{:?}", chunk_point, voxel);
             // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
             chunk.create_surface_net(&mut surface_net_buffer, voxel.id());
             // for normal in surface_net_buffer.normals.iter_mut() {
