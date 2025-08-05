@@ -16,7 +16,38 @@ pub fn plugin(app: &mut App) {
 
 #[derive(Resource, Clone, Default, Reflect, Debug, Deref, DerefMut)]
 #[reflect(Resource)]
-pub struct FrustumChunks(HashMap<(Entity, IVec3), f32>); // (voxel_entity, chunk_point) -> distance_to_camera
+pub struct FrustumChunks(HashMap<(Entity, IVec3), FrustumChunk>); // (voxel_entity, chunk_point) -> distance_to_camera
+
+#[derive(Copy, Clone, Default, Reflect, Debug, PartialEq)]
+pub struct FrustumChunk {
+    pub distance_to_camera: f32,
+    pub distance_to_camera_ray: f32,
+}
+
+impl FrustumChunk {
+    pub fn heuristic(&self) -> f32 {
+        const DIST_TO_CAMERA_WEIGHT: f32 = 0.5;
+        const DIST_TO_CAMERA_RAY_WEIGHT: f32 = 0.3;
+
+        self.distance_to_camera * DIST_TO_CAMERA_WEIGHT
+            + self.distance_to_camera_ray * DIST_TO_CAMERA_RAY_WEIGHT
+    }
+}
+
+impl PartialOrd for FrustumChunk {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        use std::cmp::Ordering;
+        let a = self.heuristic();
+        let b = other.heuristic();
+        Some(if a > b {
+            Ordering::Less
+        } else if a < b {
+            Ordering::Greater
+        } else {
+            Ordering::Equal
+        })
+    }
+}
 
 impl FrustumChunks {
     pub fn intersecting_chunks(
@@ -49,9 +80,21 @@ impl FrustumChunks {
             let intersects = frustum.intersects_obb(&aabb, &Affine3A::IDENTITY, true, true);
             let color = if intersects {
                 let chunk_worldspace = voxel_transform.transform_point(Vec3::from(aabb.center));
-                let dist_to_camera = camera_transform.translation().distance(chunk_worldspace);
+                let distance_to_camera = camera_transform.translation().distance(chunk_worldspace);
 
-                frustum_chunks.insert((voxel_entity, chunk_pos), dist_to_camera);
+                let camera_origin = camera_transform.translation();
+                let camera_ray = camera_transform.forward();
+                let relative_chunk = chunk_worldspace - camera_origin;
+                let along_ray = relative_chunk.dot(*camera_ray);
+                let closest_point = camera_origin + camera_ray * along_ray;
+                let distance_to_camera_ray = closest_point.distance(chunk_worldspace);
+
+                let chunk = FrustumChunk {
+                    distance_to_camera,
+                    distance_to_camera_ray,
+                };
+
+                frustum_chunks.insert((voxel_entity, chunk_pos), chunk);
                 Color::srgb(0.0, 1.0, 0.0)
             } else {
                 Color::srgb(1.0, 0.0, 0.0)

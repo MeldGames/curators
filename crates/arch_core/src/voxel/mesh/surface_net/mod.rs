@@ -98,20 +98,14 @@ pub fn update_surface_net_mesh(
     }
 
     queue.sort_by(|(entity_a, pos_a), (entity_b, pos_b)| {
-        let a_frustum_dist = frustum_chunks.get(&(*entity_a, *pos_a));
-        let b_frustum_dist = frustum_chunks.get(&(*entity_b, *pos_b));
-        match (a_frustum_dist, b_frustum_dist) {
+        let a_frustum = frustum_chunks.get(&(*entity_a, *pos_a));
+        let b_frustum = frustum_chunks.get(&(*entity_b, *pos_b));
+        match (a_frustum, b_frustum) {
             (Some(_), None) => Ordering::Greater, // the one in the frustum should be placed last
             (None, Some(_)) => Ordering::Less,
             (None, None) => Ordering::Equal,
-            (Some(&dist_a), Some(&dist_b)) => {
-                if dist_a > dist_b { // now compare distance
-                    Ordering::Less
-                } else if dist_a < dist_b {
-                    Ordering::Greater
-                } else {
-                    Ordering::Equal
-                }
+            (Some(&a_frustum), Some(&b_frustum)) => {
+                a_frustum.partial_cmp(&b_frustum).unwrap_or(Ordering::Equal)
             },
         }
     });
