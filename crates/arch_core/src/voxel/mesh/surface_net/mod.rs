@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::VecDeque;
 
 use bevy::asset::RenderAssetUsages;
@@ -10,6 +11,7 @@ use bevy::render::render_resource::PrimitiveTopology;
 // use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape, Shape};
 // use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
+use crate::voxel::mesh::frustum_chunks::FrustumChunks;
 use crate::voxel::mesh::ChangedChunks;
 use crate::voxel::mesh::remesh::Remesh;
 use crate::voxel::mesh::binary_greedy::{ChunkMeshes, Chunks};
@@ -62,10 +64,11 @@ pub fn update_surface_net_mesh(
     mut surface_net_buffer: Local<SurfaceNetsBuffer>,
     mut changed_chunks: EventReader<ChangedChunks>,
 
-    mut queue: Local<VecDeque<(Entity, IVec3)>>,
+    mut queue: Local<Vec<(Entity, IVec3)>>,
     mut dedup: Local<HashSet<(Entity, IVec3)>>,
 
     remesh: Res<Remesh>,
+    frustum_chunks: Res<FrustumChunks>,
 
     mut apply_later: Local<Vec<(Entity, Handle<Mesh>, Option<Aabb>, usize)>>,
 ) {
@@ -88,12 +91,30 @@ pub fn update_surface_net_mesh(
         for chunk in changed_chunks {
             let new_entry = (*voxel_entity, *chunk);
             if !dedup.contains(&new_entry) {
-                queue.push_back(new_entry);
+                queue.push(new_entry);
                 dedup.insert(new_entry);
             }
         }
     }
 
+    queue.sort_by(|(entity_a, pos_a), (entity_b, pos_b)| {
+        let a_frustum_dist = frustum_chunks.get(&(*entity_a, *pos_a));
+        let b_frustum_dist = frustum_chunks.get(&(*entity_b, *pos_b));
+        match (a_frustum_dist, b_frustum_dist) {
+            (Some(_), None) => Ordering::Greater, // the one in the frustum should be placed last
+            (None, Some(_)) => Ordering::Less,
+            (None, None) => Ordering::Equal,
+            (Some(&dist_a), Some(&dist_b)) => {
+                if dist_a > dist_b { // now compare distance
+                    Ordering::Less
+                } else if dist_a < dist_b {
+                    Ordering::Greater
+                } else {
+                    Ordering::Equal
+                }
+            },
+        }
+    });
     // if !input.just_pressed(KeyCode::KeyY) {
     //     return;
     // }
@@ -101,7 +122,7 @@ pub fn update_surface_net_mesh(
     let mut pop_count = 0;
     while pop_count < remesh.surface_net {
         pop_count += 1;
-        let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
+        let Some((voxel_entity, chunk_point)) = queue.pop() else {
             break;
         };
         dedup.remove(&(voxel_entity, chunk_point));
