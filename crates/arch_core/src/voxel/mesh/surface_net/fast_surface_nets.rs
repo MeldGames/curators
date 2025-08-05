@@ -55,8 +55,9 @@ use bevy::prelude::*;
 use crate::voxel::{mesh::padded, Voxel};
 
 pub fn linearize([x, y, z]: [u32; 3]) -> u32 {
-    // padded::linearize([x as i32, y as i32, z as i32]) as u32
-    z + (x << 6) + (y << 12)
+    padded::linearize([x as i32, y as i32, z as i32]) as u32
+    // z + (x << 6) + (y << 12)
+    // z + (x << 2) + (y << 4)
 }
 
 pub fn delinearize(index: u32) -> [u32; 3] {

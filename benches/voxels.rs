@@ -80,7 +80,8 @@ fn updates_iterator(c: &mut Criterion) {
             },
             |mut voxels| {
                 for point in voxels.point_iter() {
-                    voxels.sim_chunks.push_point_update(point);
+                    voxels.sim_chunks.push_sim_update(point);
+                    voxels.sim_chunks.push_render_update(point);
                 }
 
                 black_box(&voxels.sim_chunks.sim_updates);
@@ -113,7 +114,7 @@ fn updates_iterator(c: &mut Criterion) {
                 voxels.sim_chunks.clear_updates();
 
                 for point in voxels.point_iter().step_by(34) {
-                    voxels.sim_chunks.push_point_update(point);
+                    voxels.sim_chunks.push_sim_update(point);
                 }
 
                 let swap_buffer = voxels.sim_chunks.create_update_buffer();

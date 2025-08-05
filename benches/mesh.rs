@@ -42,7 +42,7 @@ fn meshing(c: &mut Criterion) {
                     },
                     |mut voxels: Voxels| {
                         for (_chunk_pos, chunk) in voxels.render_chunks.chunk_iter() {
-                            for voxel in chunk.voxel_type_updates() {
+                            for (voxel_id, voxel) in chunk.voxel_type_updates() {
                                 if !voxel.rendered() {
                                     continue;
                                 }

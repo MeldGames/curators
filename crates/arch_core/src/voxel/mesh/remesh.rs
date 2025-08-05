@@ -31,7 +31,7 @@ pub struct Remesh {
 impl Default for Remesh {
     fn default() -> Self {
         Self {
-            surface_net_per_frame: 1.0,
+            surface_net_per_frame: (64 * 64 * 64) as f32 / crate::voxel::mesh::padded::ARR_STRIDE as f32,
             bgm_per_frame: 4.0,
             collider_per_frame: 0.5,
 
@@ -56,10 +56,6 @@ pub fn accumulate_remesh(mut remesh: ResMut<Remesh>) {
     remesh.surface_net_accumulator += remesh.surface_net_per_frame;
     remesh.bgm_accumulator += remesh.bgm_per_frame;
     remesh.collider_accumulator += remesh.collider_per_frame;
-
-    remesh.surface_net_accumulator.clamp(0.0, 10.0);
-    remesh.bgm_accumulator.clamp(0.0, 20.0);
-    remesh.collider_accumulator.clamp(0.0, 5.0);
 
     remesh.surface_net = this_frame(&mut remesh.surface_net_accumulator);
     remesh.bgm = this_frame(&mut remesh.bgm_accumulator);

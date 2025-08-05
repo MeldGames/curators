@@ -157,7 +157,7 @@ impl<'a> Iterator for UpdateIterator<'a> {
 
 impl SimChunks {
     pub fn new(voxel_size: IVec3) -> Self {
-        let chunk_size = (voxel_size / CHUNK_WIDTH as i32) + IVec3::ONE;
+        let chunk_size = (voxel_size / CHUNK_WIDTH as i32);
         // println!("chunk_size: {:?}", chunk_size);
 
         // stride[0] = x;
