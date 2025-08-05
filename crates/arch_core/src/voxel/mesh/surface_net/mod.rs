@@ -190,6 +190,10 @@ pub fn update_surface_net_mesh(
                     Mesh3d(mesh_handle),
                     MeshMaterial3d(material),
                     ChildOf(*chunk_entity),
+                    Transform {
+                        translation: -crate::voxel::GRID_SCALE,
+                        ..default()
+                    },
                 ));
 
                 // if !voxel.shadow_caster() {

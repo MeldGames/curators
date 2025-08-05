@@ -15,6 +15,8 @@ pub use digsite::{DigsiteCamera, DigsiteEntity, DigsiteSettings, DigsiteState};
 pub use flying::{FlyingCamera, FlyingSettings, FlyingState};
 pub use follow::{FollowCamera, FollowPlayer, FollowSettings, FollowState};
 
+use crate::voxel::mesh::camera_inside::BlockingMeshes;
+
 pub fn plugin(app: &mut App) {
     app.register_type::<ActiveCamera>();
     app.add_input_context::<CameraToggle>();
@@ -57,7 +59,7 @@ pub fn camera_components() -> impl Bundle {
         },
         EdgeDetection {
             depth_threshold: 0.3,
-            normal_threshold: 1.0,
+            normal_threshold: 0.7,
             depth_thickness: 1.0,
             edge_color: Color::srgba(0.0, 0.0, 0.0, 0.5),
             enable_depth: true,
@@ -70,6 +72,12 @@ pub fn camera_components() -> impl Bundle {
         },
         Smaa { preset: SmaaPreset::Ultra },
         // Fxaa::default(),
+
+        BlockingMeshes {
+            per_x: 40,
+            per_y: 40,
+            mesh_entities: Vec::new(),
+        },
     )
 }
 
