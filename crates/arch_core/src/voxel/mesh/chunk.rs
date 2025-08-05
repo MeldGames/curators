@@ -66,15 +66,10 @@ pub mod padded {
     // Delinearize point into a 64^3 array
     #[inline]
     pub fn delinearize(mut index: usize) -> [Scalar; 3] {
-        // let y = index / Y_STRIDE;
-        // index -= y * Y_STRIDE;
-        // let x = index / X_STRIDE;
-        // let z = index % X_STRIDE;
-
         let y = index >> SIZE_SHIFT_Y;
         index -= y << SIZE_SHIFT_Y;
         let x = index >> SIZE_SHIFT;
-        let z = index % (SIZE - 1);
+        let z = index & (SIZE - 1);
         [x as Scalar, y as Scalar, z as Scalar]
     }
 }
