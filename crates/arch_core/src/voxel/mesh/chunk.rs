@@ -16,25 +16,25 @@ pub mod unpadded {
     pub const ARR_STRIDE: usize = SIZE * SIZE * SIZE;
 
     // Padded linearize point into a 62^3 ZXY array
-    #[inline]
-    pub fn linearize([x, y, z]: [Scalar; 3]) -> usize {
-        z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
-    }
+    // #[inline]
+    // pub fn linearize([x, y, z]: [Scalar; 3]) -> usize {
+    //     z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
+    // }
 
-    #[inline]
-    pub fn pad_linearize([x, y, z]: [Scalar; 3]) -> usize {
-        (z + 1) as usize + (x + 1) as usize * X_STRIDE + (y + 1) as usize * Y_STRIDE
-    }
+    // #[inline]
+    // pub fn pad_linearize([x, y, z]: [Scalar; 3]) -> usize {
+    //     (z + 1) as usize + (x + 1) as usize * X_STRIDE + (y + 1) as usize * Y_STRIDE
+    // }
 
     // Delinearize point into a 62^3 array
-    #[inline]
-    pub fn delinearize(mut index: usize) -> [Scalar; 3] {
-        let y = index / Y_STRIDE;
-        index -= y * Y_STRIDE;
-        let x = index / X_STRIDE;
-        let z = index % X_STRIDE;
-        [x as Scalar, y as Scalar, z as Scalar]
-    }
+    // #[inline]
+    // pub fn delinearize(mut index: usize) -> [Scalar; 3] {
+    //     let y = index / Y_STRIDE;
+    //     index -= y * Y_STRIDE;
+    //     let x = index / X_STRIDE;
+    //     let z = index % X_STRIDE;
+    //     [x as Scalar, y as Scalar, z as Scalar]
+    // }
 }
 
 pub mod padded {
@@ -56,6 +56,7 @@ pub mod padded {
     pub const fn linearize([x, y, z]: [Scalar; 3]) -> usize {
         z as usize + ((x as usize) << SIZE_SHIFT) + ((y as usize) << SIZE_SHIFT_Y)
         // z as usize + x as usize * X_STRIDE + y as usize * Y_STRIDE
+        // morton_encode(x as usize, y as usize, z as usize)
     }
 
     #[inline]
@@ -302,13 +303,13 @@ pub mod tests {
         assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Water { lateral_energy: 4 });
     }
 
-    #[test]
-    pub fn linearize() {
-        let sanity = |point| unpadded::delinearize(unpadded::linearize(point));
-        assert_eq!(sanity([1, 1, 1]), [1, 1, 1]);
-        assert_eq!(sanity([61, 5, 38]), [61, 5, 38]);
-        assert_eq!(sanity([0, 0, 0]), [0, 0, 0]);
-    }
+    // #[test]
+    // pub fn linearize() {
+    //     let sanity = |point| unpadded::delinearize(unpadded::linearize(point));
+    //     assert_eq!(sanity([1, 1, 1]), [1, 1, 1]);
+    //     assert_eq!(sanity([61, 5, 38]), [61, 5, 38]);
+    //     assert_eq!(sanity([0, 0, 0]), [0, 0, 0]);
+    // }
 
     #[test]
     pub fn pad_linearize() {
