@@ -93,7 +93,7 @@ pub struct VoxelChunk {
     pub transparent_mask: Vec<u64>, // padded::SIZE^2 length
 
 
-    pub changed_voxel_types: HashSet<Voxel>,
+    pub changed_voxel_types: HashSet<u16>,
     // pub counts: Vec<u32>, // counts of each voxel type
     // pub prev_counts: Vec<u32>,
 }
@@ -165,16 +165,16 @@ impl VoxelChunk {
 
         let prev_voxel = self.voxels[index as usize];
         let data = voxel.data();
-        if prev_voxel == data {
-            return;
-        }
+        // if prev_voxel == data {
+        //     return;
+        // }
 
         self.voxels[index as usize] = data;
         self.set_masks(point, voxel.transparent());
 
         // info!("changing: {:?}, {:?}", Voxel::from_data(prev_voxel), voxel);
-        self.changed_voxel_types.insert(Voxel::from_data(prev_voxel));
-        self.changed_voxel_types.insert(voxel);
+        self.changed_voxel_types.insert(Voxel::id_from_data(prev_voxel));
+        self.changed_voxel_types.insert(voxel.id());
     }
 
     pub fn set_masks(&mut self, padded_point: [Scalar; 3], transparent: bool) {
@@ -269,8 +269,8 @@ impl VoxelChunk {
     }
 
     #[inline]
-    pub fn voxel_type_updates(&self) -> impl Iterator<Item = Voxel> {
-        self.changed_voxel_types.iter().copied()
+    pub fn voxel_type_updates(&self) -> impl Iterator<Item = (u16, Voxel)> {
+        self.changed_voxel_types.iter().map(|v| (*v, Voxel::from_id(*v).unwrap()))
     }
 
     #[inline]

@@ -120,14 +120,14 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
-        for voxel in chunk.voxel_type_updates() {
+        for (voxel_id, voxel) in chunk.voxel_type_updates() {
             if !voxel.rendered() {
                 continue;
             }
 
             // info!("remeshing {:?}-{:?}", chunk_point, voxel);
             // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
-            chunk.create_surface_net(&mut surface_net_buffer, voxel.id());
+            chunk.create_surface_net(&mut surface_net_buffer, voxel_id);
             // for normal in surface_net_buffer.normals.iter_mut() {
             //     *normal = (Vec3::from(*normal).normalize()).into();
             // }
