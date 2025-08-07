@@ -3,13 +3,16 @@ use std::collections::VecDeque;
 
 use bevy::asset::RenderAssetUsages;
 use bevy::pbr::{NotShadowCaster, NotShadowReceiver};
-use bevy::platform::collections::HashSet;
+use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
 use bevy::render::primitives::Aabb;
 use bevy::render::render_resource::PrimitiveTopology;
 // use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape, Shape};
 // use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
+
+use avian3d::collision::collider::TrimeshFlags;
+use avian3d::prelude::*;
 
 use crate::voxel::mesh::frustum_chunks::FrustumChunks;
 use crate::voxel::mesh::ChangedChunks;
@@ -26,15 +29,31 @@ use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
     fn build(&self, app: &mut App) {
+        // app.add_observer(surface_net_components);
         app.add_systems(PreUpdate, (update_surface_net_mesh, update_prev_counts).chain());
     }
 }
+
+// pub fn surface_net_components(
+//     trigger: Trigger<OnAdd, Voxels>,
+//     mut commands: Commands,
+// ) {
+//     println!("adding surface net components");
+//     commands.entity(trigger.target()).insert((
+//         SurfaceNetColliders::default(),
+//     ));
+// }
 
 #[derive(Component, Default)]
 pub struct SurfaceNet;
 
 #[derive(Component, Default)]
 pub struct SurfaceNetMesh;
+
+#[derive(Component, Debug, Default, Deref, DerefMut)]
+pub struct SurfaceNetColliders {
+    voxel_colliders: HashMap<u16, Entity>, // voxel_id -> Entity
+}
 
 pub fn update_prev_counts(
     mut grids: Query<(&mut Voxels, &mut Remeshed)>,
@@ -55,7 +74,7 @@ pub fn update_surface_net_mesh(
     mut commands: Commands,
     is_surface_nets: Query<(), With<SurfaceNet>>,
     mut grids: Query<(&Voxels, &Chunks, &mut Remeshed), Changed<Voxels>>,
-    mut chunk_mesh_entities: Query<&mut ChunkMeshes>,
+    mut chunk_mesh_entities: Query<(&mut ChunkMeshes, &mut SurfaceNetColliders)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -109,9 +128,6 @@ pub fn update_surface_net_mesh(
             },
         }
     });
-    // if !input.just_pressed(KeyCode::KeyY) {
-    //     return;
-    // }
 
     let mut pop_count = 0;
     while pop_count < remesh.surface_net {
@@ -135,31 +151,64 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
+        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
+            warn!("no chunk entities for {:?}", chunk_point);
+            continue;
+        };
+
+        let Ok((mut chunk_meshes, mut chunk_colliders)) = chunk_mesh_entities.get_mut(*chunk_entity) else {
+            warn!("no chunk_mesh/chunk_collider for {:?}", chunk_entity);
+            continue;
+        };
+
         for (voxel_id, voxel) in chunk.voxel_type_updates() {
             if !voxel.rendered() {
                 continue;
             }
 
+            let lod = 2;
             // info!("remeshing {:?}-{:?}", chunk_point, voxel);
             // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
-            chunk.create_surface_net(&mut surface_net_buffer, voxel_id);
+            chunk.create_surface_net(&mut surface_net_buffer, voxel_id, lod);
             // for normal in surface_net_buffer.normals.iter_mut() {
             //     *normal = (Vec3::from(*normal).normalize()).into();
             // }
 
             let mut mesh = surface_net_to_mesh(&surface_net_buffer);
+            if voxel.collidable() {
+                let collider_mesh = surface_net_to_collider_trimesh(&surface_net_buffer, lod);
+                match collider_mesh {
+                    Some(new_collider) => { // create/modify chunk collider entity
+                        if let Some(entity) = chunk_colliders.get(&voxel_id) {
+                            commands.entity(*entity).insert(new_collider);
+                        } else {
+                            let new_collider_entity = 
+                                commands
+                                    .spawn((
+                                        Name::new(format!("Voxel Collider ({:?})", voxel)),
+                                        new_collider,
+                                        RigidBody::Static,
+                                        // CollisionMargin(0.05),
+                                        Transform::from_translation(Vec3::splat(0.0)),
+                                        ChildOf(*chunk_entity),
+                                    ))
+                                    .id();
+
+                            chunk_colliders.insert(voxel_id, new_collider_entity);
+                        }
+                    }
+                    None => { // despawn chunk collider entity
+                        if let Some(entity) = chunk_colliders.remove(&voxel_id) {
+                            commands.entity(entity).despawn();
+                        }
+                    }
+                }
+            }
+
             mesh.duplicate_vertices();
             mesh.compute_flat_normals();
 
             remeshed.0.insert(chunk_point);
-
-            let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
-                continue;
-            };
-
-            let Ok(mut chunk_meshes) = chunk_mesh_entities.get_mut(*chunk_entity) else {
-                continue;
-            };
 
             // 몰리
 
@@ -179,13 +228,14 @@ pub fn update_surface_net_mesh(
                 let material = materials.add(voxel.material());
                 // let material = materials.add(voxel.material());
                 // let material = voxel_materials.get(voxel);
-                let mut voxel_mesh_commands = commands.spawn((
+                let voxel_mesh_commands = commands.spawn((
                     // Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
                     Mesh3d(mesh_handle),
                     MeshMaterial3d(material),
                     ChildOf(*chunk_entity),
                     Transform {
-                        translation: -crate::voxel::GRID_SCALE,
+                        // translation: -crate::voxel::GRID_SCALE,
+                        scale: Vec3::splat(lod as f32),
                         ..default()
                     },
                 ));
@@ -227,6 +277,27 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
     mesh
 }
 
+pub fn surface_net_to_collider_trimesh(buffer: &SurfaceNetsBuffer, lod: u32) -> Option<Collider> {
+
+    let flags = TrimeshFlags::FIX_INTERNAL_EDGES | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES;
+
+    if buffer.positions.len() == 0 || buffer.indices.len() == 0 || buffer.indices.len () % 3 != 0 {
+        // warn!("no vertices in collider mesh");
+        return None;
+    }
+
+    let positions = buffer.positions.iter().copied().map(Vec3::from).collect::<Vec<_>>();
+    let mut indices = Vec::new();
+    for i in (0..buffer.indices.len()).step_by(3) {
+        let tri = [buffer.indices[i], buffer.indices[i + 1], buffer.indices[i + 2]];
+        indices.push(tri);
+    }
+    let mut new_collider = Collider::trimesh_with_config(positions, indices, flags);
+    new_collider.set_scale(crate::voxel::GRID_SCALE * lod as f32, 32);
+
+    Some(new_collider)
+}
+
 // pub type ChunkShape = ConstPow2Shape3u32<{ 6 as u32 }, { 6 as u32 }, { 6 as u32 }>; // 62^3 with 1 padding
 
 impl VoxelChunk {
@@ -248,7 +319,49 @@ impl VoxelChunk {
     //     }
     // }
 
-    pub fn create_surface_net(&self, buffer: &mut SurfaceNetsBuffer, mesh_voxel_id: u16) {
-        surface_nets(&self.voxels, mesh_voxel_id, buffer);
+    pub fn create_surface_net(&self, buffer: &mut SurfaceNetsBuffer, mesh_voxel_id: u16, lod: u32) {
+        // if lod == 1 {
+        surface_nets(&self.voxels, mesh_voxel_id, 16, buffer);
+        // } else {
+        //     let lod_size = 16 / lod;
+        //     let lod_arr_size = (lod_size * lod_size * lod_size) as usize;
+        //     let mut reduced_buffer = vec![0u16; lod_arr_size as usize];
+
+        //     let mut unreduced_index = 0;
+        //     for base_y in 0..lod_size {
+        //         for base_x in 0..lod_size {
+        //             for base_z in 0..lod_size {
+        //                 let reduced_point = IVec3::new(base_x as i32, base_y as i32, base_z as i32);
+        //                 let unreduced_point = reduced_point * lod as i32; 
+        //                 let mut found = false;
+
+        //             'lod:
+        //                 for lod_y in 0..lod {
+        //                     for lod_x in 0..lod {
+        //                         for lod_z in 0..lod {
+        //                             let sample_point = unreduced_point + IVec3::new(lod_x as i32, lod_y as i32, lod_z as i32);
+
+        //                             let lod_index = padded::linearize(sample_point.into());
+        //                             if lod_index < self.voxels.len() {
+        //                                 if Voxel::id_from_data(self.voxels[lod_index]) == mesh_voxel_id {
+        //                                     found = true;
+        //                                     break 'lod;
+        //                                 }
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+
+        //                 if found {
+        //                     reduced_buffer[unreduced_index] = mesh_voxel_id;
+        //                 }
+
+        //                 unreduced_index += 1;
+        //             }
+        //         }
+        //     }
+
+        //     surface_nets(&reduced_buffer, mesh_voxel_id,  (16 / lod) - 1, buffer);
+        // }
     }
 }

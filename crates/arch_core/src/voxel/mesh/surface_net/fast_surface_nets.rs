@@ -54,15 +54,16 @@ use bevy::prelude::*;
 
 use crate::voxel::{mesh::padded, Voxel};
 
-pub fn linearize([x, y, z]: [u32; 3]) -> u32 {
-    padded::linearize([x as i32, y as i32, z as i32]) as u32
+pub fn linearize([x, y, z]: [u32; 3], size: u32) -> u32 {
+    z + x * size + y * size * size
+    // padded::linearize([x as i32, y as i32, z as i32]) as u32
     // z + (x << 6) + (y << 12)
     // z + (x << 2) + (y << 4)
 }
 
-pub fn delinearize(index: u32) -> [u32; 3] {
-    padded::delinearize(index as usize).map(|n| n as u32)
-}
+// pub fn delinearize(index: u32) -> [u32; 3] {
+//     padded::delinearize(index as usize).map(|n| n as u32)
+// }
 
 pub type VoxelData = u16;
 pub type VoxelId = u16;
@@ -134,26 +135,27 @@ pub const NULL_VERTEX: u32 = u32::MAX;
 pub fn surface_nets(
     voxels: &[VoxelData], // voxel buffer
     mesh_voxel_id: VoxelId,     // voxel id to mesh
+    size: u32,
     output: &mut SurfaceNetsBuffer,
 ) {
     // SAFETY
     // Make sure the slice matches the shape before we start using get_unchecked.
 
-    output.reset(padded::ARR_STRIDE);
+    output.reset((size * size * size) as usize);
 
-    estimate_surface(voxels, mesh_voxel_id, output);
-    make_all_quads(voxels, mesh_voxel_id, output);
+    estimate_surface(voxels, mesh_voxel_id, size, output);
+    make_all_quads(voxels, mesh_voxel_id, size, output);
 }
 
 // Find all vertex positions and normals. Also generate a map from grid position to vertex index to be used to look up vertices
 // when generating quads.
-fn estimate_surface(sdf: &[VoxelData], mesh_voxel_id: VoxelId, output: &mut SurfaceNetsBuffer) {
-    for x in MIN.x..MAX.x {
-        for y in MIN.y..MAX.y {
-            for z in MIN.z..MAX.z {
-                let stride = linearize([x, y, z]);
+fn estimate_surface(sdf: &[VoxelData], mesh_voxel_id: VoxelId, size: u32, output: &mut SurfaceNetsBuffer) {
+    for x in 0..size - 1 {
+        for y in 0..size - 1 {
+            for z in 0..size - 1 {
+                let stride = linearize([x, y, z], size);
                 let p = Vec3A::from([x as f32, y as f32, z as f32]);
-                if estimate_surface_in_cube(sdf, mesh_voxel_id, p, stride, output) {
+                if estimate_surface_in_cube(sdf, mesh_voxel_id, size, p, stride, output) {
                     output.stride_to_index[stride as usize] = output.positions.len() as u32 - 1;
                     output.surface_points.push([x, y, z]);
                     output.surface_strides.push(stride);
@@ -173,6 +175,7 @@ fn estimate_surface(sdf: &[VoxelData], mesh_voxel_id: VoxelId, output: &mut Surf
 fn estimate_surface_in_cube(
     sdf: &[VoxelData],
     mesh_voxel_id: VoxelId,
+    size: u32,
     p: Vec3A,
     min_corner_stride: u32,
     output: &mut SurfaceNetsBuffer,
@@ -181,7 +184,7 @@ fn estimate_surface_in_cube(
     let mut corner_dists = [0f32; 8];
     let mut num_negative = 0;
     for (i, dist) in corner_dists.iter_mut().enumerate() {
-        let corner_stride = min_corner_stride + linearize(CUBE_CORNERS[i]);
+        let corner_stride = min_corner_stride + linearize(CUBE_CORNERS[i], size);
         let d = *unsafe { sdf.get_unchecked(corner_stride as usize) };
         // let d = sdf[corner_stride as usize];
         *dist = if Voxel::id_from_data(d) == mesh_voxel_id {
@@ -273,12 +276,13 @@ fn sdf_gradient(dists: &[f32; 8], s: Vec3A) -> Vec3A {
 fn make_all_quads(
     sdf: &[VoxelData],
     mesh_voxel_id: VoxelId,
+    size: u32,
     output: &mut SurfaceNetsBuffer,
 ) {
     let xyz_strides = [
-        linearize([1, 0, 0]) as usize,
-        linearize([0, 1, 0]) as usize,
-        linearize([0, 0, 1]) as usize,
+        linearize([1, 0, 0], size) as usize,
+        linearize([0, 1, 0], size) as usize,
+        linearize([0, 0, 1], size) as usize,
     ];
 
     for (&[x, y, z], &p_stride) in output.surface_points.iter().zip(output.surface_strides.iter()) {
@@ -286,7 +290,7 @@ fn make_all_quads(
         let eval_max_plane = cfg!(feature = "eval-max-plane");
 
         // Do edges parallel with the X axis
-        if y != MIN.y && z != MIN.z && (eval_max_plane || x != MAX.x - 1) {
+        if y != 0 && z != 0 && (eval_max_plane || x != size - 1) {
             maybe_make_quad(
                 sdf,
                 mesh_voxel_id,
@@ -300,7 +304,7 @@ fn make_all_quads(
             );
         }
         // Do edges parallel with the Y axis
-        if x != MIN.x && z != MIN.z && (eval_max_plane || y != MAX.y - 1) {
+        if x != 0 && z != 0 && (eval_max_plane || y != size - 1) {
             maybe_make_quad(
                 sdf,
                 mesh_voxel_id,
@@ -314,7 +318,7 @@ fn make_all_quads(
             );
         }
         // Do edges parallel with the Z axis
-        if x != MIN.x && y != MIN.y && (eval_max_plane || z != MAX.z - 1) {
+        if x != 0 && y != 0 && (eval_max_plane || z != size - 1) {
             maybe_make_quad(
                 sdf,
                 mesh_voxel_id,

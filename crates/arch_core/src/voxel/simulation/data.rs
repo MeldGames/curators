@@ -1,3 +1,5 @@
+use bevy::platform::collections::hash_map::IterMut;
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
@@ -11,6 +13,8 @@ pub const CHUNK_WIDTH_BITSHIFT_Y: usize = CHUNK_WIDTH_BITSHIFT * 2;
 pub const CHUNK_REMAINDER: i32 = (CHUNK_WIDTH - 1) as i32;
 pub const CHUNK_WIDTH: usize = 1 << CHUNK_WIDTH_BITSHIFT;
 pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
+
+pub type ChunkPoint = IVec3;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
@@ -32,7 +36,8 @@ pub fn insert_voxels_sim_chunks(
     commands.entity(trigger.target()).insert((sim_swap_buffer, render_swap_buffer));
 }
 
-pub type UpdateBuffer = Vec<[u64; CHUNK_LENGTH / 64]>;
+// #[derive(Debug, Clone, PartialEq, Eq, Reflect)]
+pub type UpdateBuffer = HashMap<ChunkPoint, [u64; CHUNK_LENGTH / 64]>;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 pub struct SimChunk {
@@ -40,16 +45,23 @@ pub struct SimChunk {
     pub voxels: [u16; CHUNK_LENGTH],
 }
 
-impl SimChunk {
-    pub fn new() -> Self {
+impl Default for SimChunk {
+    fn default() -> Self {
         Self { voxels: [0; CHUNK_LENGTH] }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
+impl SimChunk {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Reflect)]
 pub struct SimChunks {
-    pub chunks: Vec<SimChunk>,
-    pub chunk_strides: [usize; 3],
+    // pub chunks: Vec<SimChunk>,
+    // pub chunk_strides: [usize; 3],
+    pub chunks: HashMap<ChunkPoint, SimChunk>,
 
     pub sim_updates: UpdateBuffer,    // bitmask of updates
     pub render_updates: UpdateBuffer, // bitmask of updates
@@ -61,13 +73,13 @@ pub struct SimChunks {
 #[inline]
 pub fn to_linear_index(relative_point: IVec3) -> usize {
     debug_assert!(
-        // relative_point.x < CHUNK_WIDTH as i32
-        //     && relative_point.y < CHUNK_WIDTH as i32
-        //     && relative_point.z < CHUNK_WIDTH as i32
-        //     && relative_point.x >= 0
-        //     && relative_point.y >= 0
-        //     && relative_point.z >= 0
-        ((relative_point.x | relative_point.y | relative_point.z) & !15) != 0
+        relative_point.x < CHUNK_WIDTH as i32
+            && relative_point.y < CHUNK_WIDTH as i32
+            && relative_point.z < CHUNK_WIDTH as i32
+            && relative_point.x >= 0
+            && relative_point.y >= 0
+            && relative_point.z >= 0
+        // ((relative_point.x | relative_point.y | relative_point.z) & !15) != 0
     );
 
     // z + x * 4 + y * 16
@@ -101,52 +113,53 @@ pub fn delinearize(index: usize) -> IVec3 {
 }
 
 #[inline]
-pub fn chunk_point(point: IVec3) -> IVec3 {
+pub fn chunk_point(point: IVec3) -> ChunkPoint {
     // not euclidean (point / 16)
     point >> (CHUNK_WIDTH_BITSHIFT as i32)
 }
 
 pub struct UpdateIterator<'a> {
-    pub chunk_updates: &'a mut UpdateBuffer,
-    pub chunk_index: usize,
+    // pub chunk_updates: &'a mut UpdateBuffer,
+    // pub chunk_points: Vec<IVec3>,
+    // pub chunk_index: usize,
+    pub iter: IterMut<'a, IVec3, [u64; CHUNK_LENGTH / 64]>,
+    pub current_mask: Option<(&'a IVec3, &'a mut [u64; CHUNK_LENGTH / 64 ])>,
     pub mask_index: usize,
 }
 
 impl<'a> Iterator for UpdateIterator<'a> {
-    type Item = (usize, usize);
+    type Item = (IVec3, usize);
 
     // (chunk_index, voxel_index)
 
     fn next(&mut self) -> Option<Self::Item> {
         const MASK_LENGTH: usize = CHUNK_LENGTH / 64;
         // println!("UPDATE ITERATOR NEXT");
-        while self.mask_index < MASK_LENGTH && self.chunk_index < self.chunk_updates.len() {
+        while self.mask_index < MASK_LENGTH && self.current_mask.is_some() {
+            // let chunk_point = self.chunk_points[self.chunk_index];
+            // let mut chunk_updates = self.chunk_updates.get_mut(&chunk_point).unwrap();
+            let (chunk_point, chunk_bitsets) = self.current_mask.as_mut().unwrap();
+
             let bitset = if cfg!(feature = "safe-bounds") {
-                self.chunk_updates[self.chunk_index][self.mask_index]
+                &mut chunk_bitsets[self.mask_index]
             } else {
                 unsafe {
-                    *self.chunk_updates.get_unchecked(self.chunk_index).get_unchecked(self.mask_index)
+                    chunk_bitsets.get_unchecked_mut(self.mask_index)
                 }
             };
 
-            if bitset != 0 {
+            if *bitset != 0 {
                 // `bitset & -bitset` returns a bitset with only the lowest significant bit set
-                let t = bitset & bitset.wrapping_neg();
+                let t = *bitset & bitset.wrapping_neg();
                 let trailing = bitset.trailing_zeros() as usize;
                 let voxel_index = self.mask_index * 64 + trailing;
-                if cfg!(feature = "safe-bounds") {
-                    self.chunk_updates[self.chunk_index][self.mask_index] ^= t;
-                } else {
-                    unsafe {
-                        *self.chunk_updates.get_unchecked_mut(self.chunk_index).get_unchecked_mut(self.mask_index) ^= t;
-                    }
-                }
-                return Some((self.chunk_index, voxel_index));
+                *bitset ^= t;
+                return Some((**chunk_point, voxel_index));
             } else {
                 self.mask_index += 1;
                 if self.mask_index == MASK_LENGTH {
                     self.mask_index = 0;
-                    self.chunk_index += 1;
+                    self.current_mask = self.iter.next();
                 }
             }
         }
@@ -165,10 +178,11 @@ impl SimChunks {
         // stride[2] = y;
         let chunk_strides = [1, chunk_size.x as usize, (chunk_size.x * chunk_size.z) as usize];
         Self {
-            chunks: vec![SimChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
+            // chunks: vec![SimChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
+            chunks: HashMap::with_capacity((chunk_size.x * chunk_size.y * chunk_size.z) as usize),
             sim_updates: Self::create_update_buffer_from_size(chunk_size),
             render_updates: Self::create_update_buffer_from_size(chunk_size),
-            chunk_strides,
+            // chunk_strides,
             chunk_size,
             voxel_size,
         }
@@ -180,28 +194,29 @@ impl SimChunks {
             chunk_size,
             (chunk_size.x * chunk_size.y * chunk_size.z) as usize
         );
-        vec![[0; CHUNK_LENGTH / 64]; (chunk_size.x * chunk_size.y * chunk_size.z) as usize]
+        // vec![[0; CHUNK_LENGTH / 64]; (chunk_size.x * chunk_size.y * chunk_size.z) as usize]
+        HashMap::with_capacity((chunk_size.x * chunk_size.y * chunk_size.z) as usize)
     }
 
     pub fn create_update_buffer(&self) -> UpdateBuffer {
         Self::create_update_buffer_from_size(self.chunk_size)
     }
 
-    #[inline]
-    pub fn chunk_linearize(&self, chunk_point: IVec3) -> usize {
-        chunk_point.x as usize
-            + chunk_point.z as usize * self.chunk_strides[1]
-            + chunk_point.y as usize * self.chunk_strides[2]
-    }
+    // #[inline]
+    // pub fn chunk_linearize(&self, chunk_point: IVec3) -> usize {
+    //     chunk_point.x as usize
+    //         + chunk_point.z as usize * self.chunk_strides[1]
+    //         + chunk_point.y as usize * self.chunk_strides[2]
+    // }
 
-    #[inline]
-    pub fn chunk_delinearize(&self, mut chunk_index: usize) -> IVec3 {
-        let y = chunk_index / self.chunk_strides[2];
-        chunk_index -= y * self.chunk_strides[2];
-        let z = chunk_index / self.chunk_strides[1];
-        let x = chunk_index % self.chunk_strides[1];
-        ivec3(x as i32, y as i32, z as i32)
-    }
+    // #[inline]
+    // pub fn chunk_delinearize(&self, mut chunk_index: usize) -> IVec3 {
+    //     let y = chunk_index / self.chunk_strides[2];
+    //     chunk_index -= y * self.chunk_strides[2];
+    //     let z = chunk_index / self.chunk_strides[1];
+    //     let x = chunk_index % self.chunk_strides[1];
+    //     ivec3(x as i32, y as i32, z as i32)
+    // }
 
     #[inline]
     pub fn in_bounds(&self, point: IVec3) -> bool {
@@ -215,13 +230,15 @@ impl SimChunks {
     }
 
     #[inline]
-    pub fn get_voxel_from_indices(&self, chunk_index: usize, voxel_index: usize) -> Voxel {
+    pub fn get_voxel_from_indices(&self, chunk_point: ChunkPoint, voxel_index: usize) -> Voxel {
+        let Some(chunk) = self.chunks.get(&chunk_point) else {
+            return Voxel::Air;
+        };
+
         let voxel = if cfg!(feature = "safe-bounds") {
-            let chunk = &self.chunks[chunk_index];
             chunk.voxels[voxel_index]
         } else {
             unsafe {
-                let chunk = self.chunks.get_unchecked(chunk_index);
                 *chunk.voxels.get_unchecked(voxel_index)
             }
         };
@@ -245,30 +262,18 @@ impl SimChunks {
             return;
         }
 
-        let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
+        let (chunk_point, voxel_index) = self.chunk_and_voxel_indices(point);
+        let mut chunk = self.chunks.entry(chunk_point).or_default();
         if cfg!(feature = "safe-bounds") {
-            let chunk = &mut self.chunks[chunk_index];
             chunk.voxels[voxel_index] = voxel.data();
         } else {
             unsafe {
-                let chunk = self.chunks.get_unchecked_mut(chunk_index);
                 *chunk.voxels.get_unchecked_mut(voxel_index) = voxel.data();
             }
         }
 
-        Self::add_update_mask(&mut self.render_updates, chunk_index, voxel_index);
+        Self::add_update_mask(&mut self.render_updates, chunk_point, voxel_index);
         self.push_neighbor_sim_updates(point);
-    }
-
-    #[inline]
-    pub fn set_voxel_no_updates(&mut self, point: IVec3, voxel: Voxel) {
-        if !self.in_bounds(point) {
-            return;
-        }
-
-        let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
-        let chunk = &mut self.chunks[chunk_index];
-        chunk.voxels[voxel_index] = voxel.data();
     }
 
     #[inline]
@@ -301,41 +306,35 @@ impl SimChunks {
     }
 
     #[inline]
-    pub fn add_update_mask(mask: &mut UpdateBuffer, chunk_index: usize, voxel_index: usize) {
+    pub fn add_update_mask(mask: &mut UpdateBuffer, chunk_point: ChunkPoint, voxel_index: usize) {
         // info!("adding update mask: {:?}", (chunk_index, voxel_index));
         let mask_index = voxel_index >> 6; // voxel_index / 64
         let bit_index = voxel_index & 63; // voxel_index % 64
  
+        let chunk_mask = mask.entry(chunk_point).or_insert([0u64; CHUNK_LENGTH / 64]);
         if cfg!(feature = "safe-bounds") {
-            mask[chunk_index][mask_index] |= 1 << bit_index;
+            chunk_mask[mask_index] |= 1 << bit_index;
         } else {
             unsafe { // 5% faster, use when we feel fine with callers of this
-                *mask.get_unchecked_mut(chunk_index).get_unchecked_mut(mask_index) |= 1 << bit_index;
+                *chunk_mask.get_unchecked_mut(mask_index) |= 1 << bit_index;
             }
         }
     }
 
     pub fn clear_updates(&mut self) {
-        for mask in &mut self.sim_updates {
-            for bits in mask {
-                *bits = 0;
-            }
-        }
-
-        for mask in &mut self.render_updates {
-            for bits in mask {
-                *bits = 0;
-            }
-        }
+        self.sim_updates.clear();
+        self.render_updates.clear();
     }
 
     pub fn sim_updates<'a, 'b: 'a>(
         &mut self,
         swap_buffer: &'b mut UpdateBuffer,
     ) -> UpdateIterator<'a> {
-        debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
+        // debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.sim_updates, swap_buffer);
-        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0 }
+        let mut iter = swap_buffer.iter_mut();
+        let first = iter.next();
+        UpdateIterator { iter: iter, current_mask: first, mask_index: 0 }
     }
 
     // separate buffer for render updates so we can accumulate over multiple frames.
@@ -343,31 +342,33 @@ impl SimChunks {
         &mut self,
         swap_buffer: &'b mut UpdateBuffer,
     ) -> UpdateIterator<'a> {
-        debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
+        // debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.render_updates, swap_buffer);
-        UpdateIterator { chunk_updates: swap_buffer, chunk_index: 0, mask_index: 0 }
+        let mut iter = swap_buffer.iter_mut();
+        let first = iter.next();
+        UpdateIterator { iter: iter, current_mask: first, mask_index: 0 }
     }
 
     #[inline]
-    pub fn chunk_and_voxel_indices(&self, point: IVec3) -> (usize, usize) {
+    pub fn chunk_and_voxel_indices(&self, point: IVec3) -> (IVec3, usize) {
         // chunk index
         let chunk_point = chunk_point(point);
-        let chunk_index = self.chunk_linearize(chunk_point);
+        // let chunk_index = self.chunk_linearize(chunk_point);
 
         // voxel index
         let relative_voxel_point = point - (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32));
         // let voxel_index = linearize_16x16x16(relative_voxel_point);
         let voxel_index = linearize(relative_voxel_point);
 
-        (chunk_index, voxel_index)
+        (chunk_point, voxel_index)
     }
 
     pub fn point_from_chunk_and_voxel_indices(
         &self,
-        chunk_index: usize,
+        chunk_point: IVec3,
         voxel_index: usize,
     ) -> IVec3 {
-        let chunk_point = self.chunk_delinearize(chunk_index);
+        // let chunk_point = self.chunk_delinearize(chunk_index);
         let relative_voxel_point = delinearize(voxel_index);
         (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32)) + relative_voxel_point
     }
@@ -386,19 +387,19 @@ impl SimChunks {
 mod tests {
     use super::*;
 
-    #[test]
-    fn chunk_linearize() {
-        let chunks = SimChunks::new(ivec3(64, 64, 64));
-        assert_eq!(chunks.chunk_delinearize(0), ivec3(0, 0, 0));
-        assert_eq!(
-            chunks.chunk_delinearize(chunks.chunk_linearize(ivec3(0, 0, 0))),
-            ivec3(0, 0, 0)
-        );
-        assert_eq!(
-            chunks.chunk_delinearize(chunks.chunk_linearize(ivec3(1, 1, 1))),
-            ivec3(1, 1, 1)
-        );
-    }
+    // #[test]
+    // fn chunk_linearize() {
+    //     let chunks = SimChunks::new(ivec3(64, 64, 64));
+    //     assert_eq!(chunks.chunk_delinearize(0), ivec3(0, 0, 0));
+    //     assert_eq!(
+    //         chunks.chunk_delinearize(chunks.chunk_linearize(ivec3(0, 0, 0))),
+    //         ivec3(0, 0, 0)
+    //     );
+    //     assert_eq!(
+    //         chunks.chunk_delinearize(chunks.chunk_linearize(ivec3(1, 1, 1))),
+    //         ivec3(1, 1, 1)
+    //     );
+    // }
 
     #[test]
     fn chunk_voxel_indices() {
@@ -463,8 +464,8 @@ mod tests {
             println!("chunk_index: {}, voxel_index: {}", chunk_index, voxel_index);
         }
 
-        SimChunks::add_update_mask(&mut chunks.sim_updates, 0, 0);
-        SimChunks::add_update_mask(&mut chunks.sim_updates, 0, 100);
+        SimChunks::add_update_mask(&mut chunks.sim_updates, IVec3::ZERO, 0);
+        SimChunks::add_update_mask(&mut chunks.sim_updates, IVec3::ZERO, 100);
         let updates = chunks.sim_updates(&mut buffer);
         println!("second round");
         for (chunk_index, voxel_index) in updates {

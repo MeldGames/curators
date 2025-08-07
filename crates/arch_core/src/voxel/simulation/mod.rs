@@ -9,7 +9,7 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::data::{SimChunks, CHUNK_LENGTH};
+use crate::voxel::simulation::data::{SimChunks, UpdateBuffer, CHUNK_LENGTH};
 use crate::voxel::{Voxel, Voxels};
 
 pub mod data;
@@ -65,10 +65,10 @@ pub struct FallingSandTick(pub u32);
 // }
 
 #[derive(Component, Clone)]
-pub struct SimSwapBuffer(pub Vec<[u64; CHUNK_LENGTH / 64]>);
+pub struct SimSwapBuffer(pub UpdateBuffer);
 
 #[derive(Component, Clone)]
-pub struct RenderSwapBuffer(pub Vec<[u64; CHUNK_LENGTH / 64]>);
+pub struct RenderSwapBuffer(pub UpdateBuffer);
 
 pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer)>) {
     for (mut grid, mut render_swap_buffer) in &mut grids {

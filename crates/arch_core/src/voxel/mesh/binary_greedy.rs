@@ -11,6 +11,7 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
+use crate::voxel::mesh::surface_net::SurfaceNetColliders;
 use crate::voxel::mesh::{ChangedChunks, Remesh};
 use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::voxel::VoxelMaterials;
@@ -72,6 +73,7 @@ pub fn spawn_chunk_entities(
                         Name::new(format!("Chunk [{:?}]", chunk_pos)),
                         ChunkMeshes::default(),
                         ChunkCollider::default(),
+                        SurfaceNetColliders::default(),
                         ChildOf(voxels_entity),
                         Transform {
                             translation: chunk_pos.as_vec3()
@@ -264,9 +266,9 @@ pub fn update_binary_mesh_collider(
 
         // 몰리
 
-        let flags = TrimeshFlags::FIX_INTERNAL_EDGES
-            | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
-            | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
+        let flags = TrimeshFlags::FIX_INTERNAL_EDGES;
+            // | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
+            // | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
 
         if collider_mesh.count_vertices() == 0 {
             // warn!("no vertices in collider mesh");
