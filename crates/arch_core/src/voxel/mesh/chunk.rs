@@ -293,6 +293,8 @@ pub mod tests {
 
     use super::*;
 
+    const CS: usize = 62;
+
     #[test]
     pub fn create_chunk() {
         // if this fails, probably allocated too much to stack
@@ -406,7 +408,7 @@ pub mod tests {
         for [x, y, z] in points {
             println!(
                 "{:?} ? {:?}",
-                bgm::pad_linearize(x as usize, y as usize, z as usize),
+                bgm::pad_linearize::<CS>(x as usize, y as usize, z as usize),
                 padded::pad_linearize([x, y, z])
             );
         }
@@ -414,8 +416,8 @@ pub mod tests {
         use std::collections::BTreeSet;
         let transparents =
             Voxel::iter().filter(|v| v.transparent()).map(|v| v.id()).collect::<BTreeSet<_>>();
-        let mask = bgm::compute_opaque_mask(&chunk.voxels, &transparents);
-        for index in 0..bgm::CS_P2 {
+        let mask = bgm::compute_opaque_mask::<CS>(&chunk.voxels, &transparents);
+        for index in 0..bgm::Mesher::<CS>::CS_P2 {
             assert_eq!(chunk.opaque_mask[index], mask[index]);
         }
     }

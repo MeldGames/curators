@@ -41,8 +41,8 @@ impl Plugin for VoxelPlugin {
 
 pub fn spawn_voxel_grid(mut commands: Commands) {
     commands.spawn((
-        // Voxels::new(IVec3::new(256, 256, 256)),
-        Voxels::new(IVec3::new(15, 15, 15)),
+        Voxels::new(IVec3::new(2000, 256, 2000)),
+        // Voxels::new(IVec3::new(15, 15, 15)),
         Transform { scale: GRID_SCALE, ..default() },
         mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,

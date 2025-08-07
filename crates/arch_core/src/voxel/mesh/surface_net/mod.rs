@@ -17,7 +17,7 @@ use avian3d::prelude::*;
 use crate::voxel::mesh::frustum_chunks::FrustumChunks;
 use crate::voxel::mesh::ChangedChunks;
 use crate::voxel::mesh::remesh::Remesh;
-use crate::voxel::mesh::binary_greedy::{ChunkMeshes, Chunks};
+use crate::voxel::mesh::binary_greedy::{Chunks};
 use crate::voxel::mesh::{chunk::VoxelChunk, padded};
 use crate::voxel::{Voxel, Voxels};
 
@@ -55,6 +55,9 @@ pub struct SurfaceNetColliders {
     voxel_colliders: HashMap<u16, Entity>, // voxel_id -> Entity
 }
 
+#[derive(Component, Debug, Default, Deref, DerefMut)]
+pub struct SurfaceNetMeshes(HashMap<u16, Entity>);
+
 pub fn update_prev_counts(
     mut grids: Query<(&mut Voxels, &mut Remeshed)>,
 ) {
@@ -74,7 +77,7 @@ pub fn update_surface_net_mesh(
     mut commands: Commands,
     is_surface_nets: Query<(), With<SurfaceNet>>,
     mut grids: Query<(&Voxels, &Chunks, &mut Remeshed), Changed<Voxels>>,
-    mut chunk_mesh_entities: Query<(&mut ChunkMeshes, &mut SurfaceNetColliders)>,
+    mut chunk_mesh_entities: Query<(&mut SurfaceNetMeshes, &mut SurfaceNetColliders)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -137,22 +140,22 @@ pub fn update_surface_net_mesh(
         };
         dedup.remove(&(voxel_entity, chunk_point));
 
-        if !is_surface_nets.contains(voxel_entity) {
-            continue;
-        }
-
         let Ok((voxels, voxel_chunks, mut remeshed)) = grids.get_mut(voxel_entity) else {
             warn!("No voxels for entity {voxel_entity:?}");
             continue;
         };
 
-        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
-            warn!("No chunk at {chunk_point:?}");
+        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
+            warn!("no chunk entities for {:?}", chunk_point);
             continue;
         };
 
-        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
-            warn!("no chunk entities for {:?}", chunk_point);
+        if !is_surface_nets.contains(*chunk_entity) {
+            continue;
+        }
+
+        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
+            warn!("No chunk at {chunk_point:?}");
             continue;
         };
 
@@ -166,7 +169,7 @@ pub fn update_surface_net_mesh(
                 continue;
             }
 
-            let lod = 2;
+            let lod = 1;
             // info!("remeshing {:?}-{:?}", chunk_point, voxel);
             // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
             chunk.create_surface_net(&mut surface_net_buffer, voxel_id, lod);

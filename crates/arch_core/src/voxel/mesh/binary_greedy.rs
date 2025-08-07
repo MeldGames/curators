@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
@@ -11,22 +11,21 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
-use crate::voxel::mesh::surface_net::SurfaceNetColliders;
+use crate::voxel::mesh::lod::Lod;
+use crate::voxel::mesh::surface_net::{SurfaceNetColliders, SurfaceNetMeshes};
 use crate::voxel::mesh::{ChangedChunks, Remesh};
 use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{Voxel, Voxels};
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_observer(add_buffers);
-
     app.register_type::<Remesh>();
 
     app.insert_resource(Remesh::default());
 
     app.add_systems(
         PostUpdate,
-        (spawn_chunk_entities, update_binary_mesh, update_binary_mesh_collider)
+        (spawn_chunk_entities, update_binary_mesh, /*update_binary_mesh_collider*/)
             .chain()
             .in_set(UpdateVoxelMeshSet),
     );
@@ -35,29 +34,24 @@ pub(super) fn plugin(app: &mut App) {
 #[derive(Component, Default, Reflect)]
 pub struct BinaryGreedy;
 
-pub fn add_buffers(trigger: Trigger<OnAdd, BinaryGreedy>, mut commands: Commands) {
-    info!("adding binary greedy meshing buffers");
-    commands.entity(trigger.target()).insert_if_new((
-        VoxelsCollider(None),
-    ));
-}
-
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct Chunks(HashMap<IVec3, Entity>);
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
-pub struct VoxelsCollider(pub Option<Entity>);
+pub struct GreedyCollider(pub Option<Entity>);
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
-pub struct ChunkCollider(pub Option<Entity>);
+pub struct GreedyMeshes(HashMap<u16, Entity>);
 
-#[derive(Component, Debug, Default, Deref, DerefMut)]
-pub struct ChunkMeshes(HashMap<u16, Entity>);
+#[derive(Component, Debug, Default)]
+pub struct Chunk;
 
-pub struct BgmMesher(bgm::Mesher);
+pub const CS: usize = crate::voxel::mesh::unpadded::SIZE;
+
+pub struct BgmMesher(bgm::Mesher::<CS>);
 impl Default for BgmMesher {
     fn default() -> Self {
-        Self(bgm::Mesher::new())
+        Self(bgm::Mesher::<CS>::new())
     }
 }
 
@@ -71,9 +65,11 @@ pub fn spawn_chunk_entities(
                 let new_chunk = commands
                     .spawn((
                         Name::new(format!("Chunk [{:?}]", chunk_pos)),
-                        ChunkMeshes::default(),
-                        ChunkCollider::default(),
+                        GreedyMeshes::default(),
+                        GreedyCollider::default(),
                         SurfaceNetColliders::default(),
+                        SurfaceNetMeshes::default(),
+                        Lod(1),
                         ChildOf(voxels_entity),
                         Transform {
                             translation: chunk_pos.as_vec3()
@@ -94,7 +90,7 @@ pub fn update_binary_mesh(
     mut commands: Commands,
     is_binary_greedy: Query<(), With<BinaryGreedy>>,
     mut grids: Query<(&Voxels, &Chunks), Changed<Voxels>>,
-    mut chunk_mesh_entities: Query<&mut ChunkMeshes>,
+    mut chunk_mesh_entities: Query<&mut GreedyMeshes>,
 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -130,15 +126,18 @@ pub fn update_binary_mesh(
         };
         dedup.remove(&(voxel_entity, chunk_point));
 
-        if !is_binary_greedy.contains(voxel_entity) {
-            continue;
-        }
-
         let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
             warn!("No voxels for entity {voxel_entity:?}");
             continue;
         };
-        // collider_mesh_buffer.clear();
+
+        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
+            continue;
+        };
+
+        if !is_binary_greedy.contains(*chunk_entity) {
+            continue;
+        }
 
         let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
             warn!("No chunk at {chunk_point:?}");
@@ -148,10 +147,6 @@ pub fn update_binary_mesh(
         // info!("chunk {:?} changed, updating binary mesh", chunk_pos);
         let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
         // collider_mesh_buffer.combine(&collider_mesh);
-
-        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
-            continue;
-        };
 
         let Ok(mut chunk_meshes) = chunk_mesh_entities.get_mut(*chunk_entity) else {
             continue;
@@ -211,7 +206,7 @@ pub fn update_binary_mesh_collider(
 
     binary_greedy: Query<(), With<BinaryGreedy>>,
     mut grids: Query<(&Voxels, &Chunks), Changed<Voxels>>,
-    mut chunk_mesh_entities: Query<&mut ChunkCollider>,
+    mut chunk_mesh_entities: Query<&mut GreedyCollider>,
 
     mut mesher: Local<BgmMesher>,
     mut changed_chunks: EventReader<ChangedChunks>,
@@ -239,24 +234,21 @@ pub fn update_binary_mesh_collider(
         };
         dedup.remove(&(voxel_entity, chunk_point));
 
-        if !binary_greedy.contains(voxel_entity) {
-            continue;
-        }
-
         let Ok((voxels, voxel_chunks)) = grids.get_mut(voxel_entity) else {
             warn!("No voxels for entity {voxel_entity:?}");
             continue;
         };
-        // collider_mesh_buffer.clear();
 
-        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
-            warn!("No chunk at {chunk_point:?}");
+        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
             continue;
         };
 
-        let collider_mesh = chunk.generate_collider_mesh(&mut mesher.0).to_mesh();
+        if !binary_greedy.contains(*chunk_entity) {
+            continue;
+        }
 
-        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
+        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
+            warn!("No chunk at {chunk_point:?}");
             continue;
         };
 
@@ -264,11 +256,13 @@ pub fn update_binary_mesh_collider(
             continue;
         };
 
+        let collider_mesh = chunk.generate_collider_mesh(&mut mesher.0).to_mesh();
+
         // 몰리
 
-        let flags = TrimeshFlags::FIX_INTERNAL_EDGES;
-            // | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
-            // | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
+        let flags = TrimeshFlags::FIX_INTERNAL_EDGES
+             | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
+             | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
 
         if collider_mesh.count_vertices() == 0 {
             // warn!("no vertices in collider mesh");
@@ -347,8 +341,8 @@ impl ColliderMesh {
 pub trait BinaryGreedyMeshing {
     /// Generates 1 mesh per voxel type (voxel id is the index) and 1 collider
     /// mesh with all collidable voxels combined.
-    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher) -> Vec<Option<Mesh>>;
-    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher) -> ColliderMesh;
+    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher::<CS>) -> Vec<Option<Mesh>>;
+    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher::<CS>) -> ColliderMesh;
 }
 
 pub fn pos_uvs(quad: Quad, face: Face) -> [([f32; 3], [f32; 2]); 4] {
@@ -416,13 +410,26 @@ pub fn pos_uvs(quad: Quad, face: Face) -> [([f32; 3], [f32; 2]); 4] {
 }
 
 impl BinaryGreedyMeshing for VoxelChunk {
-    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher) -> Vec<Option<Mesh>> {
+    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher::<CS>) -> Vec<Option<Mesh>> {
         mesher.clear();
-        mesher.fast_mesh_no_merge(
-            &self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(),
-            &self.opaque_mask,
-            &self.transparent_mask,
+        let mut transparents = BTreeSet::new();
+        for voxel in Voxel::iter() {
+            if voxel.transparent() {
+                transparents.insert(voxel.id());
+            }
+        }
+
+        let opaque_mask = bgm::compute_opaque_mask::<CS>(&self.voxels, &transparents);
+        let transparent_mask = bgm::compute_transparent_mask::<CS>(&self.voxels, &transparents);
+        mesher.mesh(
+             &self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(),
+             &transparents,
         );
+        // mesher.fast_mesh_no_merge(
+        //     &self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(),
+        //     &self.opaque_mask,
+        //     &self.transparent_mask,
+        // );
 
         let max_id = Voxel::iter()
             .max_by(|v1, v2| v1.id().cmp(&v2.id()))
@@ -472,8 +479,8 @@ impl BinaryGreedyMeshing for VoxelChunk {
         meshes
     }
 
-    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher) -> ColliderMesh {
-        let mut collide_voxels = vec![0u16; bgm::CS_P3].into_boxed_slice();
+    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher::<CS>) -> ColliderMesh {
+        let mut collide_voxels = vec![0u16; bgm::Mesher::<CS>::CS_P3].into_boxed_slice();
         for (index, voxel) in self.voxels.iter().enumerate() {
             if Voxel::from_data(*voxel as u16).collidable() {
                 collide_voxels[index] = 1;
@@ -482,7 +489,16 @@ impl BinaryGreedyMeshing for VoxelChunk {
 
         let mut collider_mesh = ColliderMesh::default();
         mesher.clear();
-        mesher.fast_mesh(&*collide_voxels, &self.opaque_mask, &self.transparent_mask);
+        let mut transparents = BTreeSet::new();
+        for voxel in Voxel::iter() {
+            if voxel.transparent() {
+                transparents.insert(voxel.id());
+            }
+        }
+
+        let opaque_mask = bgm::compute_opaque_mask::<CS>(&*collide_voxels, &transparents);
+        let transparent_mask = bgm::compute_transparent_mask::<CS>(&*collide_voxels, &transparents);
+        mesher.fast_mesh(&*collide_voxels, &opaque_mask, &transparent_mask);
 
         for (face_n, quads) in mesher.quads.iter().enumerate() {
             let face: Face = (face_n as u8).into();

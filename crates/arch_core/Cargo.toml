@@ -95,9 +95,9 @@ noiz = "0.2.0"
 # Meshing
 # fast-surface-nets = "0.2.1"
 # binary-greedy-meshing = "0.4.1"
-binary-greedy-meshing = { git = "https://github.com/Aceeri/binary-greedy-meshing", branch = "main" }
-# binary-greedy-meshing = { path = "../../../binary-greedy-meshing" }
-bevy_meshem = { git = "https://github.com/aceeri/Meshem", branch = "bevy-0.16" }
+# binary-greedy-meshing = { git = "https://github.com/Aceeri/binary-greedy-meshing", branch = "main" }
+binary-greedy-meshing = { path = "../../../binary-greedy-meshing" }
+# bevy_meshem = { git = "https://github.com/aceeri/Meshem", branch = "bevy-0.16" }
 #bevy_meshem = { path = "../../../Meshem" }
 
 # Debug

@@ -1,4 +1,4 @@
-use bevy::{platform::collections::HashSet, prelude::*};
+use bevy::{platform::collections::{HashMap, HashSet}, prelude::*};
 
 pub use chunk::{Scalar, VoxelChunk, padded, unpadded};
 
@@ -14,6 +14,7 @@ pub mod surface_net;
 // Perf control
 pub mod remesh;
 pub mod frustum_chunks;
+pub mod lod;
 
 // Visual
 pub mod camera_inside;
@@ -35,7 +36,8 @@ pub fn plugin(app: &mut App) {
 
     app.add_plugins(remesh::plugin);
     app.add_plugins(frustum_chunks::plugin);
-    app.add_plugins(camera_inside::plugin);
+    app.add_plugins(lod::plugin);
+    // app.add_plugins(camera_inside::plugin);
 
     app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet));
 }
@@ -64,9 +66,9 @@ const CHUNK_SIZE_FLOAT: Vec3 = Vec3::splat(unpadded::SIZE as f32);
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct RenderChunks {
-    // chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
-    pub chunks: Vec<VoxelChunk>, // linearize chunks similar to the voxels in the chunk
-    pub strides: [usize; 3],
+    chunks: HashMap<IVec3, VoxelChunk>, // spatially hashed chunks because its easy
+    // pub chunks: Vec<VoxelChunk>, // linearize chunks similar to the voxels in the chunk
+    // pub strides: [usize; 3],
     pub changed_chunks: HashSet<IVec3>,
 
     pub chunk_size: IVec3,
@@ -84,8 +86,9 @@ impl RenderChunks {
         //     }
         // }
         Self {
-            chunks: vec![VoxelChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
-            strides: [1, chunk_size.z as usize, (chunk_size.z * chunk_size.x) as usize],
+            // chunks: vec![VoxelChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
+            // strides: [1, chunk_size.z as usize, (chunk_size.z * chunk_size.x) as usize],
+            chunks: HashMap::with_capacity((chunk_size.x * chunk_size.z * 4) as usize),
             changed_chunks: default(),
             // update_voxels: default(),
             chunk_size,
@@ -99,9 +102,9 @@ impl RenderChunks {
 
         let chunk_point = Self::find_chunk(point);
         if let Some(chunk) = self.get_chunk(chunk_point) {
-            chunk.get_voxel(Self::relative_point(chunk_point, point)).unwrap_or(Voxel::Barrier)
+            chunk.get_voxel(Self::relative_point(chunk_point, point)).unwrap_or(Voxel::Air)
         } else {
-            Voxel::Barrier
+            Voxel::Air
         }
     }
 
@@ -144,15 +147,15 @@ impl RenderChunks {
 
     #[inline]
     pub fn get_chunk(&self, chunk_point: IVec3) -> Option<&VoxelChunk> {
-        let chunk_index = self.chunk_index(chunk_point)?;
-        self.chunks.get(chunk_index)
-        // self.chunks.get(&chunk_point)
+        // let chunk_index = self.chunk_index(chunk_point)?;
+        // self.chunks.get(chunk_index)
+        self.chunks.get(&chunk_point)
     }
 
     pub fn get_chunk_mut(&mut self, chunk_point: IVec3) -> Option<&mut VoxelChunk> {
-        let chunk_index = self.chunk_index(chunk_point)?;
-        self.chunks.get_mut(chunk_index)
-        // self.chunks.get_mut(&chunk_point)
+        // let chunk_index = self.chunk_index(chunk_point)?;
+        // self.chunks.get_mut(chunk_index)
+        self.chunks.get_mut(&chunk_point)
     }
 
     // pub fn relative_point(point: IVec3) -> IVec3 {
@@ -194,9 +197,10 @@ impl RenderChunks {
             #[cfg(feature = "trace")]
             let set_voxel_single_chunk_span = info_span!("set_voxel_single_chunk");
 
-            let Some(chunk) = self.get_chunk_mut(chunk_point) else {
-                continue;
-            };
+            let chunk = self.chunks.entry(chunk_point).or_default();
+            // let Some(chunk) = self.get_chunk_mut(chunk_point) else {
+            //     continue;
+            // };
             let relative_point = Self::relative_point_with_boundary(chunk_point, point);
             if chunk.in_chunk_bounds_unpadded(relative_point) {
                 chunk.set_unpadded(relative_point.into(), voxel);
@@ -215,24 +219,24 @@ impl RenderChunks {
         point / CHUNK_SIZE
     }
 
-    #[inline]
-    pub fn chunk_index(&self, chunk_point: IVec3) -> Option<usize> {
-        if chunk_point.x < 0
-            || chunk_point.y < 0
-            || chunk_point.z < 0
-            || chunk_point.x >= self.chunk_size.x
-            || chunk_point.y >= self.chunk_size.y
-            || chunk_point.z >= self.chunk_size.z
-        {
-            return None;
-        }
+    // #[inline]
+    // pub fn chunk_index(&self, chunk_point: IVec3) -> Option<usize> {
+    //     if chunk_point.x < 0
+    //         || chunk_point.y < 0
+    //         || chunk_point.z < 0
+    //         || chunk_point.x >= self.chunk_size.x
+    //         || chunk_point.y >= self.chunk_size.y
+    //         || chunk_point.z >= self.chunk_size.z
+    //     {
+    //         return None;
+    //     }
 
-        Some(
-            chunk_point.z as usize
-                + chunk_point.x as usize * self.strides[1]
-                + chunk_point.y as usize * self.strides[2],
-        )
-    }
+    //     Some(
+    //         chunk_point.z as usize
+    //             + chunk_point.x as usize * self.strides[1]
+    //             + chunk_point.y as usize * self.strides[2],
+    //     )
+    // }
 
     // pub fn chunk_delinearize(&self, chunk_index: usize) -> IVec3 {
     //     let z = chunk_index % self.strides[1];
@@ -297,13 +301,14 @@ impl RenderChunks {
         self.chunk_size
     }
 
-    pub fn chunk_pos_iter<'a, 'b>(&'a self) -> impl Iterator<Item = IVec3> + use<'b> {
-        // self.chunks.keys().copied()
-        let chunk_size = self.chunk_size;
-        (0..chunk_size.z).flat_map(move |z| {
-            (0..chunk_size.x)
-                .flat_map(move |x| (0..chunk_size.y).map(move |y| IVec3::new(x, y, z)))
-        })
+    // pub fn chunk_pos_iter<'a, 'b>(&'a self) -> impl Iterator<Item = IVec3> + use<'b> {
+    pub fn chunk_pos_iter(&self) -> impl Iterator<Item = IVec3> {
+        self.chunks.keys().copied()
+        // let chunk_size = self.chunk_size;
+        // (0..chunk_size.z).flat_map(move |z| {
+        //     (0..chunk_size.x)
+        //         .flat_map(move |x| (0..chunk_size.y).map(move |y| IVec3::new(x, y, z)))
+        // })
     }
 
     pub fn point_iter(&self) -> impl Iterator<Item = IVec3> {
@@ -319,7 +324,7 @@ impl RenderChunks {
     }
     // pub fn chunk_iter_mut<'a, 'b: 'a>(&'b mut self) -> impl Iterator<Item = (IVec3, &'a mut VoxelChunk)> + use<'b> {
     pub fn chunk_iter_mut(&mut self) -> impl Iterator<Item = &mut VoxelChunk>{
-        self.chunks.iter_mut()
+        self.chunks.values_mut()
         // self.chunk_pos_iter().map(move |chunk_point| (chunk_point, self.get_chunk_mut(chunk_point).unwrap()))
     }
 
