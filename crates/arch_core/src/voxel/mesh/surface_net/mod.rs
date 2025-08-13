@@ -237,8 +237,8 @@ pub fn update_surface_net_mesh(
                     MeshMaterial3d(material),
                     ChildOf(*chunk_entity),
                     Transform {
-                        // translation: -crate::voxel::GRID_SCALE,
-                        scale: Vec3::splat(lod as f32),
+                        translation: -crate::voxel::GRID_SCALE,
+                        // scale: Vec3::splat(lod as f32),
                         ..default()
                     },
                 ));

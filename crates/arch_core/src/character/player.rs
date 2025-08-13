@@ -70,6 +70,7 @@ pub fn spawn_player(
             FlyingSettings::default(),
             FlyingState::default(),
             camera_components(),
+            IsDefaultUiCamera,
             Transform::from_translation(Vec3::new(8., 30.0, 8.0))
                 .looking_at(Vec3::new(100.0, 0.0, 0.0), Vec3::Y),
             //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
