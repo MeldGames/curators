@@ -55,6 +55,12 @@ impl Default for BgmMesher {
     }
 }
 
+#[derive(Component, Debug, Reflect)]
+pub struct GridChunk {
+    pub entity: Entity,
+    pub position: IVec3,
+}
+
 pub fn spawn_chunk_entities(
     mut commands: Commands,
     mut grids: Query<(Entity, &Voxels, &mut Chunks), Changed<Voxels>>,
@@ -71,6 +77,7 @@ pub fn spawn_chunk_entities(
                         SurfaceNetMeshes::default(),
                         Lod(1),
                         ChildOf(voxels_entity),
+                        GridChunk { entity: voxels_entity, position: chunk_pos },
                         Transform {
                             translation: chunk_pos.as_vec3()
                                 * crate::voxel::mesh::unpadded::SIZE as f32,
