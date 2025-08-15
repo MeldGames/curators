@@ -43,3 +43,10 @@ pub fn mesh_method(mut commands: Commands, chunks: Query<(Entity, &Lod)>) {
         }
     }
 }
+
+// pub fn hide_inactive(
+//     binary_greedy: Query<(), With<BinaryGreedy>>,
+//     surface_net: Query<(), With<SurfaceNet>>,
+//     surface_net_meshes: Query<&SurfaceNetMeshes>,
+// ) {
+// }

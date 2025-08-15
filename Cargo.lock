@@ -6709,7 +6709,3 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[patch.unused]]
-name = "fast-surface-nets"
-version = "0.2.1"

@@ -11,10 +11,10 @@ use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};
 
 use super::UpdateVoxelMeshSet;
+use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::mesh::lod::Lod;
 use crate::voxel::mesh::surface_net::{SurfaceNetColliders, SurfaceNetMeshes};
 use crate::voxel::mesh::{ChangedChunks, Remesh};
-use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{Voxel, Voxels};
 
@@ -25,7 +25,7 @@ pub(super) fn plugin(app: &mut App) {
 
     app.add_systems(
         PostUpdate,
-        (spawn_chunk_entities, update_binary_mesh, /*update_binary_mesh_collider*/)
+        (spawn_chunk_entities, update_binary_mesh /* update_binary_mesh_collider */)
             .chain()
             .in_set(UpdateVoxelMeshSet),
     );
@@ -48,7 +48,7 @@ pub struct Chunk;
 
 pub const CS: usize = crate::voxel::mesh::unpadded::SIZE;
 
-pub struct BgmMesher(bgm::Mesher::<CS>);
+pub struct BgmMesher(bgm::Mesher<CS>);
 impl Default for BgmMesher {
     fn default() -> Self {
         Self(bgm::Mesher::<CS>::new())
@@ -261,8 +261,8 @@ pub fn update_binary_mesh_collider(
         // 몰리
 
         let flags = TrimeshFlags::FIX_INTERNAL_EDGES
-             | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
-             | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
+            | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES
+            | TrimeshFlags::DELETE_DUPLICATE_TRIANGLES;
 
         if collider_mesh.count_vertices() == 0 {
             // warn!("no vertices in collider mesh");
@@ -341,8 +341,8 @@ impl ColliderMesh {
 pub trait BinaryGreedyMeshing {
     /// Generates 1 mesh per voxel type (voxel id is the index) and 1 collider
     /// mesh with all collidable voxels combined.
-    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher::<CS>) -> Vec<Option<Mesh>>;
-    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher::<CS>) -> ColliderMesh;
+    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher<CS>) -> Vec<Option<Mesh>>;
+    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher<CS>) -> ColliderMesh;
 }
 
 pub fn pos_uvs(quad: Quad, face: Face) -> [([f32; 3], [f32; 2]); 4] {
@@ -410,7 +410,7 @@ pub fn pos_uvs(quad: Quad, face: Face) -> [([f32; 3], [f32; 2]); 4] {
 }
 
 impl BinaryGreedyMeshing for VoxelChunk {
-    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher::<CS>) -> Vec<Option<Mesh>> {
+    fn generate_render_meshes(&self, mesher: &mut bgm::Mesher<CS>) -> Vec<Option<Mesh>> {
         mesher.clear();
         let mut transparents = BTreeSet::new();
         for voxel in Voxel::iter() {
@@ -421,9 +421,10 @@ impl BinaryGreedyMeshing for VoxelChunk {
 
         let opaque_mask = bgm::compute_opaque_mask::<CS>(&self.voxels, &transparents);
         let transparent_mask = bgm::compute_transparent_mask::<CS>(&self.voxels, &transparents);
-        mesher.mesh(
-             &self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(),
-             &transparents,
+        mesher.fast_mesh(
+            &self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(),
+            &opaque_mask,
+            &transparent_mask,
         );
         // mesher.fast_mesh_no_merge(
         //     &self.voxels.iter().map(|&v| v & 0xFF).collect::<Vec<_>>(),
@@ -479,7 +480,7 @@ impl BinaryGreedyMeshing for VoxelChunk {
         meshes
     }
 
-    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher::<CS>) -> ColliderMesh {
+    fn generate_collider_mesh(&self, mesher: &mut bgm::Mesher<CS>) -> ColliderMesh {
         let mut collide_voxels = vec![0u16; bgm::Mesher::<CS>::CS_P3].into_boxed_slice();
         for (index, voxel) in self.voxels.iter().enumerate() {
             if Voxel::from_data(*voxel as u16).collidable() {

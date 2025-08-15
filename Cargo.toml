@@ -84,7 +84,7 @@ criterion = { version = "0.6.0", features = ["html_reports"] }
 
 [patch.crates-io]
 #bevy_enhanced_input = { git = "https://github.com/projectharmonia/bevy_enhanced_input", rev = "21ddc08755" }
-fast-surface-nets = { path = "../fast-surface-nets-rs" }
+#fast-surface-nets = { path = "../fast-surface-nets-rs" }
 
 # bevy patches
 # bevy = { path = "../bevy" }
