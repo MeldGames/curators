@@ -64,6 +64,8 @@ pub struct GridChunk {
 pub fn spawn_chunk_entities(
     mut commands: Commands,
     mut grids: Query<(Entity, &Voxels, &mut Chunks), Changed<Voxels>>,
+    mut changed_chunks: EventReader<ChangedChunks>,
+    mut dedup: Local<HashSet<(Entity, IVec3)>>,
 ) {
     for (voxels_entity, voxels, mut voxel_chunks) in &mut grids {
         for (chunk_pos, _) in voxels.render_chunks.chunk_iter() {
@@ -127,7 +129,6 @@ pub fn update_binary_mesh(
 
     let mut pop_count = 0;
     while pop_count < remesh.bgm {
-        pop_count += 1;
         let Some((voxel_entity, chunk_point)) = queue.pop_front() else {
             break;
         };
@@ -138,6 +139,17 @@ pub fn update_binary_mesh(
             continue;
         };
 
+        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
+            warn!("No chunk at {chunk_point:?}");
+            continue;
+        };
+
+        for (_, voxel) in chunk.voxel_type_updates() {
+            if voxel.rendered() {
+                break;
+            }
+        }
+
         let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
             continue;
         };
@@ -145,11 +157,6 @@ pub fn update_binary_mesh(
         if !is_binary_greedy.contains(*chunk_entity) {
             continue;
         }
-
-        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
-            warn!("No chunk at {chunk_point:?}");
-            continue;
-        };
 
         // info!("chunk {:?} changed, updating binary mesh", chunk_pos);
         let render_meshes = chunk.generate_render_meshes(&mut mesher.0);
@@ -205,6 +212,8 @@ pub fn update_binary_mesh(
                 }
             }
         }
+
+        pop_count += 1;
     }
 }
 

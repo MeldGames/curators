@@ -1,5 +1,5 @@
-use bevy::platform::collections::hash_map::IterMut;
 use bevy::platform::collections::HashMap;
+use bevy::platform::collections::hash_map::IterMut;
 use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
@@ -78,14 +78,16 @@ pub fn to_linear_index(relative_point: IVec3) -> usize {
             && relative_point.z < CHUNK_WIDTH as i32
             && relative_point.x >= 0
             && relative_point.y >= 0
-            && relative_point.z >= 0
-        // ((relative_point.x | relative_point.y | relative_point.z) & !15) != 0
+            && relative_point.z >= 0 /* ((relative_point.x | relative_point.y |
+                                      * relative_point.z) & !15) != 0 */
     );
 
     // z + x * 4 + y * 16
     // zxy order for now, maybe check if yxz is better later since the most checks
     // are vertical
-    (relative_point.z + (relative_point.x << CHUNK_WIDTH_BITSHIFT) + (relative_point.y << CHUNK_WIDTH_BITSHIFT_Y)) as usize
+    (relative_point.z
+        + (relative_point.x << CHUNK_WIDTH_BITSHIFT)
+        + (relative_point.y << CHUNK_WIDTH_BITSHIFT_Y)) as usize
 }
 
 #[inline]
@@ -123,7 +125,7 @@ pub struct UpdateIterator<'a> {
     // pub chunk_points: Vec<IVec3>,
     // pub chunk_index: usize,
     pub iter: IterMut<'a, IVec3, [u64; CHUNK_LENGTH / 64]>,
-    pub current_mask: Option<(&'a IVec3, &'a mut [u64; CHUNK_LENGTH / 64 ])>,
+    pub current_mask: Option<(&'a IVec3, &'a mut [u64; CHUNK_LENGTH / 64])>,
     pub mask_index: usize,
 }
 
@@ -143,9 +145,7 @@ impl<'a> Iterator for UpdateIterator<'a> {
             let bitset = if cfg!(feature = "safe-bounds") {
                 &mut chunk_bitsets[self.mask_index]
             } else {
-                unsafe {
-                    chunk_bitsets.get_unchecked_mut(self.mask_index)
-                }
+                unsafe { chunk_bitsets.get_unchecked_mut(self.mask_index) }
             };
 
             if *bitset != 0 {
@@ -170,13 +170,7 @@ impl<'a> Iterator for UpdateIterator<'a> {
 
 impl SimChunks {
     pub fn new(voxel_size: IVec3) -> Self {
-        let chunk_size = (voxel_size / CHUNK_WIDTH as i32);
-        // println!("chunk_size: {:?}", chunk_size);
-
-        // stride[0] = x;
-        // stride[1] = z;
-        // stride[2] = y;
-        let chunk_strides = [1, chunk_size.x as usize, (chunk_size.x * chunk_size.z) as usize];
+        let chunk_size = voxel_size / CHUNK_WIDTH as i32;
         Self {
             // chunks: vec![SimChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
             chunks: HashMap::with_capacity((chunk_size.x * chunk_size.y * chunk_size.z) as usize),
@@ -194,7 +188,8 @@ impl SimChunks {
             chunk_size,
             (chunk_size.x * chunk_size.y * chunk_size.z) as usize
         );
-        // vec![[0; CHUNK_LENGTH / 64]; (chunk_size.x * chunk_size.y * chunk_size.z) as usize]
+        // vec![[0; CHUNK_LENGTH / 64]; (chunk_size.x * chunk_size.y * chunk_size.z) as
+        // usize]
         HashMap::with_capacity((chunk_size.x * chunk_size.y * chunk_size.z) as usize)
     }
 
@@ -231,6 +226,9 @@ impl SimChunks {
 
     #[inline]
     pub fn get_voxel_from_indices(&self, chunk_point: ChunkPoint, voxel_index: usize) -> Voxel {
+        #[cfg(feature = "trace")]
+        let span = info_span!("get_voxel_from_indices").entered();
+
         let Some(chunk) = self.chunks.get(&chunk_point) else {
             return Voxel::Air;
         };
@@ -238,9 +236,7 @@ impl SimChunks {
         let voxel = if cfg!(feature = "safe-bounds") {
             chunk.voxels[voxel_index]
         } else {
-            unsafe {
-                *chunk.voxels.get_unchecked(voxel_index)
-            }
+            unsafe { *chunk.voxels.get_unchecked(voxel_index) }
         };
 
         Voxel::from_data(voxel)
@@ -263,7 +259,7 @@ impl SimChunks {
         }
 
         let (chunk_point, voxel_index) = self.chunk_and_voxel_indices(point);
-        let mut chunk = self.chunks.entry(chunk_point).or_default();
+        let chunk = self.chunks.entry(chunk_point).or_default();
         if cfg!(feature = "safe-bounds") {
             chunk.voxels[voxel_index] = voxel.data();
         } else {
@@ -310,12 +306,13 @@ impl SimChunks {
         // info!("adding update mask: {:?}", (chunk_index, voxel_index));
         let mask_index = voxel_index >> 6; // voxel_index / 64
         let bit_index = voxel_index & 63; // voxel_index % 64
- 
+
         let chunk_mask = mask.entry(chunk_point).or_insert([0u64; CHUNK_LENGTH / 64]);
         if cfg!(feature = "safe-bounds") {
             chunk_mask[mask_index] |= 1 << bit_index;
         } else {
-            unsafe { // 5% faster, use when we feel fine with callers of this
+            unsafe {
+                // 5% faster, use when we feel fine with callers of this
                 *chunk_mask.get_unchecked_mut(mask_index) |= 1 << bit_index;
             }
         }
@@ -334,7 +331,7 @@ impl SimChunks {
         std::mem::swap(&mut self.sim_updates, swap_buffer);
         let mut iter = swap_buffer.iter_mut();
         let first = iter.next();
-        UpdateIterator { iter: iter, current_mask: first, mask_index: 0 }
+        UpdateIterator { iter, current_mask: first, mask_index: 0 }
     }
 
     // separate buffer for render updates so we can accumulate over multiple frames.
@@ -346,7 +343,7 @@ impl SimChunks {
         std::mem::swap(&mut self.render_updates, swap_buffer);
         let mut iter = swap_buffer.iter_mut();
         let first = iter.next();
-        UpdateIterator { iter: iter, current_mask: first, mask_index: 0 }
+        UpdateIterator { iter, current_mask: first, mask_index: 0 }
     }
 
     #[inline]
@@ -368,15 +365,24 @@ impl SimChunks {
         chunk_point: IVec3,
         voxel_index: usize,
     ) -> IVec3 {
+        #[cfg(feature = "trace")]
+        let span = info_span!("point_from_chunk_and_voxel_indices").entered();
+
         // let chunk_point = self.chunk_delinearize(chunk_index);
         let relative_voxel_point = delinearize(voxel_index);
         (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32)) + relative_voxel_point
     }
 
-    pub fn propagate_sim_updates(&mut self, render_chunks: &mut RenderChunks, render_swap_buffer: &mut UpdateBuffer) {
+    pub fn propagate_sim_updates(
+        &mut self,
+        render_chunks: &mut RenderChunks,
+        render_swap_buffer: &mut UpdateBuffer,
+    ) {
+        #[cfg(feature = "trace")]
+        let span = info_span!("propagate_sim_updates").entered();
+
         for (chunk_index, voxel_index) in self.render_updates(render_swap_buffer) {
-            let point =
-                self.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+            let point = self.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
             let voxel = self.get_voxel_from_indices(chunk_index, voxel_index);
             render_chunks.set_voxel(point, voxel);
         }

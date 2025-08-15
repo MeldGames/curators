@@ -1,19 +1,15 @@
-use arch_core::voxel::mesh::surface_net::fast_surface_nets::SurfaceNetsBuffer;
-use arch_core::voxel::mesh::SurfaceNet;
-use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 
-use bevy::prelude::*;
-
+use arch::core::sdf::voxel_rasterize::{RasterConfig, RasterVoxel, rasterize};
+use arch::core::sdf::{self};
+use arch::core::voxel::simulation::SimSwapBuffer;
+use arch::core::voxel::simulation::data::SimChunks;
 use arch::core::voxel::{self, Voxel, Voxels};
-use arch::core::{
-    sdf::{
-        self,
-        voxel_rasterize::{RasterConfig, RasterVoxel, rasterize},
-    },
-    voxel::simulation::{SimSwapBuffer, data::SimChunks},
-};
-use bench::surface_net::{bench_setup};
+use arch_core::voxel::mesh::SurfaceNet;
+use arch_core::voxel::mesh::surface_net::fast_surface_nets::SurfaceNetsBuffer;
+use bench::surface_net::bench_setup;
+use bevy::prelude::*;
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
 criterion_group!(benches, meshing);
 criterion_main!(benches);
@@ -31,11 +27,7 @@ fn meshing(c: &mut Criterion) {
                         let mut voxels = bench.voxel.new_voxels();
                         bench.voxel.apply_brushes(&mut voxels);
                         let mut swap_buffer = voxels.sim_chunks.create_update_buffer();
-                        let Voxels {
-                            sim_chunks,
-                            render_chunks,
-                            ..
-                        } = &mut voxels;
+                        let Voxels { sim_chunks, render_chunks, .. } = &mut voxels;
                         sim_chunks.propagate_sim_updates(render_chunks, &mut swap_buffer);
 
                         voxels
@@ -48,7 +40,7 @@ fn meshing(c: &mut Criterion) {
                                 }
 
                                 // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
-                                chunk.create_surface_net(&mut surface_net_buffer, voxel.id());
+                                chunk.create_surface_net(&mut surface_net_buffer, voxel.id(), 1);
                                 // for normal in surface_net_buffer.normals.iter_mut() {
                                 //     *normal = (Vec3::from(*normal).normalize()).into();
                                 // }
@@ -58,7 +50,6 @@ fn meshing(c: &mut Criterion) {
                                 // mesh.compute_flat_normals();
                                 black_box(&surface_net_buffer);
                             }
-
                         }
 
                         for chunk in voxels.render_chunks.chunk_iter_mut() {

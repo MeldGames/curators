@@ -3,13 +3,12 @@
 //! This needs to be relatively fast... going to be a
 //! large experiment onto whether we can make this work or not.
 
-use std::collections::BTreeSet;
-
+use bevy::log::tracing::span;
 use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::data::{SimChunks, UpdateBuffer, CHUNK_LENGTH};
+use crate::voxel::simulation::data::{SimChunks, UpdateBuffer};
 use crate::voxel::{Voxel, Voxels};
 
 pub mod data;
@@ -72,11 +71,7 @@ pub struct RenderSwapBuffer(pub UpdateBuffer);
 
 pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer)>) {
     for (mut grid, mut render_swap_buffer) in &mut grids {
-        let Voxels {
-            sim_chunks,
-            render_chunks,
-            ..
-        } = &mut *grid;
+        let Voxels { sim_chunks, render_chunks, .. } = &mut *grid;
 
         sim_chunks.propagate_sim_updates(render_chunks, &mut render_swap_buffer.0);
     }
@@ -87,7 +82,7 @@ pub fn falling_sands(
     mut sim_tick: ResMut<FallingSandTick>,
 ) {
     #[cfg(feature = "trace")]
-    let falling_sands_span = info_span!("falling_sands");
+    let falling_sands_span = info_span!("falling_sands").entered();
 
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
@@ -99,8 +94,7 @@ pub fn falling_sands(
     for (mut grid, mut sim_swap_buffer) in &mut grids {
         for (chunk_index, voxel_index) in grid.sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
             #[cfg(feature = "trace")]
-            let update_span = info_span!("update_voxel", iteration = counter);
-
+            let update_span = info_span!("update_voxel").entered();
             let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_index, voxel_index);
 
             match sim_voxel {
@@ -122,7 +116,7 @@ pub fn falling_sands(
                 //     let point = grid
                 //         .sim_chunks
                 //         .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
-                    // simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
+                // simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 // },
                 _ => {}, // no-op
             }
@@ -163,7 +157,7 @@ pub fn simulate_semisolid(
     sim_tick: &FallingSandTick,
 ) {
     #[cfg(feature = "trace")]
-    let simulate_semisolid_span = info_span!("simulate_semisolid");
+    let simulate_semisolid_span = info_span!("simulate_semisolid").entered();
 
     // let below_point = IVec3::from(point + IVec3::NEG_Y);
     // let below_voxel = grid.get_voxel(below_point);
@@ -194,7 +188,7 @@ pub fn simulate_liquid(
     sim_tick: &FallingSandTick,
 ) {
     #[cfg(feature = "trace")]
-    let simulate_liquid_span = info_span!("simulate_liquid");
+    let simulate_liquid_span = info_span!("simulate_liquid").entered();
 
     // prioritize negative y
     let below_point = IVec3::from(point + IVec3::NEG_Y);
@@ -267,7 +261,7 @@ pub fn simulate_structured(
     sim_tick: &FallingSandTick,
 ) {
     #[cfg(feature = "trace")]
-    let simulate_structured_span = info_span!("simulate_structured");
+    let simulate_structured_span = info_span!("simulate_structured").entered();
 
     let below_voxel = grid.get_voxel(point + IVec3::new(0, -1, 0));
     if below_voxel == Voxel::Air {
@@ -312,21 +306,22 @@ mod tests {
 
     // #[test]
     // fn updates_for_swaps() {
-    //     // merge 2 update masks for a point + a swap point, so we don't try to access
-    //     // the bitmasks as much.
+    //     // merge 2 update masks for a point + a swap point, so we don't try
+    // to access     // the bitmasks as much.
     //     let points = DOWN_DIAGONALS;
 
     //     for point in points {
-    //         let mut offsets = neighbors(IVec3::ZERO).extend(neighbors(point).iter());
+    //         let mut offsets =
+    // neighbors(IVec3::ZERO).extend(neighbors(point).iter());
     //         offsets.dedup();
-    //         offsets.sort_by(|&a, &b| a.y.cmp(&b.y).then(a.x.cmp(&b.x).then(a.z.cmp(&b.z))));
-    //     }
+    //         offsets.sort_by(|&a, &b|
+    // a.y.cmp(&b.y).then(a.x.cmp(&b.x).then(a.z.cmp(&b.z))));     }
 
     //     let name = "DIAGONALS";
-    //     println!("const {}_UPDATE_OFFSETS: [IVec3; {}] = [", name, offsets.len());
-    //     for offset in offsets {
-    //         println!("    IVec3::new({}, {}, {})", offset.x, offset.y, offset.z);
-    //     }
+    //     println!("const {}_UPDATE_OFFSETS: [IVec3; {}] = [", name,
+    // offsets.len());     for offset in offsets {
+    //         println!("    IVec3::new({}, {}, {})", offset.x, offset.y,
+    // offset.z);     }
 
     //     println!("];");
     // }
