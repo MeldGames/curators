@@ -8,7 +8,7 @@ pub type Scalar = i32;
 pub mod unpadded {
     use super::Scalar;
 
-    pub const SIZE: usize = super::padded::SIZE - 2;
+    pub const SIZE: usize = 16;
     pub const SIZE_SCALAR: Scalar = SIZE as Scalar;
     pub const USIZE: usize = SIZE as usize;
     pub const Z_STRIDE: usize = 1;
@@ -44,15 +44,15 @@ pub mod padded {
     use super::Scalar;
 
     // pub const SIZE_SHIFT: usize = 6; // 64
-    pub const SIZE_SHIFT: usize = 4; // 16
-    pub const SIZE: usize = 1 << SIZE_SHIFT;
+    // pub const SIZE_SHIFT: usize = 4; // 16
+    pub const SIZE: usize = super::unpadded::SIZE + 2;
     pub const USIZE: usize = SIZE as usize;
     pub const Z_STRIDE: usize = 1;
     pub const X_STRIDE: usize = SIZE;
     pub const Y_STRIDE: usize = SIZE * SIZE;
     pub const ARR_STRIDE: usize = SIZE * SIZE * SIZE;
 
-    pub const SIZE_SHIFT_Y: usize = SIZE_SHIFT * 2;
+    // pub const SIZE_SHIFT_Y: usize = SIZE_SHIFT * 2;
 
     // Padded linearize point into a 64^3 ZXY array
     #[inline]
@@ -72,10 +72,10 @@ pub mod padded {
     // Delinearize point into a 64^3 array
     #[inline]
     pub fn delinearize(mut index: usize) -> [Scalar; 3] {
-        let y = index >> SIZE_SHIFT_Y;
-        index -= y << SIZE_SHIFT_Y;
-        let x = index >> SIZE_SHIFT;
-        let z = index & (SIZE - 1);
+        let y = index / Y_STRIDE;
+        index -= y * Y_STRIDE;
+        let x = index / X_STRIDE;
+        let z = index % SIZE;
         [x as Scalar, y as Scalar, z as Scalar]
         // let point =
         // crate::voxel::simulation::morton::from_morton_index(index);

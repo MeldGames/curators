@@ -71,6 +71,7 @@ pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut RenderSwapBuffer
     for (mut grid, mut render_swap_buffer) in &mut grids {
         let Voxels { sim_chunks, render_chunks, .. } = &mut *grid;
 
+        render_swap_buffer.0.clear();
         sim_chunks.propagate_sim_updates(render_chunks, &mut render_swap_buffer.0);
     }
 }
@@ -90,6 +91,7 @@ pub fn falling_sands(
     let mut static_counter = 0;
 
     for (mut grid, mut sim_swap_buffer) in &mut grids {
+        sim_swap_buffer.0.clear();
         for (chunk_index, voxel_index) in grid.sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
             #[cfg(feature = "trace")]
             let update_span = info_span!("update_voxel").entered();

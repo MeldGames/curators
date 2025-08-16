@@ -1,4 +1,5 @@
 use avian3d::prelude::*;
+pub use bevy;
 use bevy::core_pipeline::auto_exposure::AutoExposurePlugin;
 use bevy::core_pipeline::core_3d::graph::Node3d;
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasPlugin;
@@ -16,8 +17,6 @@ use iyes_perf_ui::prelude::*;
 use rand_core::RngCore;
 
 use crate::camera::{FlyingCamera, FlyingSettings, FlyingState, camera_components};
-
-pub use bevy;
 
 pub mod camera;
 pub mod character;
@@ -42,6 +41,8 @@ pub fn shared(app: &mut App) {
     // app.add_plugins(PhysicsDebugPlugin::default());
     app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
+
+    app.insert_resource(Time::<Fixed>::from_hz(20.0));
 
     let seed: u64 = 1;
     app.add_plugins(EntropyPlugin::<WyRand>::with_seed(seed.to_be_bytes()));
