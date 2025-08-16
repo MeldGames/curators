@@ -255,7 +255,7 @@ impl SimChunks {
             return Voxel::Barrier;
         }
 
-        let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
+        let (chunk_index, voxel_index) = Self::chunk_and_voxel_indices(point);
         self.get_voxel_from_indices(chunk_index, voxel_index)
     }
 
@@ -265,7 +265,7 @@ impl SimChunks {
             return;
         }
 
-        let (chunk_point, voxel_index) = self.chunk_and_voxel_indices(point);
+        let (chunk_point, voxel_index) = Self::chunk_and_voxel_indices(point);
         let chunk = self.chunks.entry(chunk_point).or_default();
         if cfg!(feature = "safe-bounds") {
             chunk.voxels[voxel_index] = voxel.data();
@@ -278,6 +278,8 @@ impl SimChunks {
         Self::add_update_mask(&mut self.render_updates, chunk_point, voxel_index);
         self.push_neighbor_sim_updates(point);
     }
+
+    pub fn set_voxel_with_index(&mut self, index: usize, voxel: Voxel) {}
 
     #[inline]
     pub fn push_neighbor_sim_updates(&mut self, point: IVec3) {
@@ -295,7 +297,7 @@ impl SimChunks {
     #[inline]
     pub fn push_render_update(&mut self, point: IVec3) {
         if self.in_bounds(point) {
-            let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
+            let (chunk_index, voxel_index) = Self::chunk_and_voxel_indices(point);
             Self::add_update_mask(&mut self.render_updates, chunk_index, voxel_index);
         }
     }
@@ -303,7 +305,7 @@ impl SimChunks {
     #[inline]
     pub fn push_sim_update(&mut self, point: IVec3) {
         if self.in_bounds(point) {
-            let (chunk_index, voxel_index) = self.chunk_and_voxel_indices(point);
+            let (chunk_index, voxel_index) = Self::chunk_and_voxel_indices(point);
             Self::add_update_mask(&mut self.sim_updates, chunk_index, voxel_index);
         }
     }
@@ -357,24 +359,18 @@ impl SimChunks {
     }
 
     #[inline]
-    pub fn chunk_and_voxel_indices(&self, point: IVec3) -> (IVec3, usize) {
+    pub fn chunk_and_voxel_indices(point: IVec3) -> (IVec3, usize) {
         // chunk index
         let chunk_point = chunk_point(point);
-        // let chunk_index = self.chunk_linearize(chunk_point);
 
         // voxel index
         let relative_voxel_point = point - (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32));
-        // let voxel_index = linearize_16x16x16(relative_voxel_point);
         let voxel_index = linearize(relative_voxel_point);
 
         (chunk_point, voxel_index)
     }
 
-    pub fn point_from_chunk_and_voxel_indices(
-        &self,
-        chunk_point: IVec3,
-        voxel_index: usize,
-    ) -> IVec3 {
+    pub fn point_from_chunk_and_voxel_indices(chunk_point: IVec3, voxel_index: usize) -> IVec3 {
         #[cfg(feature = "trace")]
         let span = info_span!("point_from_chunk_and_voxel_indices").entered();
 
@@ -392,7 +388,7 @@ impl SimChunks {
         let span = info_span!("propagate_sim_updates").entered();
 
         for (chunk_index, voxel_index) in self.render_updates(render_swap_buffer) {
-            let point = self.point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+            let point = Self::point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
             let voxel = self.get_voxel_from_indices(chunk_index, voxel_index);
             render_chunks.set_voxel(point, voxel);
         }
@@ -426,8 +422,8 @@ mod tests {
         // assert_eq!(chunks.chunk_and_voxel_indices(ivec3(16, 0, 5)), (1, 0));
 
         let sanity = |p: IVec3| -> IVec3 {
-            let (chunk_index, voxel_index) = chunks.chunk_and_voxel_indices(p);
-            chunks.point_from_chunk_and_voxel_indices(chunk_index, voxel_index)
+            let (chunk_index, voxel_index) = SimChunks::chunk_and_voxel_indices(p);
+            SimChunks::point_from_chunk_and_voxel_indices(chunk_index, voxel_index)
         };
 
         assert_eq!(sanity(ivec3(0, 0, 0)), ivec3(0, 0, 0));

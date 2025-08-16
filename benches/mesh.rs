@@ -25,6 +25,7 @@ fn propagate_voxels(c: &mut Criterion) {
                 b.iter_batched(
                     || {
                         let mut voxels = bench.voxel.new_voxels();
+                        voxels.sim_chunks.propagate_sim_updates(render_chunks, render_swap_buffer);
                         bench.voxel.apply_brushes(&mut voxels);
                         let mut swap_buffer = voxels.sim_chunks.create_update_buffer();
                         let Voxels { sim_chunks, render_chunks, .. } = &mut voxels;

@@ -3,7 +3,6 @@
 //! This needs to be relatively fast... going to be a
 //! large experiment onto whether we can make this work or not.
 
-use bevy::log::tracing::span;
 use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
@@ -13,6 +12,7 @@ use crate::voxel::{Voxel, Voxels};
 
 pub mod data;
 pub mod morton;
+pub mod rle;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>();
@@ -100,22 +100,19 @@ pub fn falling_sands(
             match sim_voxel {
                 Voxel::Sand => {
                     // semi-solid
-                    let point = grid
-                        .sim_chunks
-                        .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    let point =
+                        SimChunks::point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
                     simulate_semisolid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 Voxel::Water { .. } | Voxel::Oil { .. } => {
                     // liquids
-                    let point = grid
-                        .sim_chunks
-                        .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                    let point =
+                        SimChunks::point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
                     simulate_liquid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 },
                 // Voxel::Dirt => {
-                //     let point = grid
-                //         .sim_chunks
-                //         .point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
+                // let point =
+                //     SimChunks::point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
                 // simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
                 // },
                 _ => {}, // no-op
