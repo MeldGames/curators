@@ -14,6 +14,56 @@ use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 criterion_group!(benches, meshing);
 criterion_main!(benches);
 
+fn propagate_voxels(c: &mut Criterion) {
+    let mut group = c.benchmark_group("propagate_voxels");
+
+    for bench in bench::surface_net::mesh_benches() {
+        let mut surface_net_buffer = SurfaceNetsBuffer::default();
+
+        group
+            .bench_function(format!("propagate_{}", bench.name), |b| {
+                b.iter_batched(
+                    || {
+                        let mut voxels = bench.voxel.new_voxels();
+                        bench.voxel.apply_brushes(&mut voxels);
+                        let mut swap_buffer = voxels.sim_chunks.create_update_buffer();
+                        let Voxels { sim_chunks, render_chunks, .. } = &mut voxels;
+                        sim_chunks.propagate_sim_updates(render_chunks, &mut swap_buffer);
+
+                        voxels
+                    },
+                    |mut voxels: Voxels| {
+                        for (_chunk_pos, chunk) in voxels.render_chunks.chunk_iter() {
+                            for (voxel_id, voxel) in chunk.voxel_type_updates() {
+                                if !voxel.rendered() {
+                                    continue;
+                                }
+
+                                // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
+                                chunk.create_surface_net(&mut surface_net_buffer, voxel.id(), 1);
+                                // for normal in surface_net_buffer.normals.iter_mut() {
+                                //     *normal = (Vec3::from(*normal).normalize()).into();
+                                // }
+
+                                // let mut mesh = surface_net_to_mesh(&surface_net_buffer);
+                                // mesh.duplicate_vertices();
+                                // mesh.compute_flat_normals();
+                                black_box(&surface_net_buffer);
+                            }
+                        }
+
+                        for chunk in voxels.render_chunks.chunk_iter_mut() {
+                            chunk.clear_voxel_type_updates();
+                        }
+                    },
+                    BatchSize::LargeInput,
+                );
+            })
+            .sample_size(bench.measurement.sample_size)
+            .measurement_time(bench.measurement.measurement_time);
+    }
+}
+
 fn meshing(c: &mut Criterion) {
     let mut group = c.benchmark_group("surface_net");
 

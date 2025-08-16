@@ -17,9 +17,7 @@ pub mod morton;
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>();
     app.insert_resource(FallingSandTick(0));
-    app.add_systems(PostUpdate, falling_sands);
-    app.add_systems(PostUpdate, update_render_voxels);
-    // app.add_systems(Update, falling_sands);
+    app.add_systems(FixedPostUpdate, (falling_sands, update_render_voxels).chain());
 
     app.add_systems(Startup, || {
         info!("available parallelism: {:?}", std::thread::available_parallelism());
@@ -229,7 +227,7 @@ pub fn simulate_liquid(
                         // if !below_voxel.is_liquid() {
                         //     grid.set_voxel(point, Voxel::Air);
                         // }
-                        // return;
+                        return;
                     }
 
                     Voxel::Water { lateral_energy: lateral_energy - 1 }
@@ -239,7 +237,7 @@ pub fn simulate_liquid(
                         // if !below_voxel.is_liquid() {
                         //     grid.set_voxel(point, Voxel::Air);
                         // }
-                        // return;
+                        return;
                     }
                     Voxel::Oil { lateral_energy: lateral_energy - 1 }
                 },

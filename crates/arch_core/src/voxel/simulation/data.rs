@@ -104,14 +104,16 @@ pub fn from_linear_index(index: usize) -> IVec3 {
 
 #[inline]
 pub fn linearize(relative_point: IVec3) -> usize {
-    to_linear_index(relative_point)
+    // to_linear_index(relative_point)
     // super::morton::to_morton_index(relative_point)
+    unsafe { super::morton::into_morton_index_bmi2(relative_point) }
 }
 
 #[inline]
 pub fn delinearize(index: usize) -> IVec3 {
-    from_linear_index(index)
+    // from_linear_index(index)
     // super::morton::from_morton_index(index)
+    unsafe { super::morton::from_morton_index_bmi2(index) }
 }
 
 #[inline]
@@ -135,6 +137,9 @@ impl<'a> Iterator for UpdateIterator<'a> {
     // (chunk_index, voxel_index)
 
     fn next(&mut self) -> Option<Self::Item> {
+        #[cfg(feature = "trace")]
+        let span = info_span!("UpdateIterator.next").entered();
+
         const MASK_LENGTH: usize = CHUNK_LENGTH / 64;
         // println!("UPDATE ITERATOR NEXT");
         while self.mask_index < MASK_LENGTH && self.current_mask.is_some() {
@@ -158,6 +163,8 @@ impl<'a> Iterator for UpdateIterator<'a> {
             } else {
                 self.mask_index += 1;
                 if self.mask_index == MASK_LENGTH {
+                    #[cfg(feature = "trace")]
+                    let span = info_span!("UpdateIterator.next_internal").entered();
                     self.mask_index = 0;
                     self.current_mask = self.iter.next();
                 }
@@ -327,6 +334,8 @@ impl SimChunks {
         &mut self,
         swap_buffer: &'b mut UpdateBuffer,
     ) -> UpdateIterator<'a> {
+        #[cfg(feature = "trace")]
+        let span = info_span!("sim_updates").entered();
         // debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.sim_updates, swap_buffer);
         let mut iter = swap_buffer.iter_mut();
@@ -339,6 +348,7 @@ impl SimChunks {
         &mut self,
         swap_buffer: &'b mut UpdateBuffer,
     ) -> UpdateIterator<'a> {
+        let span = info_span!("render_updates").entered();
         // debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.render_updates, swap_buffer);
         let mut iter = swap_buffer.iter_mut();

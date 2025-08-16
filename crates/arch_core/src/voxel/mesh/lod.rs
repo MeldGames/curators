@@ -5,7 +5,9 @@ use crate::voxel::mesh::surface_net::SurfaceNetMeshes;
 use crate::voxel::mesh::{BinaryGreedy, ChangedChunks, SurfaceNet};
 
 pub fn plugin(app: &mut App) {
-    app.register_type::<Lod>();
+    app.register_type::<Lod>().register_type::<LodSettings>();
+
+    app.insert_resource(LodSettings { ..default() });
 
     app.add_systems(PreUpdate, (pick_lod, mesh_method).chain());
     app.add_observer(mesh_method_changed::<SurfaceNet>)
@@ -16,21 +18,42 @@ pub fn plugin(app: &mut App) {
 #[reflect(Component)]
 pub struct Lod(pub usize);
 
+#[derive(Resource, Debug, Reflect)]
+#[reflect(Resource)]
+pub struct LodSettings {
+    pub threshold_2: f32,
+    // pub threshold_3: 150.0,
+}
+
+impl Default for LodSettings {
+    fn default() -> Self {
+        Self { threshold_2: 150.0 }
+    }
+}
+
 pub fn pick_lod(
-    cameras: Query<(&GlobalTransform, &Camera)>,
+    cameras: Query<(&GlobalTransform, &Camera), Changed<GlobalTransform>>,
+    mut last_pos: Local<Vec3>,
+
     mut chunks: Query<(&GlobalTransform, &mut Lod)>,
+    lod_settings: Res<LodSettings>,
 ) {
     let Some((camera_transform, camera)) = cameras.iter().find(|(_, c)| c.is_active) else {
         return;
     };
 
+    if last_pos.distance(camera_transform.translation()) < 1.0 {
+        return;
+    }
+
+    *last_pos = camera_transform.translation();
+
+    let threshold_2_squared = lod_settings.threshold_2 * lod_settings.threshold_2;
     for (chunk_transform, mut lod) in chunks {
-        let threshold = 75.0;
-        let threshold_squared = threshold * threshold;
         let distance =
             chunk_transform.translation().distance_squared(camera_transform.translation());
 
-        let new_lod = if distance < threshold_squared { 1 } else { 2 };
+        let new_lod = if distance < threshold_2_squared { 1 } else { 2 };
 
         if lod.0 != new_lod {
             lod.0 = new_lod;
@@ -55,7 +78,7 @@ pub fn mesh_method_changed<M: Component>(
 
 pub fn mesh_method(
     mut commands: Commands,
-    chunks: Query<(Entity, &Lod, &SurfaceNetMeshes, &GreedyMeshes)>,
+    chunks: Query<(Entity, &Lod, &SurfaceNetMeshes, &GreedyMeshes), Changed<Lod>>,
     mut visibility: Query<&mut Visibility>,
 ) {
     for (chunk_entity, lod, surface_net_meshes, greedy_meshes) in chunks {
