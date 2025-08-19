@@ -5,13 +5,20 @@ TODO List:
 - [X] Prefab spawning, primarily for items currently
 - [ ] Generate items inside of a digsite.
 - [ ] Surround digsite in fences with some sides open, add colliders for fences as well.
-- [ ] Voxel falling physics, just simple `if air below, move down` would be good enough, can think about falling sand esque stuff later.
-- [ ] Camera decision, top down or fps?
+- [X] Voxel falling physics, just simple `if air below, move down` would be good enough, can think about falling sand esque stuff later.
+    - [X] Sand
+    - [X] Liquids
+    - Optimizations
+        - [ ] Multithreading?
+        - [ ] Remove update indices, operate on chunks
+        - [ ] 64-tree
+        - [ ] Margolus neighborhoods?
+- [X] Camera decision, top down or fps? (FPS decided)
 - [ ] Digsite
     - [ ] Obstacles?
         - [ ] Stones/boulders
         - [ ] Mines/explosives?
-        - [ ] liquids? This seems hard
+        - [ ] ~liquids? This seems hard~
         - [ ] Permit zones (can't use certain tools, or vehicles, adds some puzzle element to a digsite)
         - [ ] ?
 - [ ] Transport
