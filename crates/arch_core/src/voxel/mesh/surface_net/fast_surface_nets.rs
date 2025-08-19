@@ -1,37 +1,53 @@
 //! Taken from https://github.com/bonsairobo/fast-surface-nets
-//! Modified to work directly with our voxel grids instead of us converting to a sample grid
+//!
+//! Modified to work directly with our voxel grids instead of us converting to a
+//! sample grid as well as various optimizations based on the fact we aren't
+//! actually dealing with an SDF, instead we use binary data of "voxel is(n't)
+//! here".
+//!
+//! Normal gradients are also unnecessary for us, we just want a flat normal for
+//! each triangle, this is entirely stylistic.
 //!
 //!
 //!
-//! A fast, chunk-friendly implementation of Naive Surface Nets on regular grids.
+//!
+//!
+//!
+//!
+//! A fast, chunk-friendly implementation of Naive Surface Nets on regular
+//! grids.
 //!
 //! ![Mesh
 //! Examples](https://raw.githubusercontent.com/bonsairobo/fast-surface-nets-rs/main/examples-crate/render/mesh_examples.png)
 //!
-//! Surface Nets is an algorithm for extracting an isosurface mesh from a [signed distance
-//! field](https://en.wikipedia.org/wiki/Signed_distance_function) sampled on a regular grid. It is nearly the same as Dual
-//! Contouring, but instead of using hermite (derivative) data to estimate surface points, Surface Nets will do a simpler form
-//! of interpolation (average) between points where the isosurface crosses voxel cube edges.
+//! Surface Nets is an algorithm for extracting an isosurface mesh from a
+//! [signed distance field](https://en.wikipedia.org/wiki/Signed_distance_function) sampled on a regular grid. It is nearly the same as Dual
+//! Contouring, but instead of using hermite (derivative) data to estimate
+//! surface points, Surface Nets will do a simpler form of interpolation
+//! (average) between points where the isosurface crosses voxel cube edges.
 //!
-//! Benchmarks show that [`surface_nets`] generates about 20 million triangles per second on a single core
-//! of a 2.5 GHz Intel Core i7. This implementation achieves high performance by using small lookup tables and SIMD acceleration
-//! provided by `glam` when doing 3D floating point vector math. (Users are not required to use `glam` types in any API
-//! signatures.) To run the benchmarks yourself, `cd bench/ && cargo bench`.
+//! Benchmarks show that [`surface_nets`] generates about 20 million triangles
+//! per second on a single core of a 2.5 GHz Intel Core i7. This implementation
+//! achieves high performance by using small lookup tables and SIMD acceleration
+//! provided by `glam` when doing 3D floating point vector math. (Users are not
+//! required to use `glam` types in any API signatures.) To run the benchmarks
+//! yourself, `cd bench/ && cargo bench`.
 //!
 //! High-quality surface normals are estimated by:
 //!
 //! 1. calculating SDF derivatives using central differencing
 //! 2. using bilinear interpolation of SDF derivatives along voxel cube edges
 //!
-//! When working with sparse data sets, [`surface_nets`] can generate meshes for array chunks that fit
-//! together seamlessly. This works because faces are not generated on the positive boundaries of a chunk. One must only apply a
+//! When working with sparse data sets, [`surface_nets`] can generate meshes for
+//! array chunks that fit together seamlessly. This works because faces are not
+//! generated on the positive boundaries of a chunk. One must only apply a
 //! translation of the mesh into proper world coordinates for the given chunk.
 //!
 //! # Example Code
 //!
 //! ```
 //! use fast_surface_nets::ndshape::{ConstShape, ConstShape3u32};
-//! use fast_surface_nets::{surface_nets, SurfaceNetsBuffer};
+//! use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 //!
 //! // A 16^3 chunk with 1-voxel boundary padding.
 //! type ChunkShape = ConstShape3u32<18, 18, 18>;
@@ -52,7 +68,8 @@
 
 use bevy::prelude::*;
 
-use crate::voxel::{mesh::padded, Voxel};
+use crate::voxel::Voxel;
+use crate::voxel::mesh::padded;
 
 pub fn linearize([x, y, z]: [u32; 3], size: u32) -> u32 {
     z + x * size + y * size * size
@@ -70,24 +87,29 @@ pub type VoxelId = u16;
 pub const MIN: UVec3 = UVec3::ZERO;
 pub const MAX: UVec3 = UVec3::splat(padded::SIZE as u32 - 1);
 
-/// The output buffers used by [`surface_nets`]. These buffers can be reused to avoid reallocating memory.
+/// The output buffers used by [`surface_nets`]. These buffers can be reused to
+/// avoid reallocating memory.
 #[derive(Default, Clone)]
 pub struct SurfaceNetsBuffer {
     /// The triangle mesh positions.
     ///
-    /// These are in array-local coordinates, i.e. at array position `(x, y, z)`, the vertex position would be `(x, y, z) +
-    /// centroid` if the isosurface intersects that voxel.
+    /// These are in array-local coordinates, i.e. at array position `(x, y,
+    /// z)`, the vertex position would be `(x, y, z) + centroid` if the
+    /// isosurface intersects that voxel.
     pub positions: Vec<[f32; 3]>,
     /// The triangle mesh normals.
     ///
-    /// The normals are **not** normalized, since that is done most efficiently on the GPU.
+    /// The normals are **not** normalized, since that is done most efficiently
+    /// on the GPU.
     pub normals: Vec<[f32; 3]>,
     /// The triangle mesh indices.
     pub indices: Vec<u32>,
 
-    /// Local 3D array coordinates of every voxel that intersects the isosurface.
+    /// Local 3D array coordinates of every voxel that intersects the
+    /// isosurface.
     pub surface_points: Vec<[u32; 3]>,
-    /// Stride of every voxel that intersects the isosurface. Can be used for efficient post-processing.
+    /// Stride of every voxel that intersects the isosurface. Can be used for
+    /// efficient post-processing.
     pub surface_strides: Vec<u32>,
     /// Used to map back from voxel stride to vertex index.
     pub stride_to_index: Vec<u32>,
@@ -102,7 +124,8 @@ impl SurfaceNetsBuffer {
         self.surface_points.clear();
         self.surface_strides.clear();
 
-        // Just make sure this buffer is big enough, whether or not we've used it before.
+        // Just make sure this buffer is big enough, whether or not we've used it
+        // before.
         self.stride_to_index.resize(array_size, NULL_VERTEX);
     }
 }
@@ -113,10 +136,13 @@ pub const NULL_VERTEX: u32 = u32::MAX;
 /// The Naive Surface Nets smooth voxel meshing algorithm.
 ///
 /// Extracts an isosurface mesh from the [signed distance field](https://en.wikipedia.org/wiki/Signed_distance_function) `sdf`.
-/// Each value in the field determines how close that point is to the isosurface. Negative values are considered "interior" of
-/// the surface volume, and positive values are considered "exterior." These lattice points will be considered corners of unit
-/// cubes. For each unit cube, at most one isosurface vertex will be estimated, as below, where `p` is a positive corner value,
-/// `n` is a negative corner value, `s` is an isosurface vertex, and `|` or `-` are mesh polygons connecting the vertices.
+/// Each value in the field determines how close that point is to the
+/// isosurface. Negative values are considered "interior" of the surface volume,
+/// and positive values are considered "exterior." These lattice points will be
+/// considered corners of unit cubes. For each unit cube, at most one isosurface
+/// vertex will be estimated, as below, where `p` is a positive corner value,
+/// `n` is a negative corner value, `s` is an isosurface vertex, and `|` or `-`
+/// are mesh polygons connecting the vertices.
 ///
 /// ```text
 /// p   p   p   p
@@ -128,13 +154,15 @@ pub const NULL_VERTEX: u32 = u32::MAX;
 /// p   p   p   p
 /// ```
 ///
-/// The set of corners sampled is exactly the set of points in `[min, max]`. `sdf` must contain all of those points.
+/// The set of corners sampled is exactly the set of points in `[min, max]`.
+/// `sdf` must contain all of those points.
 ///
-/// Note that the scheme illustrated above implies that chunks must be padded with a 1-voxel border copied from neighboring
-/// voxels in order to connect seamlessly.
+/// Note that the scheme illustrated above implies that chunks must be padded
+/// with a 1-voxel border copied from neighboring voxels in order to connect
+/// seamlessly.
 pub fn surface_nets(
-    voxels: &[VoxelData], // voxel buffer
-    mesh_voxel_id: VoxelId,     // voxel id to mesh
+    voxels: &[VoxelData],   // voxel buffer
+    mesh_voxel_id: VoxelId, // voxel id to mesh
     size: u32,
     output: &mut SurfaceNetsBuffer,
 ) {
@@ -147,9 +175,14 @@ pub fn surface_nets(
     make_all_quads(voxels, mesh_voxel_id, size, output);
 }
 
-// Find all vertex positions and normals. Also generate a map from grid position to vertex index to be used to look up vertices
-// when generating quads.
-fn estimate_surface(sdf: &[VoxelData], mesh_voxel_id: VoxelId, size: u32, output: &mut SurfaceNetsBuffer) {
+// Find all vertex positions and normals. Also generate a map from grid position
+// to vertex index to be used to look up vertices when generating quads.
+fn estimate_surface(
+    sdf: &[VoxelData],
+    mesh_voxel_id: VoxelId,
+    size: u32,
+    output: &mut SurfaceNetsBuffer,
+) {
     for x in 0..size - 1 {
         for y in 0..size - 1 {
             for z in 0..size - 1 {
@@ -167,11 +200,12 @@ fn estimate_surface(sdf: &[VoxelData], mesh_voxel_id: VoxelId, size: u32, output
     }
 }
 
-// Consider the grid-aligned cube where `p` is the minimal corner. Find a point inside this cube that is approximately on the
-// isosurface.
+// Consider the grid-aligned cube where `p` is the minimal corner. Find a point
+// inside this cube that is approximately on the isosurface.
 //
-// This is done by estimating, for each cube edge, where the isosurface crosses the edge (if it does at all). Then the estimated
-// surface point is the average of these edge crossings.
+// This is done by estimating, for each cube edge, where the isosurface crosses
+// the edge (if it does at all). Then the estimated surface point is the average
+// of these edge crossings.
 fn estimate_surface_in_cube(
     sdf: &[VoxelData],
     mesh_voxel_id: VoxelId,
@@ -223,7 +257,8 @@ fn centroid_of_edge_intersections(dists: &[f32; 8]) -> Vec3A {
     sum / count as f32
 }
 
-// Given two cube corners, find the point between them where the SDF is zero. (This might not exist).
+// Given two cube corners, find the point between them where the SDF is zero.
+// (This might not exist).
 fn estimate_surface_edge_intersection(
     corner1: u32,
     corner2: u32,
@@ -237,11 +272,12 @@ fn estimate_surface_edge_intersection(
         + interp1 * CUBE_CORNER_VECTORS[corner2 as usize]
 }
 
-/// Calculate the normal as the gradient of the distance field. Don't bother making it a unit vector, since we'll do that on the
-/// GPU.
+/// Calculate the normal as the gradient of the distance field. Don't bother
+/// making it a unit vector, since we'll do that on the GPU.
 ///
-/// For each dimension, there are 4 cube edges along that axis. This will do bilinear interpolation between the differences
-/// along those edges based on the position of the surface (s).
+/// For each dimension, there are 4 cube edges along that axis. This will do
+/// bilinear interpolation between the differences along those edges based on
+/// the position of the surface (s).
 fn sdf_gradient(dists: &[f32; 8], s: Vec3A) -> Vec3A {
     let p00 = Vec3A::from([dists[0b001], dists[0b010], dists[0b100]]);
     let n00 = Vec3A::from([dists[0b000], dists[0b000], dists[0b000]]);
@@ -270,9 +306,11 @@ fn sdf_gradient(dists: &[f32; 8], s: Vec3A) -> Vec3A {
         + s.yzx() * s.zxy() * d11
 }
 
-// For every edge that crosses the isosurface, make a quad between the "centers" of the four cubes touching that surface. The
-// "centers" are actually the vertex positions found earlier. Also make sure the triangles are facing the right way. See the
-// comments on `maybe_make_quad` to help with understanding the indexing.
+// For every edge that crosses the isosurface, make a quad between the "centers"
+// of the four cubes touching that surface. The "centers" are actually the
+// vertex positions found earlier. Also make sure the triangles are facing the
+// right way. See the comments on `maybe_make_quad` to help with understanding
+// the indexing.
 fn make_all_quads(
     sdf: &[VoxelData],
     mesh_voxel_id: VoxelId,
@@ -336,7 +374,8 @@ fn make_all_quads(
 
 // Construct a quad in the dual graph of the SDF lattice.
 //
-// The surface point s was found somewhere inside of the cube with minimal corner p1.
+// The surface point s was found somewhere inside of the cube with minimal
+// corner p1.
 //
 //       x ---- x
 //      /      /|
@@ -345,7 +384,8 @@ fn make_all_quads(
 //     |      |/
 //    p1 --- p2
 //
-// And now we want to find the quad between p1 and p2 where s is a corner of the quad.
+// And now we want to find the quad between p1 and p2 where s is a corner of the
+// quad.
 //
 //          s
 //         /|
@@ -360,8 +400,9 @@ fn make_all_quads(
 //       A
 //   p1 ---> p2
 //
-// then we must find the other 3 quad corners by moving along the other two axes (those orthogonal to A) in the negative
-// directions; these are axis B and axis C.
+// then we must find the other 3 quad corners by moving along the other two axes
+// (those orthogonal to A) in the negative directions; these are axis B and axis
+// C.
 #[allow(clippy::too_many_arguments)]
 fn maybe_make_quad(
     sdf: &[VoxelData],
@@ -378,7 +419,10 @@ fn maybe_make_quad(
     let d2 = unsafe { sdf.get_unchecked(p2) };
     // let d1 = &sdf[p1];
     // let d2 = &sdf[p2];
-    let negative_face = match (Voxel::id_from_data(*d1) == mesh_voxel_id, Voxel::id_from_data(*d2) == mesh_voxel_id) {
+    let negative_face = match (
+        Voxel::id_from_data(*d1) == mesh_voxel_id,
+        Voxel::id_from_data(*d2) == mesh_voxel_id,
+    ) {
         (true, false) => false,
         (false, true) => true,
         _ => return, // No face.
