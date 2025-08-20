@@ -478,6 +478,41 @@ impl VoxelMaterials {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+pub struct VoxelChangeset(u16);
+
+impl Default for VoxelChangeset {
+    fn default() -> Self {
+        Self(0)
+    }
+}
+
+impl Iterator for VoxelChangeset {
+    type Item = Voxel;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0 != 0 {
+            // `bitset & -bitset` returns a bitset with only the lowest significant bit set
+            let t = self.0 & self.0.wrapping_neg();
+            let trailing = self.0.trailing_zeros() as usize;
+            self.0 ^= t;
+            return Voxel::from_id(trailing as u16);
+        }
+
+        None
+    }
+}
+
+impl VoxelChangeset {
+    pub fn clear(&mut self) {
+        self.0 = 0;
+    }
+
+    pub fn set(&mut self, voxel: Voxel) {
+        self.0 |= 1 << voxel.id();
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

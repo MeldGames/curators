@@ -4,8 +4,8 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::mesh::RenderChunks;
 use crate::voxel::simulation::{RenderSwapBuffer, SimSwapBuffer};
+use crate::voxel::voxel::VoxelChangeset;
 use crate::voxel::{Voxel, Voxels};
 
 pub const CHUNK_WIDTH_BITSHIFT: usize = 4;
@@ -39,15 +39,16 @@ pub fn insert_voxels_sim_chunks(
 // #[derive(Debug, Clone, PartialEq, Eq, Reflect)]
 pub type UpdateBuffer = HashMap<ChunkPoint, [u64; CHUNK_LENGTH / 64]>;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct SimChunk {
+    pub voxel_changeset: VoxelChangeset,
     // lets try just a 4x4x4 chunk
     pub voxels: [u16; CHUNK_LENGTH],
 }
 
 impl Default for SimChunk {
     fn default() -> Self {
-        Self { voxels: [0; CHUNK_LENGTH] }
+        Self { voxel_changeset: default(), voxels: [0; CHUNK_LENGTH] }
     }
 }
 
@@ -276,6 +277,8 @@ impl SimChunks {
                 *chunk.voxels.get_unchecked_mut(voxel_index) = voxel.data();
             }
         }
+
+        chunk.voxel_changeset.set(voxel);
 
         // Self::add_update_mask(&mut self.render_updates, chunk_point, voxel_index);
         self.updated_chunks.insert(chunk_point);
