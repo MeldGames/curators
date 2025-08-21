@@ -21,11 +21,9 @@ use crate::voxel::mesh::{ChangedChunk, padded};
 use crate::voxel::{UpdateVoxelMeshSet, Voxel, Voxels};
 
 pub mod fast_surface_nets;
-pub mod surface_nets_direct;
 
 // use fast_surface_nets::ndshape::{Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
-// use surface_nets_direct::{SurfaceNetsBuffer, surface_nets};
 
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
@@ -181,9 +179,22 @@ pub fn update_surface_net_mesh(
             let chunk_size = IVec3::splat(16);
             let chunk_min = chunk_size * chunk_point;
             let chunk_max = chunk_min + chunk_size;
-            voxels.create_surface_net(&mut surface_net_buffer, voxel_id, chunk_min, chunk_max, lod);
-            // for normal in surface_net_buffer.normals.iter_mut() {
-            //     *normal = (Vec3::from(*normal).normalize()).into();
+            voxels.create_surface_net(
+                &mut surface_net_buffer,
+                voxel_id,
+                chunk_min - IVec3::ONE,
+                chunk_max,
+                lod,
+            );
+            // let SurfaceNetsBuffer { ref mut normals, ref mut positions, .. } =
+            // *surface_net_buffer; for (position, normal) in
+            // positions.iter_mut().zip(normals.iter_mut()) {     *normal =
+            // (Vec3::from(*normal).normalize()).into();     const AMOUNT: f32 =
+            // 0.2;     *position = [
+            //         position[0] + normal[0] * AMOUNT,
+            //         position[1] + normal[1] * AMOUNT,
+            //         position[2] + normal[2] * AMOUNT,
+            //     ];
             // }
 
             let mut mesh = surface_net_to_mesh(&surface_net_buffer);

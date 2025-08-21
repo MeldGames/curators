@@ -174,13 +174,12 @@ fn estimate_surface<V: VoxelAccess>(
     max: IVec3,
     output: &mut SurfaceNetsBuffer,
 ) {
-    for x in min.x..=max.x {
-        for y in min.y..=max.y {
-            for z in min.z..=max.z {
+    for x in min.x..max.x {
+        for y in min.y..max.y {
+            for z in min.z..max.z {
                 // let stride = linearize([x, y, z], size);
                 let corner = IVec3::new(x, y, z);
-                let p = corner.as_vec3a();
-                if estimate_surface_in_cube(sdf, mesh_voxel_id, p, corner, output) {
+                if estimate_surface_in_cube(sdf, mesh_voxel_id, corner, output) {
                     // output.stride_to_index[stride as usize] = output.positions.len() as u32 - 1;
                     output.point_to_index.insert(corner, output.positions.len() as u32 - 1);
                     output.surface_points.push(corner);
@@ -202,7 +201,6 @@ fn estimate_surface<V: VoxelAccess>(
 fn estimate_surface_in_cube<V: VoxelAccess>(
     voxels: &V,
     mesh_voxel_id: VoxelId,
-    p: Vec3A,
     min_corner: IVec3,
     output: &mut SurfaceNetsBuffer,
 ) -> bool {
@@ -210,13 +208,13 @@ fn estimate_surface_in_cube<V: VoxelAccess>(
     let mut corner_dists = [0f32; 8];
     let mut num_negative = 0;
     for (i, dist) in corner_dists.iter_mut().enumerate() {
-        let corner_stride = min_corner + CUBE_CORNERS[i];
-        let v = voxels.get_voxel(corner_stride);
+        let corner_point = min_corner + CUBE_CORNERS[i];
+        let v = voxels.get_voxel(corner_point);
         *dist = if v.id() == mesh_voxel_id {
             num_negative += 1;
-            -1.0
+            -0.5
         } else {
-            1.0
+            0.5
         };
     }
 
@@ -227,7 +225,7 @@ fn estimate_surface_in_cube<V: VoxelAccess>(
 
     let c = centroid_of_edge_intersections(&corner_dists);
 
-    output.positions.push((p + c).into());
+    output.positions.push((min_corner.as_vec3a() + c).into());
     output.normals.push(sdf_gradient(&corner_dists, c).into());
 
     true
@@ -313,7 +311,7 @@ fn make_all_quads<V: VoxelAccess>(
         let eval_max_plane = cfg!(feature = "eval-max-plane");
 
         // Do edges parallel with the X axis
-        if point.y != min.y && point.z != min.z && (eval_max_plane || point.x != max.x) {
+        if point.y != min.y && point.z != min.z && (eval_max_plane || point.x != max.x - 1) {
             maybe_make_quad(
                 voxels,
                 mesh_voxel_id,
@@ -327,7 +325,7 @@ fn make_all_quads<V: VoxelAccess>(
             );
         }
         // Do edges parallel with the Y axis
-        if point.x != min.x && point.z != min.z && (eval_max_plane || point.y != max.y) {
+        if point.x != min.x && point.z != min.z && (eval_max_plane || point.y != max.y - 1) {
             maybe_make_quad(
                 voxels,
                 mesh_voxel_id,
@@ -341,7 +339,7 @@ fn make_all_quads<V: VoxelAccess>(
             );
         }
         // Do edges parallel with the Z axis
-        if point.x != min.x && point.y != min.y && (eval_max_plane || point.z != max.z) {
+        if point.x != min.x && point.y != min.y && (eval_max_plane || point.z != max.z - 1) {
             maybe_make_quad(
                 voxels,
                 mesh_voxel_id,
