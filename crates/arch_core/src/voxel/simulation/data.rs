@@ -64,10 +64,9 @@ pub struct SimChunks {
     // pub chunk_strides: [usize; 3],
     pub chunks: HashMap<ChunkPoint, SimChunk>,
 
-    // pub sim_updates: UpdateBuffer,    // bitmask of updates
-    // pub render_updates: UpdateBuffer, // bitmask of updates
-    pub updated_chunks: HashSet<ChunkPoint>,
-
+    pub sim_updates: UpdateBuffer,    // bitmask of updates
+    pub render_updates: UpdateBuffer, // bitmask of updates
+    // pub updated_chunks: HashSet<ChunkPoint>,
     pub chunk_size: IVec3,
     pub voxel_size: IVec3,
 }
@@ -183,9 +182,9 @@ impl SimChunks {
         Self {
             // chunks: vec![SimChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
             chunks: HashMap::with_capacity((chunk_size.x * chunk_size.y * chunk_size.z) as usize),
-            // sim_updates: Self::create_update_buffer_from_size(chunk_size),
-            // render_updates: Self::create_update_buffer_from_size(chunk_size),
-            updated_chunks: HashSet::new(),
+            sim_updates: Self::create_update_buffer_from_size(chunk_size),
+            render_updates: Self::create_update_buffer_from_size(chunk_size),
+            // updated_chunks: HashSet::new(),
             // chunk_strides,
             chunk_size,
             voxel_size,
@@ -280,8 +279,8 @@ impl SimChunks {
 
         chunk.voxel_changeset.set(voxel);
 
-        // Self::add_update_mask(&mut self.render_updates, chunk_point, voxel_index);
-        self.updated_chunks.insert(chunk_point);
+        Self::add_update_mask(&mut self.render_updates, chunk_point, voxel_index);
+        // self.updated_chunks.insert(chunk_point);
         self.push_neighbor_sim_updates(point);
     }
 
@@ -292,27 +291,28 @@ impl SimChunks {
                 for z in -1..=1 {
                     let offset = ivec3(x, y, z);
                     let neighbor = point + offset;
-                    self.updated_chunks.insert(chunk_point(neighbor));
+                    self.push_sim_update(neighbor);
+                    // self.updated_chunks.insert(chunk_point(neighbor));
                 }
             }
         }
     }
 
-    // #[inline]
-    // pub fn push_render_update(&mut self, point: IVec3) {
-    //     if self.in_bounds(point) {
-    //         let (chunk_index, voxel_index) =
-    // Self::chunk_and_voxel_indices(point);         Self::add_update_mask(&mut
-    // self.render_updates, chunk_index, voxel_index);     }
-    // }
+    #[inline]
+    pub fn push_render_update(&mut self, point: IVec3) {
+        if self.in_bounds(point) {
+            let (chunk_index, voxel_index) = Self::chunk_and_voxel_indices(point);
+            Self::add_update_mask(&mut self.render_updates, chunk_index, voxel_index);
+        }
+    }
 
-    // #[inline]
-    // pub fn push_sim_update(&mut self, point: IVec3) {
-    //     if self.in_bounds(point) {
-    //         let (chunk_index, voxel_index) =
-    // Self::chunk_and_voxel_indices(point);         Self::add_update_mask(&mut
-    // self.sim_updates, chunk_index, voxel_index);     }
-    // }
+    #[inline]
+    pub fn push_sim_update(&mut self, point: IVec3) {
+        if self.in_bounds(point) {
+            let (chunk_index, voxel_index) = Self::chunk_and_voxel_indices(point);
+            Self::add_update_mask(&mut self.sim_updates, chunk_index, voxel_index);
+        }
+    }
 
     #[inline]
     pub fn add_update_mask(mask: &mut UpdateBuffer, chunk_point: ChunkPoint, voxel_index: usize) {
@@ -332,36 +332,36 @@ impl SimChunks {
     }
 
     pub fn clear_updates(&mut self) {
-        // self.sim_updates.clear();
-        // self.render_updates.clear();
-        self.updated_chunks.clear();
+        self.sim_updates.clear();
+        self.render_updates.clear();
+        // self.updated_chunks.clear();
     }
 
-    // pub fn sim_updates<'a, 'b: 'a>(
-    //     &mut self,
-    //     swap_buffer: &'b mut UpdateBuffer,
-    // ) -> UpdateIterator<'a> {
-    //     #[cfg(feature = "trace")]
-    //     let span = info_span!("sim_updates").entered();
-    //     // debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
-    //     std::mem::swap(&mut self.sim_updates, swap_buffer);
-    //     let mut iter = swap_buffer.iter_mut();
-    //     let first = iter.next();
-    //     UpdateIterator { iter, current_mask: first, mask_index: 0 }
-    // }
+    pub fn sim_updates<'a, 'b: 'a>(
+        &mut self,
+        swap_buffer: &'b mut UpdateBuffer,
+    ) -> UpdateIterator<'a> {
+        #[cfg(feature = "trace")]
+        let span = info_span!("sim_updates").entered();
+        // debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
+        std::mem::swap(&mut self.sim_updates, swap_buffer);
+        let mut iter = swap_buffer.iter_mut();
+        let first = iter.next();
+        UpdateIterator { iter, current_mask: first, mask_index: 0 }
+    }
 
-    // // separate buffer for render updates so we can accumulate over multiple
-    // frames. pub fn render_updates<'a, 'b: 'a>(
-    //     &mut self,
-    //     swap_buffer: &'b mut UpdateBuffer,
-    // ) -> UpdateIterator<'a> {
-    //     let span = info_span!("render_updates").entered();
-    //     // debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
-    //     std::mem::swap(&mut self.render_updates, swap_buffer);
-    //     let mut iter = swap_buffer.iter_mut();
-    //     let first = iter.next();
-    //     UpdateIterator { iter, current_mask: first, mask_index: 0 }
-    // }
+    // separate buffer for render updates so we can accumulate over multiple
+    pub fn render_updates<'a, 'b: 'a>(
+        &mut self,
+        swap_buffer: &'b mut UpdateBuffer,
+    ) -> UpdateIterator<'a> {
+        let span = info_span!("render_updates").entered();
+        // debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
+        std::mem::swap(&mut self.render_updates, swap_buffer);
+        let mut iter = swap_buffer.iter_mut();
+        let first = iter.next();
+        UpdateIterator { iter, current_mask: first, mask_index: 0 }
+    }
 
     #[inline]
     pub fn chunk_and_voxel_indices(point: IVec3) -> (IVec3, usize) {

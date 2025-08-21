@@ -17,7 +17,7 @@ use crate::voxel::mesh::binary_greedy::Chunks;
 use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::mesh::frustum_chunks::FrustumChunks;
 use crate::voxel::mesh::remesh::Remesh;
-use crate::voxel::mesh::{ChangedChunks, padded};
+use crate::voxel::mesh::{ChangedChunk, padded};
 use crate::voxel::{UpdateVoxelMeshSet, Voxel, Voxels};
 
 pub mod fast_surface_nets;
@@ -83,12 +83,12 @@ pub fn update_surface_net_mesh(
     // voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
     // mut mesher: Local<BgmMesher>,
     mut surface_net_buffer: Local<SurfaceNetsBuffer>,
-    mut changed_chunks: EventReader<ChangedChunks>,
+    mut changed_chunks: EventReader<ChangedChunk>,
 
     named: Query<NameOrEntity>,
 
-    mut queue: Local<Vec<(Entity, IVec3)>>,
-    mut dedup: Local<HashSet<(Entity, IVec3)>>,
+    mut queue: Local<Vec<ChangedChunk>>,
+    mut dedup: Local<HashSet<ChangedChunk>>,
 
     remesh: Res<Remesh>,
     frustum_chunks: Res<FrustumChunks>,
@@ -110,29 +110,18 @@ pub fn update_surface_net_mesh(
         }
     }
 
-    for (voxel_entity, grid, ..) in &grids {
-        for chunk in grid.sim_chunks.updated_chunks.iter() {
-            let new_entry = (voxel_entity, *chunk);
-            if !dedup.contains(&new_entry) {
-                queue.push(new_entry);
-                dedup.insert(new_entry);
-            }
+    for &changed_chunk in changed_chunks.read() {
+        if !dedup.contains(&changed_chunk) {
+            queue.push(changed_chunk);
+            dedup.insert(changed_chunk);
         }
     }
 
-    for ChangedChunks { voxel_entity, changed_chunks } in changed_chunks.read() {
-        for chunk in changed_chunks {
-            let new_entry = (*voxel_entity, *chunk);
-            if !dedup.contains(&new_entry) {
-                queue.push(new_entry);
-                dedup.insert(new_entry);
-            }
-        }
-    }
-
-    queue.sort_by(|(entity_a, pos_a), (entity_b, pos_b)| {
-        let a_frustum = frustum_chunks.get(&(*entity_a, *pos_a));
-        let b_frustum = frustum_chunks.get(&(*entity_b, *pos_b));
+    queue.sort_by(|changed_a, changed_b| {
+        let ChangedChunk { grid_entity: entity_a, chunk_point: point_a } = changed_a;
+        let ChangedChunk { grid_entity: entity_b, chunk_point: point_b } = changed_b;
+        let a_frustum = frustum_chunks.get(&(*entity_a, *point_a));
+        let b_frustum = frustum_chunks.get(&(*entity_b, *point_b));
         match (a_frustum, b_frustum) {
             (Some(_), None) => Ordering::Greater, // the one in the frustum should be placed last
             (None, Some(_)) => Ordering::Less,
@@ -146,13 +135,14 @@ pub fn update_surface_net_mesh(
     let mut pop_count = 0;
     while pop_count < remesh.surface_net {
         pop_count += 1;
-        let Some((voxel_entity, chunk_point)) = queue.pop() else {
+        let Some(changed_chunk) = queue.pop() else {
             break;
         };
-        dedup.remove(&(voxel_entity, chunk_point));
+        dedup.remove(&changed_chunk);
+        let ChangedChunk { grid_entity, chunk_point } = changed_chunk;
 
-        let Ok((_, voxels, voxel_chunks, mut remeshed)) = grids.get_mut(voxel_entity) else {
-            warn!("No voxels for entity `{}`", named.get(voxel_entity).unwrap());
+        let Ok((_, voxels, voxel_chunks, mut remeshed)) = grids.get_mut(grid_entity) else {
+            warn!("No voxels for entity `{}`", named.get(grid_entity).unwrap());
             continue;
         };
 

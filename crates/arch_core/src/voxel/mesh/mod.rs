@@ -32,7 +32,7 @@ pub enum UpdateVoxelMeshSet {
 }
 
 pub fn plugin(app: &mut App) {
-    app.add_event::<ChangedChunks>();
+    app.add_event::<ChangedChunk>();
 
     // app.add_plugins(ass_mesh::ASSMeshPlugin);
     // app.add_plugins(meshem::MeshemPlugin);
@@ -58,15 +58,15 @@ pub fn plugin(app: &mut App) {
     app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet::Finish));
 }
 
-#[derive(Event, Debug)]
-pub struct ChangedChunks {
-    pub voxel_entity: Entity,
-    pub changed_chunks: Vec<IVec3>,
+#[derive(Event, Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub struct ChangedChunk {
+    pub grid_entity: Entity,
+    pub chunk_point: IVec3,
 }
 
 pub fn clear_changed_chunks(
     mut voxels: Query<(Entity, &mut Voxels)>,
-    mut writer: EventWriter<ChangedChunks>,
+    mut writer: EventWriter<ChangedChunk>,
 ) {
     for (voxel_entity, mut voxels) in &mut voxels {
         // writer.write(ChangedChunks {

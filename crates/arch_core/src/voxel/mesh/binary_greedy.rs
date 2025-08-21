@@ -14,7 +14,7 @@ use super::UpdateVoxelMeshSet;
 use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::mesh::lod::Lod;
 use crate::voxel::mesh::surface_net::{SurfaceNetColliders, SurfaceNetMeshes};
-use crate::voxel::mesh::{ChangedChunks, Remesh, SurfaceNet};
+use crate::voxel::mesh::{ChangedChunk, Remesh, SurfaceNet};
 use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{Voxel, Voxels};
 
@@ -60,8 +60,6 @@ pub struct GridChunk {
 pub fn spawn_chunk_entities(
     mut commands: Commands,
     mut grids: Query<(Entity, &Voxels, &mut Chunks)>,
-    mut changed_chunks: EventReader<ChangedChunks>,
-    mut dedup: Local<HashSet<(Entity, IVec3)>>,
 ) {
     for (voxels_entity, voxels, mut voxel_chunks) in &mut grids {
         for &chunk_pos in voxels.sim_chunks.chunks.keys() {
@@ -104,7 +102,7 @@ pub fn spawn_chunk_entities(
 //     mut materials: ResMut<Assets<StandardMaterial>>,
 //     // voxel_materials: Res<VoxelMaterials>, // buggy when reusing material
 // rn, figure it out later     mut mesher: Local<BgmMesher>,
-//     mut changed_chunks: EventReader<ChangedChunks>,
+//     mut changed_chunks: EventReader<ChangedChunk>,
 
 //     mut queue: Local<VecDeque<(Entity, IVec3)>>,
 //     mut dedup: Local<HashSet<(Entity, IVec3)>>,
@@ -112,7 +110,7 @@ pub fn spawn_chunk_entities(
 
 //     remesh: Res<Remesh>,
 // ) {
-//     for ChangedChunks { voxel_entity, changed_chunks } in
+//     for ChangedChunks { grid_entity, chunk_point } in
 // changed_chunks.read() {         for chunk in changed_chunks {
 //             let new_entry = (*voxel_entity, *chunk);
 //             if !dedup.contains(&new_entry) {

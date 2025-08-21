@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::voxel::mesh::binary_greedy::{Chunks, GreedyMeshes, GridChunk};
 use crate::voxel::mesh::surface_net::SurfaceNetMeshes;
-use crate::voxel::mesh::{ChangedChunks, SurfaceNet};
+use crate::voxel::mesh::{ChangedChunk, SurfaceNet};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<Lod>().register_type::<LodSettings>();
@@ -62,17 +62,14 @@ pub fn pick_lod(
 
 pub fn mesh_method_changed<M: Component>(
     trigger: Trigger<OnAdd, M>,
-    mut writer: EventWriter<ChangedChunks>,
+    mut writer: EventWriter<ChangedChunk>,
     grid_chunk: Query<&GridChunk>,
 ) {
     let Ok(grid_chunk) = grid_chunk.get(trigger.target()) else {
         return;
     };
 
-    writer.write(ChangedChunks {
-        voxel_entity: grid_chunk.entity,
-        changed_chunks: vec![grid_chunk.position],
-    });
+    writer.write(ChangedChunk { grid_entity: grid_chunk.entity, chunk_point: grid_chunk.position });
 }
 
 // pub fn mesh_method(

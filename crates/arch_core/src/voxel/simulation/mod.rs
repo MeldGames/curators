@@ -7,6 +7,7 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
+use crate::voxel::mesh::ChangedChunk;
 use crate::voxel::simulation::data::{CHUNK_LENGTH, SimChunks, UpdateBuffer};
 use crate::voxel::{Voxel, Voxels};
 
@@ -77,8 +78,9 @@ pub struct RenderSwapBuffer(pub UpdateBuffer);
 // }
 
 pub fn falling_sands(
-    mut grids: Query<(&mut Voxels, &mut SimSwapBuffer)>,
+    mut grids: Query<(Entity, &mut Voxels, &mut SimSwapBuffer)>,
     mut sim_tick: ResMut<FallingSandTick>,
+    mut changed_chunk_event: EventWriter<ChangedChunk>,
     mut chunk_points: Local<Vec<IVec3>>,
 ) {
     #[cfg(feature = "trace")]
@@ -91,42 +93,45 @@ pub fn falling_sands(
     let mut simulated_counter = 0;
     let mut static_counter = 0;
 
-    for (mut grid, mut sim_swap_buffer) in &mut grids {
-        // sim_swap_buffer.0.clear();
-        chunk_points.clear();
-        chunk_points.extend(grid.sim_chunks.updated_chunks.drain());
+    for (grid_entity, mut grid, mut sim_swap_buffer) in &mut grids {
+        sim_swap_buffer.0.clear();
+        // chunk_points.clear();
+        // chunk_points.extend(grid.sim_chunks.updated_chunks.drain());
 
-        for &chunk_point in &chunk_points {
-            for voxel_index in 0..CHUNK_LENGTH {
-                #[cfg(feature = "trace")]
-                let update_span = info_span!("update_voxel").entered();
-                let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_point, voxel_index);
+        // for &chunk_point in &chunk_points {
+        for (chunk_point, voxel_index) in grid.sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
+            changed_chunk_event.write(ChangedChunk { grid_entity, chunk_point });
 
-                match sim_voxel {
-                    Voxel::Sand => {
-                        // semi-solid
-                        let point =
-                            SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
-                        simulate_semisolid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
-                    },
-                    Voxel::Water { .. } | Voxel::Oil { .. } => {
-                        // liquids
-                        let point =
-                            SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
-                        simulate_liquid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
-                    },
-                    // Voxel::Dirt => {
-                    // let point =
-                    //     SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
-                    // simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
-                    // },
-                    _ => {}, // no-op
-                }
+            // for voxel_index in 0..CHUNK_LENGTH {
+            #[cfg(feature = "trace")]
+            let update_span = info_span!("update_voxel").entered();
+            let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_point, voxel_index);
 
-                // if counter > MAX_UPDATE {
-                //     break;
-                // }
+            match sim_voxel {
+                Voxel::Sand => {
+                    // semi-solid
+                    let point =
+                        SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
+                    simulate_semisolid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
+                },
+                Voxel::Water { .. } | Voxel::Oil { .. } => {
+                    // liquids
+                    let point =
+                        SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
+                    simulate_liquid(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
+                },
+                // Voxel::Dirt => {
+                // let point =
+                //     SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
+                // simulate_structured(&mut grid.sim_chunks, point, sim_voxel, &sim_tick);
+                // },
+                _ => {}, // no-op
             }
+
+            // if counter > MAX_UPDATE {
+            //     break;
+            // }
+            // }
         }
     }
 
