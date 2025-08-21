@@ -4,7 +4,7 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::{RenderSwapBuffer, SimSwapBuffer};
+use crate::voxel::simulation::SimSwapBuffer;
 use crate::voxel::voxel::VoxelChangeset;
 use crate::voxel::{Voxel, Voxels};
 
@@ -32,8 +32,7 @@ pub fn insert_voxels_sim_chunks(
     };
     // println!("adding sim chunks");
     let sim_swap_buffer = SimSwapBuffer(voxels.sim_chunks.create_update_buffer());
-    let render_swap_buffer = RenderSwapBuffer(voxels.sim_chunks.create_update_buffer());
-    commands.entity(trigger.target()).insert((sim_swap_buffer, render_swap_buffer));
+    commands.entity(trigger.target()).insert(sim_swap_buffer);
 }
 
 // #[derive(Debug, Clone, PartialEq, Eq, Reflect)]
@@ -64,8 +63,8 @@ pub struct SimChunks {
     // pub chunk_strides: [usize; 3],
     pub chunks: HashMap<ChunkPoint, SimChunk>,
 
-    pub sim_updates: UpdateBuffer,    // bitmask of updates
-    pub render_updates: UpdateBuffer, // bitmask of updates
+    pub sim_updates: UpdateBuffer, // bitmask of updates
+    // pub render_updates: UpdateBuffer, // bitmask of updates
     // pub updated_chunks: HashSet<ChunkPoint>,
     pub chunk_size: IVec3,
     pub voxel_size: IVec3,
@@ -183,7 +182,6 @@ impl SimChunks {
             // chunks: vec![SimChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
             chunks: HashMap::with_capacity((chunk_size.x * chunk_size.y * chunk_size.z) as usize),
             sim_updates: Self::create_update_buffer_from_size(chunk_size),
-            render_updates: Self::create_update_buffer_from_size(chunk_size),
             // updated_chunks: HashSet::new(),
             // chunk_strides,
             chunk_size,
@@ -279,7 +277,6 @@ impl SimChunks {
 
         chunk.voxel_changeset.set(voxel);
 
-        Self::add_update_mask(&mut self.render_updates, chunk_point, voxel_index);
         // self.updated_chunks.insert(chunk_point);
         self.push_neighbor_sim_updates(point);
     }
@@ -295,14 +292,6 @@ impl SimChunks {
                     // self.updated_chunks.insert(chunk_point(neighbor));
                 }
             }
-        }
-    }
-
-    #[inline]
-    pub fn push_render_update(&mut self, point: IVec3) {
-        if self.in_bounds(point) {
-            let (chunk_index, voxel_index) = Self::chunk_and_voxel_indices(point);
-            Self::add_update_mask(&mut self.render_updates, chunk_index, voxel_index);
         }
     }
 
@@ -333,8 +322,6 @@ impl SimChunks {
 
     pub fn clear_updates(&mut self) {
         self.sim_updates.clear();
-        self.render_updates.clear();
-        // self.updated_chunks.clear();
     }
 
     pub fn sim_updates<'a, 'b: 'a>(
@@ -345,19 +332,6 @@ impl SimChunks {
         let span = info_span!("sim_updates").entered();
         // debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
         std::mem::swap(&mut self.sim_updates, swap_buffer);
-        let mut iter = swap_buffer.iter_mut();
-        let first = iter.next();
-        UpdateIterator { iter, current_mask: first, mask_index: 0 }
-    }
-
-    // separate buffer for render updates so we can accumulate over multiple
-    pub fn render_updates<'a, 'b: 'a>(
-        &mut self,
-        swap_buffer: &'b mut UpdateBuffer,
-    ) -> UpdateIterator<'a> {
-        let span = info_span!("render_updates").entered();
-        // debug_assert_eq!(self.render_updates.len(), swap_buffer.len());
-        std::mem::swap(&mut self.render_updates, swap_buffer);
         let mut iter = swap_buffer.iter_mut();
         let first = iter.next();
         UpdateIterator { iter, current_mask: first, mask_index: 0 }
@@ -383,22 +357,6 @@ impl SimChunks {
         let relative_voxel_point = delinearize(voxel_index);
         (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32)) + relative_voxel_point
     }
-
-    // pub fn propagate_sim_updates(
-    //     &mut self,
-    //     render_chunks: &mut RenderChunks,
-    //     render_swap_buffer: &mut UpdateBuffer,
-    // ) {
-    //     #[cfg(feature = "trace")]
-    //     let span = info_span!("propagate_sim_updates").entered();
-
-    //     for (chunk_index, voxel_index) in self.render_updates(render_swap_buffer)
-    // {         let point =
-    // Self::point_from_chunk_and_voxel_indices(chunk_index, voxel_index);
-    //         let voxel = self.get_voxel_from_indices(chunk_index, voxel_index);
-    //         render_chunks.set_voxel(point, voxel);
-    //     }
-    // }
 }
 
 #[cfg(test)]

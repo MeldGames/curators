@@ -65,18 +65,6 @@ pub struct FallingSandTick(pub u32);
 #[derive(Component, Clone)]
 pub struct SimSwapBuffer(pub UpdateBuffer);
 
-#[derive(Component, Clone)]
-pub struct RenderSwapBuffer(pub UpdateBuffer);
-
-// pub fn update_render_voxels(mut grids: Query<(&mut Voxels, &mut
-// RenderSwapBuffer)>) {     for (mut grid, mut render_swap_buffer) in &mut
-// grids {         let Voxels { sim_chunks, render_chunks, .. } = &mut *grid;
-
-//         // sim_chunks.propagate_sim_updates(render_chunks, &mut
-//         // render_swap_buffer.0);
-//     }
-// }
-
 pub fn falling_sands(
     mut grids: Query<(Entity, &mut Voxels, &mut SimSwapBuffer)>,
     mut sim_tick: ResMut<FallingSandTick>,
