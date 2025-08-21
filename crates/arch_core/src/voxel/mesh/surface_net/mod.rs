@@ -175,6 +175,7 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
+        info!("changeset: {:?}", chunk.voxel_changeset);
         for voxel in chunk.voxel_changeset {
             if !voxel.rendered() {
                 continue;
