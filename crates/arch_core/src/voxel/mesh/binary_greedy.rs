@@ -14,27 +14,23 @@ use super::UpdateVoxelMeshSet;
 use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::mesh::lod::Lod;
 use crate::voxel::mesh::surface_net::{SurfaceNetColliders, SurfaceNetMeshes};
-use crate::voxel::mesh::{ChangedChunks, Remesh};
+use crate::voxel::mesh::{ChangedChunks, Remesh, SurfaceNet};
 use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{Voxel, Voxels};
 
 pub(super) fn plugin(app: &mut App) {
-    app.register_type::<Remesh>();
+    app.register_type::<Remesh>().register_type::<Chunks>();
 
     app.insert_resource(Remesh::default());
 
-    app.add_systems(
-        PostUpdate,
-        (spawn_chunk_entities /* update_binary_mesh_collider */,)
-            .chain()
-            .in_set(UpdateVoxelMeshSet),
-    );
+    app.add_systems(PostUpdate, spawn_chunk_entities.in_set(UpdateVoxelMeshSet::Spawn));
 }
 
 #[derive(Component, Default, Reflect)]
 pub struct BinaryGreedy;
 
-#[derive(Component, Debug, Default, Deref, DerefMut)]
+#[derive(Component, Debug, Default, Deref, DerefMut, Reflect)]
+#[reflect(Component)]
 pub struct Chunks(HashMap<IVec3, Entity>);
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
@@ -63,13 +59,15 @@ pub struct GridChunk {
 
 pub fn spawn_chunk_entities(
     mut commands: Commands,
-    mut grids: Query<(Entity, &Voxels, &mut Chunks), Changed<Voxels>>,
+    mut grids: Query<(Entity, &Voxels, &mut Chunks)>,
     mut changed_chunks: EventReader<ChangedChunks>,
     mut dedup: Local<HashSet<(Entity, IVec3)>>,
 ) {
     for (voxels_entity, voxels, mut voxel_chunks) in &mut grids {
         for &chunk_pos in voxels.sim_chunks.chunks.keys() {
             if !voxel_chunks.contains_key(&chunk_pos) {
+                info!("spawning chunk entity: {:?}", chunk_pos);
+
                 let new_chunk = commands
                     .spawn((
                         Name::new(format!("Chunk [{:?}]", chunk_pos)),
@@ -77,12 +75,13 @@ pub fn spawn_chunk_entities(
                         GreedyCollider::default(),
                         SurfaceNetColliders::default(),
                         SurfaceNetMeshes::default(),
+                        SurfaceNet,
                         Lod(1),
                         ChildOf(voxels_entity),
                         GridChunk { entity: voxels_entity, position: chunk_pos },
                         Transform {
-                            translation: chunk_pos.as_vec3()
-                                * crate::voxel::mesh::unpadded::SIZE as f32,
+                            // translation: chunk_pos.as_vec3()
+                            // * crate::voxel::mesh::unpadded::SIZE as f32,
                             ..default()
                         },
                         Visibility::Inherited,

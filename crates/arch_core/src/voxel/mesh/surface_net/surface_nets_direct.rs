@@ -56,8 +56,8 @@ pub fn surface_nets(
     output.reset();
 
     // Add padding for edge detection but don't mesh the padding
-    let padded_min = IVec3::new(min_point.x - 1, min_point.y - 1, min_point.z - 1);
-    let padded_max = IVec3::new(max_point.x + 1, max_point.y + 1, max_point.z + 1);
+    let padded_min = min_point - IVec3::ONE;
+    let padded_max = max_point + IVec3::ONE;
 
     estimate_surface(voxels, mesh_voxel_id, min_point, max_point, padded_min, padded_max, output);
     make_all_quads(voxels, mesh_voxel_id, min_point, max_point, output);

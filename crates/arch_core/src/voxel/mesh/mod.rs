@@ -24,7 +24,12 @@ pub use remesh::Remesh;
 pub use surface_net::SurfaceNet;
 
 #[derive(SystemSet, Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
-pub struct UpdateVoxelMeshSet;
+pub enum UpdateVoxelMeshSet {
+    Init,
+    Spawn,
+    Mesh,
+    Finish,
+}
 
 pub fn plugin(app: &mut App) {
     app.add_event::<ChangedChunks>();
@@ -39,7 +44,18 @@ pub fn plugin(app: &mut App) {
     app.add_plugins(lod::plugin);
     // app.add_plugins(camera_inside::plugin);
 
-    app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet));
+    app.configure_sets(
+        PostUpdate,
+        (
+            UpdateVoxelMeshSet::Init,
+            UpdateVoxelMeshSet::Spawn,
+            UpdateVoxelMeshSet::Mesh,
+            UpdateVoxelMeshSet::Finish,
+        )
+            .chain(),
+    );
+
+    app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet::Finish));
 }
 
 #[derive(Event, Debug)]

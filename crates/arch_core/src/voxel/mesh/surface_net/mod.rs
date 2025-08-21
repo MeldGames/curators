@@ -18,20 +18,20 @@ use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::mesh::frustum_chunks::FrustumChunks;
 use crate::voxel::mesh::remesh::Remesh;
 use crate::voxel::mesh::{ChangedChunks, padded};
-use crate::voxel::{Voxel, Voxels};
+use crate::voxel::{UpdateVoxelMeshSet, Voxel, Voxels};
 
-// pub mod fast_surface_nets;
+pub mod fast_surface_nets;
 pub mod surface_nets_direct;
 
 // use fast_surface_nets::ndshape::{Shape};
-// use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
-use surface_nets_direct::{SurfaceNetsBuffer, surface_nets};
+use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
+// use surface_nets_direct::{SurfaceNetsBuffer, surface_nets};
 
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
     fn build(&self, app: &mut App) {
         // app.add_observer(surface_net_components);
-        app.add_systems(PreUpdate, (update_surface_net_mesh,).chain());
+        app.add_systems(PreUpdate, update_surface_net_mesh.in_set(UpdateVoxelMeshSet::Mesh));
     }
 }
 
@@ -75,7 +75,7 @@ pub struct Remeshed(HashSet<IVec3>);
 pub fn update_surface_net_mesh(
     mut commands: Commands,
     is_surface_nets: Query<(), With<SurfaceNet>>,
-    mut grids: Query<(Entity, &Voxels, &Chunks, &mut Remeshed), Changed<Voxels>>,
+    mut grids: Query<(Entity, &Voxels, &Chunks, &mut Remeshed)>,
     mut chunk_mesh_entities: Query<(&mut SurfaceNetMeshes, &mut SurfaceNetColliders)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
@@ -84,6 +84,8 @@ pub fn update_surface_net_mesh(
     // mut mesher: Local<BgmMesher>,
     mut surface_net_buffer: Local<SurfaceNetsBuffer>,
     mut changed_chunks: EventReader<ChangedChunks>,
+
+    named: Query<NameOrEntity>,
 
     mut queue: Local<Vec<(Entity, IVec3)>>,
     mut dedup: Local<HashSet<(Entity, IVec3)>>,
@@ -150,7 +152,7 @@ pub fn update_surface_net_mesh(
         dedup.remove(&(voxel_entity, chunk_point));
 
         let Ok((_, voxels, voxel_chunks, mut remeshed)) = grids.get_mut(voxel_entity) else {
-            warn!("No voxels for entity {voxel_entity:?}");
+            warn!("No voxels for entity `{}`", named.get(voxel_entity).unwrap());
             continue;
         };
 
@@ -160,6 +162,7 @@ pub fn update_surface_net_mesh(
         };
 
         if !is_surface_nets.contains(*chunk_entity) {
+            warn!("doesn't have surface net");
             continue;
         }
 
@@ -171,17 +174,15 @@ pub fn update_surface_net_mesh(
         let Ok((mut chunk_meshes, mut chunk_colliders)) =
             chunk_mesh_entities.get_mut(*chunk_entity)
         else {
-            warn!("no chunk_mesh/chunk_collider for {:?}", chunk_entity);
+            warn!("no chunk_mesh/chunk_collider for {:?}", named.get(*chunk_entity).unwrap());
             continue;
         };
 
-        info!("changeset: {:?}", chunk.voxel_changeset);
         for voxel in chunk.voxel_changeset {
             if !voxel.rendered() {
                 continue;
             }
 
-            info!("creating new surface net mesh for voxel: {:?}", voxel);
             let voxel_id = voxel.id();
 
             let lod = 1;

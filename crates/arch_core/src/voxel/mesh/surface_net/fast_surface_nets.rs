@@ -66,26 +66,26 @@
 //! assert!(!buffer.indices.is_empty());
 //! ```
 
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
-use crate::voxel::Voxel;
 use crate::voxel::mesh::padded;
-
-pub fn linearize([x, y, z]: [u32; 3], size: u32) -> u32 {
-    z + x * size + y * size * size
-    // padded::linearize([x as i32, y as i32, z as i32]) as u32
-    // z + (x << 6) + (y << 12)
-    // z + (x << 2) + (y << 4)
-}
-
-// pub fn delinearize(index: u32) -> [u32; 3] {
-//     padded::delinearize(index as usize).map(|n| n as u32)
-// }
+use crate::voxel::{Voxel, Voxels};
 
 pub type VoxelData = u16;
 pub type VoxelId = u16;
 pub const MIN: UVec3 = UVec3::ZERO;
 pub const MAX: UVec3 = UVec3::splat(padded::SIZE as u32 - 1);
+
+pub trait VoxelAccess {
+    fn get_voxel(&self, point: IVec3) -> Voxel;
+}
+
+impl VoxelAccess for Voxels {
+    fn get_voxel(&self, point: IVec3) -> Voxel {
+        Voxels::get_voxel(self, point)
+    }
+}
 
 /// The output buffers used by [`surface_nets`]. These buffers can be reused to
 /// avoid reallocating memory.
@@ -107,26 +107,18 @@ pub struct SurfaceNetsBuffer {
 
     /// Local 3D array coordinates of every voxel that intersects the
     /// isosurface.
-    pub surface_points: Vec<[u32; 3]>,
-    /// Stride of every voxel that intersects the isosurface. Can be used for
-    /// efficient post-processing.
-    pub surface_strides: Vec<u32>,
-    /// Used to map back from voxel stride to vertex index.
-    pub stride_to_index: Vec<u32>,
+    pub surface_points: Vec<IVec3>,
+    pub point_to_index: HashMap<IVec3, u32>,
 }
 
 impl SurfaceNetsBuffer {
     /// Clears all of the buffers, but keeps the memory allocated for reuse.
-    fn reset(&mut self, array_size: usize) {
+    fn reset(&mut self) {
         self.positions.clear();
         self.normals.clear();
         self.indices.clear();
         self.surface_points.clear();
-        self.surface_strides.clear();
-
-        // Just make sure this buffer is big enough, whether or not we've used it
-        // before.
-        self.stride_to_index.resize(array_size, NULL_VERTEX);
+        self.point_to_index.clear();
     }
 }
 
@@ -160,40 +152,41 @@ pub const NULL_VERTEX: u32 = u32::MAX;
 /// Note that the scheme illustrated above implies that chunks must be padded
 /// with a 1-voxel border copied from neighboring voxels in order to connect
 /// seamlessly.
-pub fn surface_nets(
-    voxels: &[VoxelData],   // voxel buffer
+pub fn surface_nets<V: VoxelAccess>(
+    voxels: &V,             // voxel buffer
     mesh_voxel_id: VoxelId, // voxel id to mesh
-    size: u32,
+    min: IVec3,
+    max: IVec3,
     output: &mut SurfaceNetsBuffer,
 ) {
-    // SAFETY
-    // Make sure the slice matches the shape before we start using get_unchecked.
+    output.reset();
 
-    output.reset((size * size * size) as usize);
-
-    estimate_surface(voxels, mesh_voxel_id, size, output);
-    make_all_quads(voxels, mesh_voxel_id, size, output);
+    estimate_surface(voxels, mesh_voxel_id, min, max, output);
+    make_all_quads(voxels, mesh_voxel_id, min, max, output);
 }
 
 // Find all vertex positions and normals. Also generate a map from grid position
 // to vertex index to be used to look up vertices when generating quads.
-fn estimate_surface(
-    sdf: &[VoxelData],
+fn estimate_surface<V: VoxelAccess>(
+    sdf: &V,
     mesh_voxel_id: VoxelId,
-    size: u32,
+    min: IVec3,
+    max: IVec3,
     output: &mut SurfaceNetsBuffer,
 ) {
-    for x in 0..size - 1 {
-        for y in 0..size - 1 {
-            for z in 0..size - 1 {
-                let stride = linearize([x, y, z], size);
-                let p = Vec3A::from([x as f32, y as f32, z as f32]);
-                if estimate_surface_in_cube(sdf, mesh_voxel_id, size, p, stride, output) {
-                    output.stride_to_index[stride as usize] = output.positions.len() as u32 - 1;
-                    output.surface_points.push([x, y, z]);
-                    output.surface_strides.push(stride);
+    for x in min.x..=max.x {
+        for y in min.y..=max.y {
+            for z in min.z..=max.z {
+                // let stride = linearize([x, y, z], size);
+                let corner = IVec3::new(x, y, z);
+                let p = corner.as_vec3a();
+                if estimate_surface_in_cube(sdf, mesh_voxel_id, p, corner, output) {
+                    // output.stride_to_index[stride as usize] = output.positions.len() as u32 - 1;
+                    output.point_to_index.insert(corner, output.positions.len() as u32 - 1);
+                    output.surface_points.push(corner);
+                    // output.surface_strides.push(stride);
                 } else {
-                    output.stride_to_index[stride as usize] = NULL_VERTEX;
+                    // output.stride_to_index[stride as usize] = NULL_VERTEX;
                 }
             }
         }
@@ -206,22 +199,20 @@ fn estimate_surface(
 // This is done by estimating, for each cube edge, where the isosurface crosses
 // the edge (if it does at all). Then the estimated surface point is the average
 // of these edge crossings.
-fn estimate_surface_in_cube(
-    sdf: &[VoxelData],
+fn estimate_surface_in_cube<V: VoxelAccess>(
+    voxels: &V,
     mesh_voxel_id: VoxelId,
-    size: u32,
     p: Vec3A,
-    min_corner_stride: u32,
+    min_corner: IVec3,
     output: &mut SurfaceNetsBuffer,
 ) -> bool {
     // Get the signed distance values at each corner of this cube.
     let mut corner_dists = [0f32; 8];
     let mut num_negative = 0;
     for (i, dist) in corner_dists.iter_mut().enumerate() {
-        let corner_stride = min_corner_stride + linearize(CUBE_CORNERS[i], size);
-        let d = *unsafe { sdf.get_unchecked(corner_stride as usize) };
-        // let d = sdf[corner_stride as usize];
-        *dist = if Voxel::id_from_data(d) == mesh_voxel_id {
+        let corner_stride = min_corner + CUBE_CORNERS[i];
+        let v = voxels.get_voxel(corner_stride);
+        *dist = if v.id() == mesh_voxel_id {
             num_negative += 1;
             -1.0
         } else {
@@ -311,61 +302,55 @@ fn sdf_gradient(dists: &[f32; 8], s: Vec3A) -> Vec3A {
 // vertex positions found earlier. Also make sure the triangles are facing the
 // right way. See the comments on `maybe_make_quad` to help with understanding
 // the indexing.
-fn make_all_quads(
-    sdf: &[VoxelData],
+fn make_all_quads<V: VoxelAccess>(
+    voxels: &V,
     mesh_voxel_id: VoxelId,
-    size: u32,
+    min: IVec3,
+    max: IVec3,
     output: &mut SurfaceNetsBuffer,
 ) {
-    let xyz_strides = [
-        linearize([1, 0, 0], size) as usize,
-        linearize([0, 1, 0], size) as usize,
-        linearize([0, 0, 1], size) as usize,
-    ];
-
-    for (&[x, y, z], &p_stride) in output.surface_points.iter().zip(output.surface_strides.iter()) {
-        let p_stride = p_stride as usize;
+    for (&point) in output.surface_points.iter() {
         let eval_max_plane = cfg!(feature = "eval-max-plane");
 
         // Do edges parallel with the X axis
-        if y != 0 && z != 0 && (eval_max_plane || x != size - 1) {
+        if point.y != min.y && point.z != min.z && (eval_max_plane || point.x != max.x) {
             maybe_make_quad(
-                sdf,
+                voxels,
                 mesh_voxel_id,
-                &output.stride_to_index,
+                &output.point_to_index,
                 &output.positions,
-                p_stride,
-                p_stride + xyz_strides[0],
-                xyz_strides[1],
-                xyz_strides[2],
+                point,
+                point + IVec3::X,
+                IVec3::Y,
+                IVec3::Z,
                 &mut output.indices,
             );
         }
         // Do edges parallel with the Y axis
-        if x != 0 && z != 0 && (eval_max_plane || y != size - 1) {
+        if point.x != min.x && point.z != min.z && (eval_max_plane || point.y != max.y) {
             maybe_make_quad(
-                sdf,
+                voxels,
                 mesh_voxel_id,
-                &output.stride_to_index,
+                &output.point_to_index,
                 &output.positions,
-                p_stride,
-                p_stride + xyz_strides[1],
-                xyz_strides[2],
-                xyz_strides[0],
+                point,
+                point + IVec3::Y,
+                IVec3::Z,
+                IVec3::X,
                 &mut output.indices,
             );
         }
         // Do edges parallel with the Z axis
-        if x != 0 && y != 0 && (eval_max_plane || z != size - 1) {
+        if point.x != min.x && point.y != min.y && (eval_max_plane || point.z != max.z) {
             maybe_make_quad(
-                sdf,
+                voxels,
                 mesh_voxel_id,
-                &output.stride_to_index,
+                &output.point_to_index,
                 &output.positions,
-                p_stride,
-                p_stride + xyz_strides[2],
-                xyz_strides[0],
-                xyz_strides[1],
+                point,
+                point + IVec3::Z,
+                IVec3::X,
+                IVec3::Y,
                 &mut output.indices,
             );
         }
@@ -404,25 +389,21 @@ fn make_all_quads(
 // (those orthogonal to A) in the negative directions; these are axis B and axis
 // C.
 #[allow(clippy::too_many_arguments)]
-fn maybe_make_quad(
-    sdf: &[VoxelData],
+fn maybe_make_quad<V: VoxelAccess>(
+    voxels: &V,
     mesh_voxel_id: VoxelId,
-    stride_to_index: &[u32],
+    point_to_index: &HashMap<IVec3, u32>,
     positions: &[[f32; 3]],
-    p1: usize,
-    p2: usize,
-    axis_b_stride: usize,
-    axis_c_stride: usize,
+    p1: IVec3,
+    p2: IVec3,
+    axis_b: IVec3,
+    axis_c: IVec3,
     indices: &mut Vec<u32>,
 ) {
-    let d1 = unsafe { sdf.get_unchecked(p1) };
-    let d2 = unsafe { sdf.get_unchecked(p2) };
-    // let d1 = &sdf[p1];
-    // let d2 = &sdf[p2];
-    let negative_face = match (
-        Voxel::id_from_data(*d1) == mesh_voxel_id,
-        Voxel::id_from_data(*d2) == mesh_voxel_id,
-    ) {
+    let v1_voxel = voxels.get_voxel(p1);
+    let v2_voxel = voxels.get_voxel(p2);
+
+    let negative_face = match (v1_voxel.id() == mesh_voxel_id, v2_voxel.id() == mesh_voxel_id) {
         (true, false) => false,
         (false, true) => true,
         _ => return, // No face.
@@ -431,10 +412,16 @@ fn maybe_make_quad(
     // The triangle points, viewed face-front, look like this:
     // v1 v3
     // v2 v4
-    let v1 = stride_to_index[p1];
-    let v2 = stride_to_index[p1 - axis_b_stride];
-    let v3 = stride_to_index[p1 - axis_c_stride];
-    let v4 = stride_to_index[p1 - axis_b_stride - axis_c_stride];
+    // eprintln!("{:?}, {:?}, {:?}", p1, axis_b, axis_c);
+    let v1 = point_to_index.get(&p1).copied().unwrap();
+    let v2 = point_to_index.get(&(p1 - axis_b)).copied().unwrap();
+    let v3 = point_to_index.get(&(p1 - axis_c)).copied().unwrap();
+    let v4 = point_to_index.get(&(p1 - axis_b - axis_c)).copied().unwrap();
+
+    // let (Some(v1), Some(v2), Some(v3), Some(v4)) = (v1, v2, v3, v4) else {
+    //     return;
+    // };
+
     let (pos1, pos2, pos3, pos4) = (
         Vec3A::from(positions[v1 as usize]),
         Vec3A::from(positions[v2 as usize]),
@@ -452,17 +439,25 @@ fn maybe_make_quad(
     indices.extend_from_slice(&quad);
 }
 
-const CUBE_CORNERS: [[u32; 3]; 8] =
-    [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]];
+const CUBE_CORNERS: [IVec3; 8] = [
+    IVec3::new(0, 0, 0),
+    IVec3::new(1, 0, 0),
+    IVec3::new(0, 1, 0),
+    IVec3::new(1, 1, 0),
+    IVec3::new(0, 0, 1),
+    IVec3::new(1, 0, 1),
+    IVec3::new(0, 1, 1),
+    IVec3::new(1, 1, 1),
+];
 const CUBE_CORNER_VECTORS: [Vec3A; 8] = [
-    Vec3A::from_array([0.0, 0.0, 0.0]),
-    Vec3A::from_array([1.0, 0.0, 0.0]),
-    Vec3A::from_array([0.0, 1.0, 0.0]),
-    Vec3A::from_array([1.0, 1.0, 0.0]),
-    Vec3A::from_array([0.0, 0.0, 1.0]),
-    Vec3A::from_array([1.0, 0.0, 1.0]),
-    Vec3A::from_array([0.0, 1.0, 1.0]),
-    Vec3A::from_array([1.0, 1.0, 1.0]),
+    Vec3A::new(0.0, 0.0, 0.0),
+    Vec3A::new(1.0, 0.0, 0.0),
+    Vec3A::new(0.0, 1.0, 0.0),
+    Vec3A::new(1.0, 1.0, 0.0),
+    Vec3A::new(0.0, 0.0, 1.0),
+    Vec3A::new(1.0, 0.0, 1.0),
+    Vec3A::new(0.0, 1.0, 1.0),
+    Vec3A::new(1.0, 1.0, 1.0),
 ];
 const CUBE_EDGES: [[u32; 2]; 12] = [
     [0b000, 0b001],
