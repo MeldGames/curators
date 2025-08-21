@@ -281,6 +281,73 @@ impl SimChunks {
         self.push_neighbor_sim_updates(point);
     }
 
+    pub fn set_voxel_aabb(&mut self, aabb: crate::voxel::voxel_aabb::VoxelAabb, voxel: Voxel) {
+        // Iterate over all chunk coordinates that intersect the AABB
+        let min = aabb.min;
+        let max = aabb.max;
+
+        // Compute chunk bounds
+        let chunk_min = (min - IVec3::ONE).div_euclid(IVec3::splat(CHUNK_WIDTH as i32));
+        let chunk_max = (max + IVec3::ONE).div_euclid(IVec3::splat(CHUNK_WIDTH as i32));
+
+        for cz in chunk_min.z..=chunk_max.z {
+            for cx in chunk_min.x..=chunk_max.x {
+                for cy in chunk_min.y..=chunk_max.y {
+                    let chunk_point = IVec3::new(cx, cy, cz);
+
+                    // Compute the voxel-space bounds for this chunk
+                    let chunk_voxel_min = chunk_point * CHUNK_WIDTH as i32;
+                    let chunk_voxel_max =
+                        chunk_voxel_min + IVec3::splat(CHUNK_WIDTH as i32) - IVec3::ONE;
+
+                    // Clamp the affected region to the intersection of the chunk and the AABB
+                    let set_min = chunk_voxel_min.max(min);
+                    let set_max = chunk_voxel_max.min(max);
+                    let update_min = chunk_voxel_min.max(min - IVec3::ONE);
+                    let update_max = chunk_voxel_max.min(max + IVec3::ONE);
+
+                    // Get or create the chunk
+                    let chunk = self.chunks.entry(chunk_point).or_default();
+
+                    chunk.voxel_changeset.set(voxel);
+
+                    for z in set_min.z..=set_max.z {
+                        for x in set_min.x..=set_max.x {
+                            for y in set_min.y..=set_max.y {
+                                let local = IVec3::new(x, y, z) - chunk_voxel_min;
+                                let voxel_index = to_linear_index(local);
+
+                                if cfg!(feature = "safe-bounds") {
+                                    chunk.voxels[voxel_index] = voxel.data();
+                                } else {
+                                    unsafe {
+                                        *chunk.voxels.get_unchecked_mut(voxel_index) = voxel.data();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    for z in update_min.z..=update_max.z {
+                        for x in update_min.x..=update_max.x {
+                            for y in update_min.y..=update_max.y {
+                                let local = IVec3::new(x, y, z) - chunk_voxel_min;
+                                let voxel_index = to_linear_index(local);
+
+                                // Mark for simulation update
+                                Self::add_update_mask(
+                                    &mut self.sim_updates,
+                                    chunk_point,
+                                    voxel_index,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[inline]
     pub fn push_neighbor_sim_updates(&mut self, point: IVec3) {
         for y in -1..=1 {

@@ -48,9 +48,12 @@ impl Voxels {
 
     #[inline]
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
-        // self.render_chunks.set_voxel(point, voxel); // is this necessary? the sim
-        // chunks should update this later
         self.sim_chunks.set_voxel(point, voxel);
+    }
+
+    #[inline]
+    pub fn set_voxel_aabb(&mut self, aabb: VoxelAabb, voxel: Voxel) {
+        self.sim_chunks.set_voxel_aabb(aabb, voxel);
     }
 
     pub fn voxel_bounds(&self) -> (IVec3, IVec3) {
