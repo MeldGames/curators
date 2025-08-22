@@ -178,12 +178,16 @@ pub fn simulate_liquid(
         _ => unreachable!(),
     };
 
+    let swappable = |target: Voxel, current: Voxel| {
+        target.is_gas() || (target.is_liquid() && current.denser(target))
+    };
+
     const STARTING_ENERGY: u8 = 16;
 
     // fall down
     let below_point = IVec3::from(point + IVec3::NEG_Y);
     let below_voxel = grid.get_voxel(below_point);
-    if below_voxel.is_gas() || (below_voxel.is_liquid() && sim_voxel.denser(below_voxel)) {
+    if swappable(below_voxel, sim_voxel) {
         liquid_voxel.set_state(new_direction, STARTING_ENERGY);
 
         grid.set_voxel(below_point, liquid_voxel.to_voxel());
@@ -196,7 +200,7 @@ pub fn simulate_liquid(
         let diagonal_direction_point = point + liquid_voxel.direction().as_ivec3() - IVec3::Y;
         let diagonal_direction_voxel = grid.get_voxel(diagonal_direction_point);
 
-        if diagonal_direction_voxel.is_gas() {
+        if swappable(diagonal_direction_voxel, sim_voxel) {
             liquid_voxel.set_state(liquid_voxel.direction(), STARTING_ENERGY);
             grid.set_voxel(diagonal_direction_point, liquid_voxel.to_voxel());
             grid.set_voxel(point, diagonal_direction_voxel);
@@ -207,14 +211,14 @@ pub fn simulate_liquid(
     let direction_voxels: [Voxel; 4] =
         Direction::directions().map(|d| grid.get_voxel(point + d.as_ivec3()));
     let open = direction_voxels.iter().filter(|v| **v == Voxel::Air).count();
+    let mix = direction_voxels.iter().filter(|v| v.is_liquid() && sim_voxel.denser(**v)).count();
 
-    if open == 0 {
+    if open == 0 && mix == 0 {
         return;
     }
 
     let mut energy = liquid_voxel.energy();
     // let energy = 32;
-    // TODO: add a bit of perceived randomness to direction
     {
         let direction_point = point + liquid_voxel.direction().as_ivec3();
         let direction_voxel = direction_voxels[liquid_voxel.direction().index()];
@@ -253,7 +257,7 @@ pub fn simulate_liquid(
         // water tension
         // if below_voxel.id() == sim_voxel.id() {
         // prioritize previous direction
-        if direction_voxel.is_gas() {
+        if swappable(direction_voxel, sim_voxel) {
             liquid_voxel.set_state(liquid_voxel.direction(), energy);
             grid.set_voxel(direction_point, liquid_voxel.to_voxel());
             grid.set_voxel(point, direction_voxel);
@@ -263,7 +267,7 @@ pub fn simulate_liquid(
             const DIRECTIONS: [Direction; 4] =
                 [Direction::Left, Direction::Forward, Direction::Right, Direction::Back];
             for direction in DIRECTIONS.iter().cycle().skip((tick.0 % 4) as usize).take(4) {
-                if direction_voxels[direction.index()].is_gas() {
+                if swappable(direction_voxels[direction.index()], sim_voxel) {
                     // try a new direction next time.
                     liquid_voxel.set_state(*direction, energy);
                     grid.set_voxel(point, liquid_voxel.to_voxel());
