@@ -58,7 +58,7 @@ pub fn plugin(app: &mut App) {
     app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet::Finish));
 }
 
-#[derive(Event, Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Event, Debug, PartialEq, Eq, Hash, Copy, Clone, Reflect)]
 pub struct ChangedChunk {
     pub grid_entity: Entity,
     pub chunk_point: IVec3,

@@ -104,16 +104,16 @@ pub fn from_linear_index(index: usize) -> IVec3 {
 
 #[inline]
 pub fn linearize(relative_point: IVec3) -> usize {
-    // to_linear_index(relative_point)
-    // super::morton::to_morton_index(relative_point)
-    unsafe { super::morton::into_morton_index_bmi2(relative_point) }
+    to_linear_index(relative_point)
+    // super::morton::to_morton_index_lut(relative_point)
+    // unsafe { super::morton::into_morton_index_bmi2(relative_point) }
 }
 
 #[inline]
 pub fn delinearize(index: usize) -> IVec3 {
-    // from_linear_index(index)
+    from_linear_index(index)
     // super::morton::from_morton_index(index)
-    unsafe { super::morton::from_morton_index_bmi2(index) }
+    // unsafe { super::morton::from_morton_index_bmi2(index) }
 }
 
 #[inline]

@@ -9,6 +9,7 @@ pub mod liquid;
 pub mod semisolid;
 
 impl Voxel {
+    #[inline]
     pub fn simulate(&self, chunks: &mut SimChunks, point: IVec3, tick: &FallingSandTick) {
         match self {
             Voxel::Sand => {
