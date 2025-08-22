@@ -206,13 +206,13 @@ pub fn simulate_liquid(
 
     let direction_voxels: [Voxel; 4] =
         Direction::directions().map(|d| grid.get_voxel(point + d.as_ivec3()));
-    let open = direction_voxels.iter().any(|v| *v == Voxel::Air);
+    let open = direction_voxels.iter().filter(|v| **v == Voxel::Air).count();
 
-    if !open {
+    if open == 0 {
         return;
     }
 
-    let energy = liquid_voxel.energy();
+    let mut energy = liquid_voxel.energy();
     // let energy = 32;
     // TODO: add a bit of perceived randomness to direction
     {
@@ -232,78 +232,48 @@ pub fn simulate_liquid(
             // }
         }
 
-        if below_voxel.id() == sim_voxel.id() {
-            // water tension
-            if direction_voxel.is_gas() {
-                liquid_voxel.set_state(liquid_voxel.direction(), energy);
-                grid.set_voxel(direction_point, liquid_voxel.to_voxel());
-                grid.set_voxel(point, direction_voxel);
-                return;
-            } else {
-                // check if there is an open direction
-                const DIRECTIONS: [Direction; 4] =
-                    [Direction::Left, Direction::Forward, Direction::Right, Direction::Back];
-                for direction in DIRECTIONS.iter().cycle().skip((tick.0 % 4) as usize).take(4) {
-                    if grid.get_voxel(point + direction.as_ivec3()).is_gas() {
-                        // try a new direction next time.
-                        liquid_voxel.set_state(*direction, energy.saturating_sub(1));
-                        grid.set_voxel(point, liquid_voxel.to_voxel());
-                        return;
-                    }
-                }
+        // evaporation
+        if open > 0 {
+            let rate = match open {
+                1 => 4,
+                2 => 2,
+                3 => 1,
+                4 => 1,
+                _ => unreachable!(),
+            };
 
-                // liquid_voxel.set_state(*direction, energy - 1);
-                // grid.set_voxel(point, liquid_voxel.to_voxel());
-            }
-        } else {
-            let new_energy = if tick.0 % 2 == 0 { energy.saturating_sub(1) } else { energy };
-            liquid_voxel.set_state(liquid_voxel.direction(), new_energy);
-            grid.set_voxel(point, liquid_voxel.to_voxel());
+            energy = if tick.0 % rate == 0 { energy.saturating_sub(1) } else { energy };
+            // let new_energy = ;
+            // liquid_voxel.set_state(liquid_voxel.direction(), new_energy);
+            // grid.set_voxel(point, liquid_voxel.to_voxel());
         }
-        //     let above_voxel = grid.get_voxel(point + IVec3::Y);
-        //     if above_voxel.id() != sim_voxel.id() {
-        //         // info!("energy: {:?}", energy);
 
-        //         liquid_voxel.set_state(liquid_voxel.direction(), new_energy);
-        //         grid.set_voxel(point, liquid_voxel.to_voxel());
-        //         return;
-        //     }
-        // }
+        // energy = energy.saturating_sub(1);
 
-        // if energy == 0 {
-        //     let above_voxel = grid.get_voxel(point + IVec3::Y);
-        //     if below_voxel.id() == sim_voxel.id() || above_voxel.id() ==
-        // sim_voxel.id() {         // noop
-        //     } else {
-        //         grid.set_voxel(point, Voxel::Air);
-        //     }
+        // water tension
+        // if below_voxel.id() == sim_voxel.id() {
+        // prioritize previous direction
+        if direction_voxel.is_gas() {
+            liquid_voxel.set_state(liquid_voxel.direction(), energy);
+            grid.set_voxel(direction_point, liquid_voxel.to_voxel());
+            grid.set_voxel(point, direction_voxel);
+            return;
+        } else {
+            // check if there is an open direction to move next time and lose energy
+            const DIRECTIONS: [Direction; 4] =
+                [Direction::Left, Direction::Forward, Direction::Right, Direction::Back];
+            for direction in DIRECTIONS.iter().cycle().skip((tick.0 % 4) as usize).take(4) {
+                if direction_voxels[direction.index()].is_gas() {
+                    // try a new direction next time.
+                    liquid_voxel.set_state(*direction, energy);
+                    grid.set_voxel(point, liquid_voxel.to_voxel());
+                    return;
+                }
+            }
+
+            unreachable!("Voxels without an open direction should've been short circuited earlier");
+        }
+        // } else {
         // }
     }
-
-    // let above_voxel = grid.get_voxel(point + IVec3::Y);
-    // if above_voxel.id() == sim_voxel.id() {
-    //     if energy != 32 {
-    //         liquid_voxel.set_state(new_direction, 32);
-    //         grid.set_voxel(point, liquid_voxel.to_voxel());
-    //         return;
-    //     }
-    // } else {
-    //     if energy == 0 {
-    //         grid.set_voxel(point, Voxel::Air);
-    //     } else {
-    //         liquid_voxel.set_state(new_direction, energy - 1);
-    //         grid.set_voxel(point, liquid_voxel.to_voxel());
-    //     }
-
-    // return;
-    // }
-
-    // let energy = liquid_voxel.energy();
-    // if energy == 0 {
-    //     return;
-    // }
-
-    // new direction because we hit a wall
-    // liquid_voxel.set_state(new_direction, energy - 1);
-    // grid.set_voxel(point, liquid_voxel.to_voxel());
 }

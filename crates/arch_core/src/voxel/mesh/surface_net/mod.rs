@@ -190,6 +190,7 @@ pub fn update_surface_net_mesh(
             let SurfaceNetsBuffer { ref mut normals, ref mut positions, .. } = *surface_net_buffer;
             for (position, normal) in positions.iter_mut().zip(normals.iter_mut()) {
                 *normal = (Vec3::from(*normal).normalize()).into();
+                // const STRETCH: [f32; 3] = [0.0, 0.0, 0.0];
                 const STRETCH: [f32; 3] = [0.5, 0.0, 0.5];
                 *position = [
                     position[0] + normal[0] * STRETCH[0],
