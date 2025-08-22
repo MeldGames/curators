@@ -22,6 +22,8 @@ struct NavmeshHandle(Handle<Navmesh>);
 
 fn generate_navmesh(
     mut generator: NavmeshGenerator,
+    handle: Option<ResMut<NavmeshHandle>>,
+
     mut commands: Commands,
     mut chunk_changed: EventReader<ChangedChunk>,
 ) {
@@ -31,7 +33,11 @@ fn generate_navmesh(
     chunk_changed.clear();
 
     let settings = NavmeshSettings { walkable_slope_angle: 85.0f32.to_radians(), ..default() };
-    let navmesh = generator.generate(settings);
-    commands.spawn(DetailNavmeshGizmo::new(&navmesh));
-    commands.insert_resource(NavmeshHandle(navmesh));
+    if let Some(handle) = handle {
+        generator.regenerate(&handle.0, settings);
+    } else {
+        let navmesh = generator.generate(settings);
+        commands.spawn(DetailNavmeshGizmo::new(&navmesh));
+        commands.insert_resource(NavmeshHandle(navmesh));
+    }
 }
