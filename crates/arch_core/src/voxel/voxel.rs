@@ -1,15 +1,21 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::voxel::simulation::kinds::liquid::{DEFAULT_LIQUID_STATE, LiquidState};
+
 pub fn plugin(app: &mut App) {
     app.register_type::<Voxel>();
     app.register_type::<VoxelMaterials>();
     app.add_systems(Startup, VoxelMaterials::setup);
 }
 
-#[derive(
-    Reflect, Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Copy, Clone, Serialize, Deserialize,
-)]
+pub type VoxelId = u8;
+pub type VoxelData = u8;
+pub type VoxelBits = u16;
+pub const VOXEL_ID_BITCOUNT: usize = std::mem::size_of::<VoxelId>() * 8;
+pub const VOXEL_DATA_BITCOUNT: usize = std::mem::size_of::<VoxelData>() * 8;
+
+#[derive(Reflect, Hash, PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum Voxel {
     Air, // special case "nothing"
 
@@ -26,28 +32,31 @@ pub enum Voxel {
     Sand,
 
     // liquids
-    Water { lateral_energy: u8 }, // TODO: add lateral velocity to remove oscillation?
-    Oil { lateral_energy: u8 },
+    Water(LiquidState), // TODO: add lateral velocity to remove oscillation?
+    Oil(LiquidState),
+
+    // Special
+    Fire { voxel_id: VoxelData },
 }
 
 // pub struct VoxelData(u16);
 
 #[inline]
-pub fn pack_voxel(voxel: Voxel) -> u16 {
-    let extra_data: u8 = match voxel {
-        Voxel::Water { lateral_energy } => lateral_energy,
-        Voxel::Oil { lateral_energy } => lateral_energy,
+pub fn pack_voxel(voxel: Voxel) -> VoxelBits {
+    let extra_data: VoxelData = match voxel {
+        Voxel::Water(state) | Voxel::Oil(state) => state.bits(),
+        Voxel::Fire { voxel_id } => voxel_id,
         _ => 0,
     };
 
-    let data = ((extra_data as u16) << 8) | voxel.id();
+    let data = ((extra_data as VoxelBits) << VOXEL_ID_BITCOUNT) | voxel.id();
     data
 }
 
 #[inline]
-pub fn unpack_voxel(data: u16) -> Voxel {
+pub fn unpack_voxel(data: VoxelBits) -> Voxel {
     let id = Voxel::id_from_data(data) & 0xFF;
-    let extra_data = (data >> 8) & 0xFF;
+    let extra_data = ((data >> 8) & 0xFF) as u8;
     match id {
         0 => Voxel::Air,
         1 => Voxel::Base,
@@ -56,13 +65,29 @@ pub fn unpack_voxel(data: u16) -> Voxel {
         4 => Voxel::Grass,
         5 => Voxel::Stone,
         6 => Voxel::Sand,
-        7 => Voxel::Water { lateral_energy: extra_data as u8 },
-        8 => Voxel::Oil { lateral_energy: extra_data as u8 },
+        7 => Voxel::Water(LiquidState::from_bits(extra_data)),
+        8 => Voxel::Oil(LiquidState::from_bits(extra_data)),
+        9 => Voxel::Fire { voxel_id: extra_data },
         _ => panic!("Invalid voxel id: {}", id),
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct Interactions {
+    /// What voxel this turns into after being burnt.
+    /// None means it isn't flammable.
+    pub burnt: Option<Voxel>,
+}
+
+pub const DEFAULT_INTERACTIONS: Interactions = Interactions { burnt: None };
+
+impl Default for Interactions {
+    fn default() -> Self {
+        DEFAULT_INTERACTIONS
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct VoxelDefinition {
     pub voxel: Voxel,
     pub name: &'static str,
@@ -89,6 +114,8 @@ pub struct VoxelDefinition {
     pub shadow_caster: bool,
     /// Should this voxel receive shadows?
     pub shadow_receiver: bool,
+
+    pub interactions: Interactions,
 }
 
 #[derive(
@@ -99,6 +126,7 @@ pub enum SimKind {
     SemiSolid,
     Liquid,
     Gas,
+    Special,
 }
 
 pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
@@ -116,6 +144,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 0,
         shadow_caster: false,
         shadow_receiver: false,
+
+        interactions: DEFAULT_INTERACTIONS,
     },
     &VoxelDefinition {
         voxel: Voxel::Base,
@@ -131,6 +161,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 0,
         shadow_caster: true,
         shadow_receiver: true,
+
+        interactions: DEFAULT_INTERACTIONS,
     },
     &VoxelDefinition {
         voxel: Voxel::Barrier, // base but transparent
@@ -146,6 +178,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 0,
         shadow_caster: false,
         shadow_receiver: false,
+
+        interactions: DEFAULT_INTERACTIONS,
     },
     &VoxelDefinition {
         voxel: Voxel::Dirt,
@@ -161,6 +195,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 0,
         shadow_caster: true,
         shadow_receiver: true,
+
+        interactions: DEFAULT_INTERACTIONS,
     },
     &VoxelDefinition {
         voxel: Voxel::Grass,
@@ -176,6 +212,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 0,
         shadow_caster: true,
         shadow_receiver: true,
+
+        interactions: Interactions { burnt: Some(Voxel::Dirt) },
     },
     &VoxelDefinition {
         voxel: Voxel::Stone,
@@ -191,6 +229,8 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 0,
         shadow_caster: true,
         shadow_receiver: true,
+
+        interactions: DEFAULT_INTERACTIONS,
     },
     &VoxelDefinition {
         voxel: Voxel::Sand,
@@ -206,9 +246,11 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 0,
         shadow_caster: true,
         shadow_receiver: true,
+
+        interactions: DEFAULT_INTERACTIONS,
     },
     &VoxelDefinition {
-        voxel: Voxel::Water { lateral_energy: 32 },
+        voxel: Voxel::Water(DEFAULT_LIQUID_STATE),
         // voxel: Voxel::Water,
         name: "water",
         simulation_kind: SimKind::Liquid,
@@ -222,9 +264,11 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 40,
         shadow_caster: false,
         shadow_receiver: true,
+
+        interactions: DEFAULT_INTERACTIONS,
     },
     &VoxelDefinition {
-        voxel: Voxel::Oil { lateral_energy: 32 },
+        voxel: Voxel::Oil(DEFAULT_LIQUID_STATE),
         // voxel: Voxel::Oil,
         name: "oil",
         simulation_kind: SimKind::Liquid,
@@ -238,6 +282,26 @@ pub const VOXEL_DEFINITIONS: &[&'static VoxelDefinition] = &[
         density: 10,
         shadow_caster: false,
         shadow_receiver: true,
+
+        interactions: Interactions { burnt: Some(Voxel::Air) },
+    },
+    &VoxelDefinition {
+        voxel: Voxel::Fire { voxel_id: 0 },
+        // voxel: Voxel::Fire,
+        name: "fire",
+        simulation_kind: SimKind::Special,
+        simulated: true,
+        collidable: false,
+        rendered: true,
+        transparent: true,
+        pickable: false,
+        breakable: true,
+        initial_health: 10,
+        density: 10,
+        shadow_caster: false,
+        shadow_receiver: false,
+
+        interactions: DEFAULT_INTERACTIONS,
     },
 ];
 
@@ -269,6 +333,7 @@ impl Voxel {
             Voxel::Sand => 6,
             Voxel::Water { .. } => 7,
             Voxel::Oil { .. } => 8,
+            Voxel::Fire { .. } => 9,
         }
     }
 
@@ -301,8 +366,8 @@ impl Voxel {
             "grass" => Some(Voxel::Grass),
             "stone" => Some(Voxel::Stone),
 
-            "water" => Some(Voxel::Water { lateral_energy: 32 }),
-            "oil" => Some(Voxel::Oil { lateral_energy: 32 }),
+            "water" => Some(Voxel::Water(default())),
+            "oil" => Some(Voxel::Oil(default())),
             _ => None,
         }
     }
@@ -454,8 +519,8 @@ impl VoxelMaterials {
             dirt: materials.add(Voxel::Dirt.material()),
             sand: materials.add(Voxel::Sand.material()),
             grass: materials.add(Voxel::Grass.material()),
-            water: materials.add(Voxel::Water { lateral_energy: 32 }.material()),
-            oil: materials.add(Voxel::Oil { lateral_energy: 32 }.material()),
+            water: materials.add(Voxel::Water(default()).material()),
+            oil: materials.add(Voxel::Oil(default()).material()),
         }
     }
 

@@ -114,9 +114,7 @@ pub fn draw_cursor(
         ];
 
         let brush_voxels: Vec<Voxel> =
-            vec![Voxel::Dirt, Voxel::Sand, Voxel::Water { lateral_energy: 4 }, Voxel::Oil {
-                lateral_energy: 4,
-            }];
+            vec![Voxel::Dirt, Voxel::Sand, Voxel::Water(default()), Voxel::Oil(default())];
 
         if key_input.just_pressed(KeyCode::KeyB) {
             *brush_index = (*brush_index + 1) % brushes.len();

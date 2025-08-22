@@ -355,8 +355,11 @@ impl SimChunks {
                 for z in -1..=1 {
                     let offset = ivec3(x, y, z);
                     let neighbor = point + offset;
-                    self.push_sim_update(neighbor);
+                    // if self.get_voxel(neighbor).is_simulated() {
+                    //     self.push_sim_update(neighbor);
+                    // }
                     // self.updated_chunks.insert(chunk_point(neighbor));
+                    self.push_sim_update(neighbor);
                 }
             }
         }
@@ -405,7 +408,7 @@ impl SimChunks {
     }
 
     #[inline]
-    pub fn chunk_and_voxel_indices(point: IVec3) -> (IVec3, usize) {
+    pub fn chunk_and_voxel_indices(point: IVec3) -> (ChunkPoint, usize) {
         // chunk index
         let chunk_point = chunk_point(point);
 
@@ -416,7 +419,10 @@ impl SimChunks {
         (chunk_point, voxel_index)
     }
 
-    pub fn point_from_chunk_and_voxel_indices(chunk_point: IVec3, voxel_index: usize) -> IVec3 {
+    pub fn point_from_chunk_and_voxel_indices(
+        chunk_point: ChunkPoint,
+        voxel_index: usize,
+    ) -> IVec3 {
         #[cfg(feature = "trace")]
         let span = info_span!("point_from_chunk_and_voxel_indices").entered();
 
@@ -493,8 +499,8 @@ mod tests {
         assert_eq!(chunks.get_voxel(ivec3(-1, 0, 0)), Voxel::Barrier);
 
         // voxel data
-        chunks.set_voxel(ivec3(1, 0, 0), Voxel::Water { lateral_energy: 2 });
-        assert_eq!(chunks.get_voxel(ivec3(1, 0, 0)), Voxel::Water { lateral_energy: 2 });
+        chunks.set_voxel(ivec3(1, 0, 0), Voxel::Water(default()));
+        assert_eq!(chunks.get_voxel(ivec3(1, 0, 0)), Voxel::Water(default()));
     }
 
     // #[test]

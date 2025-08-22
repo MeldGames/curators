@@ -146,7 +146,7 @@ impl TerrainParams {
         voxels.set_voxel_aabb(
             VoxelAabb {
                 min: IVec3::new(self.aabb.min.x, self.aabb.min.y, self.aabb.min.z),
-                max: IVec3::new(self.aabb.max.x, self.aabb.min.y + 1, self.aabb.max.z),
+                max: IVec3::new(self.aabb.max.x, self.aabb.min.y + 2, self.aabb.max.z),
             },
             Voxel::Base,
         );
