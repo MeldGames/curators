@@ -108,8 +108,8 @@ pub fn draw_cursor(
         // );
 
         let brushes: Vec<&dyn sdf::Sdf> = vec![
-            &sdf::Torus { minor_radius: 2.0, major_radius: 5.0 },
-            &sdf::Sphere { radius: 4.0 },
+            &sdf::Torus { minor_radius: 4.0, major_radius: 12.0 },
+            &sdf::Sphere { radius: 3.0 },
             // &sdf::Sphere { radius: 0.2 },
         ];
 

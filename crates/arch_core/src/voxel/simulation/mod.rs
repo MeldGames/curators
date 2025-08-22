@@ -85,7 +85,7 @@ pub struct SimSettings {
 
 impl Default for SimSettings {
     fn default() -> Self {
-        Self { run: true, display_simulated: true, display_checked: true }
+        Self { run: true, display_simulated: false, display_checked: false }
     }
 }
 

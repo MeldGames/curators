@@ -60,34 +60,38 @@ pub struct GridChunk {
 pub fn spawn_chunk_entities(
     mut commands: Commands,
     mut grids: Query<(Entity, &Voxels, &mut Chunks)>,
+    mut changed_chunks: EventReader<ChangedChunk>,
 ) {
-    for (voxels_entity, voxels, mut voxel_chunks) in &mut grids {
-        for &chunk_pos in voxels.sim_chunks.chunks.keys() {
-            if !voxel_chunks.contains_key(&chunk_pos) {
-                info!("spawning chunk entity: {:?}", chunk_pos);
+    for ChangedChunk { grid_entity, chunk_point } in changed_chunks.read() {
+        let Ok((voxels_entity, voxels, mut voxel_chunks)) = grids.get_mut(*grid_entity) else {
+            warn!("grid entity did not have Voxels/Chunks: {:?}", grid_entity);
+            continue;
+        };
 
-                let new_chunk = commands
-                    .spawn((
-                        Name::new(format!("Chunk [{:?}]", chunk_pos)),
-                        GreedyMeshes::default(),
-                        GreedyCollider::default(),
-                        SurfaceNetColliders::default(),
-                        SurfaceNetMeshes::default(),
-                        SurfaceNet,
-                        Lod(1),
-                        ChildOf(voxels_entity),
-                        GridChunk { entity: voxels_entity, position: chunk_pos },
-                        Transform {
-                            // translation: chunk_pos.as_vec3()
-                            // * crate::voxel::mesh::unpadded::SIZE as f32,
-                            ..default()
-                        },
-                        Visibility::Inherited,
-                    ))
-                    .id();
+        if !voxel_chunks.contains_key(chunk_point) {
+            info!("spawning chunk entity: {:?}", chunk_point);
 
-                voxel_chunks.insert(chunk_pos, new_chunk);
-            }
+            let new_chunk = commands
+                .spawn((
+                    Name::new(format!("Chunk [{:?}]", chunk_point)),
+                    GreedyMeshes::default(),
+                    GreedyCollider::default(),
+                    SurfaceNetColliders::default(),
+                    SurfaceNetMeshes::default(),
+                    SurfaceNet,
+                    Lod(1),
+                    ChildOf(voxels_entity),
+                    GridChunk { entity: voxels_entity, position: *chunk_point },
+                    Transform {
+                        // translation: chunk_point.as_vec3()
+                        // * crate::voxel::mesh::unpadded::SIZE as f32,
+                        ..default()
+                    },
+                    Visibility::Inherited,
+                ))
+                .id();
+
+            voxel_chunks.insert(*chunk_point, new_chunk);
         }
     }
 }
