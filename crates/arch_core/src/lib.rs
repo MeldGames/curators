@@ -56,7 +56,7 @@ pub fn shared(app: &mut App) {
         .add_plugins(item::plugin)
         .add_plugins(map::plugin)
         .add_plugins(proc_mesh::plugin)
-        .add_plugins(pathfind::plugin)
+        // .add_plugins(pathfind::plugin)
         .add_plugins(character::plugin)
         // .add_plugins(EdgeDetectionPlugin {
         //     // If you wish to apply Smaa anti-aliasing after edge detection,
