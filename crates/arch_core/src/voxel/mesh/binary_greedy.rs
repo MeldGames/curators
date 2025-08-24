@@ -15,6 +15,7 @@ use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::mesh::lod::Lod;
 use crate::voxel::mesh::surface_net::{SurfaceNetColliders, SurfaceNetMeshes};
 use crate::voxel::mesh::{ChangedChunk, Remesh, SurfaceNet};
+use crate::voxel::simulation::data::ChunkPoint;
 use crate::voxel::voxel::VoxelMaterials;
 use crate::voxel::{Voxel, Voxels};
 
@@ -31,7 +32,7 @@ pub struct BinaryGreedy;
 
 #[derive(Component, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
-pub struct Chunks(HashMap<IVec3, Entity>);
+pub struct Chunks(HashMap<ChunkPoint, Entity>);
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct GreedyCollider(pub Option<Entity>);
@@ -54,7 +55,7 @@ impl Default for BgmMesher {
 #[derive(Component, Debug, Reflect)]
 pub struct GridChunk {
     pub entity: Entity,
-    pub position: IVec3,
+    pub position: ChunkPoint,
 }
 
 pub fn spawn_chunk_entities(

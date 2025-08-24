@@ -2,6 +2,7 @@ use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 pub use chunk::{Scalar, VoxelChunk, padded, unpadded};
 
+use crate::voxel::simulation::data::ChunkPoint;
 use crate::voxel::{Voxel, VoxelAabb, Voxels};
 
 // Data
@@ -61,7 +62,7 @@ pub fn plugin(app: &mut App) {
 #[derive(Event, Debug, PartialEq, Eq, Hash, Copy, Clone, Reflect)]
 pub struct ChangedChunk {
     pub grid_entity: Entity,
-    pub chunk_point: IVec3,
+    pub chunk_point: ChunkPoint,
 }
 
 pub fn clear_changed_chunks(

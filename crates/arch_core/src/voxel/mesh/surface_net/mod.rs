@@ -19,6 +19,7 @@ use crate::voxel::mesh::frustum_chunks::FrustumChunks;
 use crate::voxel::mesh::remesh::Remesh;
 use crate::voxel::mesh::surface_net::fast_surface_nets::VoxelAccess;
 use crate::voxel::mesh::{ChangedChunk, padded};
+use crate::voxel::simulation::data::ChunkPoint;
 use crate::voxel::{UpdateVoxelMeshSet, Voxel, Voxels};
 
 pub mod fast_surface_nets;
@@ -58,18 +59,8 @@ pub struct SurfaceNetColliders {
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct SurfaceNetMeshes(HashMap<u16, Entity>);
 
-// pub fn update_prev_counts(mut grids: Query<(&mut Voxels, &mut Remeshed)>) {
-//     for (mut grid, mut remeshed) in &mut grids {
-//         for chunk_point in remeshed.0.drain() {
-//             if let Some(chunk) =
-// grid.render_chunks.get_chunk_mut(chunk_point) {
-// chunk.clear_voxel_type_updates();             }
-//         }
-//     }
-// }
-
 #[derive(Component, Default)]
-pub struct Remeshed(HashSet<IVec3>);
+pub struct Remeshed(HashSet<ChunkPoint>);
 
 pub fn update_surface_net_mesh(
     mut commands: Commands,
@@ -178,7 +169,7 @@ pub fn update_surface_net_mesh(
             // info!("remeshing {:?}-{:?}", chunk_point, voxel);
             // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
             let chunk_size = IVec3::splat(16);
-            let chunk_min = chunk_size * chunk_point;
+            let chunk_min = chunk_size * *chunk_point;
             let chunk_max = chunk_min + chunk_size;
             voxels.create_surface_net(
                 &mut surface_net_buffer,

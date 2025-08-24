@@ -1,6 +1,10 @@
+use std::hash::{Hash, Hasher};
+
 use bevy::platform::collections::hash_map::IterMut;
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
+use fxhash::FxHashMap;
+use slotmap::SlotMap;
 #[cfg(feature = "trace")]
 use tracing::*;
 
@@ -14,7 +18,14 @@ pub const CHUNK_REMAINDER: i32 = (CHUNK_WIDTH - 1) as i32;
 pub const CHUNK_WIDTH: usize = 1 << CHUNK_WIDTH_BITSHIFT;
 pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
 
-pub type ChunkPoint = IVec3;
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Reflect, Deref, DerefMut, Hash)]
+pub struct ChunkPoint(pub IVec3);
+
+// impl Hash for ChunkPoint {
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         (self.0.as_i16vec3()).hash(state);
+//     }
+// }
 
 pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
@@ -61,6 +72,8 @@ impl SimChunk {
 pub struct SimChunks {
     // pub chunks: Vec<SimChunk>,
     // pub chunk_strides: [usize; 3],
+    // pub chunks: SlotMap<SimChunk>,
+    // pub chunks_map: HashMap<ChunkPoint, SlotKey>,
     pub chunks: HashMap<ChunkPoint, SimChunk>,
 
     pub sim_updates: UpdateBuffer, // bitmask of updates
@@ -119,20 +132,20 @@ pub fn delinearize(index: usize) -> IVec3 {
 #[inline]
 pub fn chunk_point(point: IVec3) -> ChunkPoint {
     // not euclidean (point / 16)
-    point >> (CHUNK_WIDTH_BITSHIFT as i32)
+    ChunkPoint(point >> (CHUNK_WIDTH_BITSHIFT as i32))
 }
 
 pub struct UpdateIterator<'a> {
     // pub chunk_updates: &'a mut UpdateBuffer,
     // pub chunk_points: Vec<IVec3>,
     // pub chunk_index: usize,
-    pub iter: IterMut<'a, IVec3, [u64; CHUNK_LENGTH / 64]>,
-    pub current_mask: Option<(&'a IVec3, &'a mut [u64; CHUNK_LENGTH / 64])>,
+    pub iter: IterMut<'a, ChunkPoint, [u64; CHUNK_LENGTH / 64]>,
+    pub current_mask: Option<(&'a ChunkPoint, &'a mut [u64; CHUNK_LENGTH / 64])>,
     pub mask_index: usize,
 }
 
 impl<'a> Iterator for UpdateIterator<'a> {
-    type Item = (IVec3, usize);
+    type Item = (ChunkPoint, usize);
 
     // (chunk_index, voxel_index)
 
@@ -180,7 +193,7 @@ impl SimChunks {
         let chunk_size = voxel_size / CHUNK_WIDTH as i32;
         Self {
             // chunks: vec![SimChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
-            chunks: HashMap::with_capacity((chunk_size.x * chunk_size.y * chunk_size.z) as usize),
+            chunks: HashMap::with_capacity((chunk_size.x * 3 * chunk_size.z) as usize),
             sim_updates: Self::create_update_buffer_from_size(chunk_size),
             // updated_chunks: HashSet::new(),
             // chunk_strides,
@@ -307,7 +320,7 @@ impl SimChunks {
                     let update_max = chunk_voxel_max.min(max + IVec3::ONE);
 
                     // Get or create the chunk
-                    let chunk = self.chunks.entry(chunk_point).or_default();
+                    let chunk = self.chunks.entry(ChunkPoint(chunk_point)).or_default();
 
                     chunk.voxel_changeset.set(voxel);
 
@@ -337,7 +350,7 @@ impl SimChunks {
                                 // Mark for simulation update
                                 Self::add_update_mask(
                                     &mut self.sim_updates,
-                                    chunk_point,
+                                    ChunkPoint(chunk_point),
                                     voxel_index,
                                 );
                             }
@@ -413,7 +426,7 @@ impl SimChunks {
         let chunk_point = chunk_point(point);
 
         // voxel index
-        let relative_voxel_point = point - (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32));
+        let relative_voxel_point = point - (chunk_point.0 << (CHUNK_WIDTH_BITSHIFT as i32));
         let voxel_index = linearize(relative_voxel_point);
 
         (chunk_point, voxel_index)
@@ -428,7 +441,7 @@ impl SimChunks {
 
         // let chunk_point = self.chunk_delinearize(chunk_index);
         let relative_voxel_point = delinearize(voxel_index);
-        (chunk_point << (CHUNK_WIDTH_BITSHIFT as i32)) + relative_voxel_point
+        (chunk_point.0 << (CHUNK_WIDTH_BITSHIFT as i32)) + relative_voxel_point
     }
 }
 

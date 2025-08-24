@@ -7,6 +7,7 @@ use bevy::render::primitives::{Aabb, Frustum};
 use bevy_math::Affine3A;
 
 use crate::voxel::Voxels;
+use crate::voxel::simulation::data::ChunkPoint;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<FrustumChunks>();
@@ -17,7 +18,7 @@ pub fn plugin(app: &mut App) {
 
 #[derive(Resource, Clone, Default, Reflect, Debug, Deref, DerefMut)]
 #[reflect(Resource)]
-pub struct FrustumChunks(HashMap<(Entity, IVec3), FrustumChunk>); // (voxel_entity, chunk_point) -> distance_to_camera
+pub struct FrustumChunks(HashMap<(Entity, ChunkPoint), FrustumChunk>); // (voxel_entity, chunk_point) -> distance_to_camera
 
 #[derive(Copy, Clone, Default, Reflect, Debug, PartialEq)]
 pub struct FrustumChunk {

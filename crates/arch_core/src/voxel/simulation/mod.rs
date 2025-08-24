@@ -14,6 +14,7 @@ use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 pub mod data;
 pub mod kinds;
 pub mod morton;
+// pub mod octree;
 pub mod rle;
 
 pub fn plugin(app: &mut App) {
@@ -96,15 +97,15 @@ pub fn sim_settings(mut sim_settings: ResMut<SimSettings>, input: Res<ButtonInpu
 }
 
 /// Hold new updates for this chunk on the stack instead of heap.
-/// 
+///
 /// Only set the directly affected voxels in this mask, then later we will
 /// spread the bits to the adjacent axes.
 /// Z access can be spread via a simple << | and >> |:
 /// `mask | (mask << 1) | (mask >> 1)`
-/// 
+///
 /// X access can be spread via:
 /// `mask | (mask << 16) | (mask >> 16)`
-/// 
+///
 /// Y access can be spread via | to the masks +-4 ((16 * 16) / 64)
 /// `mask[i - 4] | mask[i] | mask[i + 4]`
 pub struct StackUpdates {
@@ -164,32 +165,32 @@ pub fn falling_sands(
 
             let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_point, voxel_index);
             // if sim_voxel.is_simulated() {
-                let point = SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
-                sim_voxel.simulate(&mut grid.sim_chunks, point, &sim_tick);
+            let point = SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
+            sim_voxel.simulate(&mut grid.sim_chunks, point, &sim_tick);
 
-                // if let Some(gizmos) = gizmos.as_mut() && sim_settings.display_simulated {
-                //     gizmos.cuboid(
-                //         Transform {
-                //             translation: point.as_vec3() * GRID_SCALE,
-                //             scale: GRID_SCALE,
-                //             ..default()
-                //         },
-                //         Color::srgb(1.0, 0.0, 0.0),
-                //     );
-                // }
+            // if let Some(gizmos) = gizmos.as_mut() &&
+            // sim_settings.display_simulated {     gizmos.cuboid(
+            //         Transform {
+            //             translation: point.as_vec3() * GRID_SCALE,
+            //             scale: GRID_SCALE,
+            //             ..default()
+            //         },
+            //         Color::srgb(1.0, 0.0, 0.0),
+            //     );
+            // }
             // } else {
-                // if let Some(gizmos) = gizmos.as_mut() && sim_settings.display_checked {
-                //     let point =
-                //         SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
-                //     gizmos.cuboid(
-                //         Transform {
-                //             translation: point.as_vec3() * GRID_SCALE,
-                //             scale: GRID_SCALE,
-                //             ..default()
-                //         },
-                //         Color::srgb(0.0, 0.0, 1.0),
-                //     );
-                // }
+            // if let Some(gizmos) = gizmos.as_mut() &&
+            // sim_settings.display_checked {     let point =
+            //         SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
+            //     gizmos.cuboid(
+            //         Transform {
+            //             translation: point.as_vec3() * GRID_SCALE,
+            //             scale: GRID_SCALE,
+            //             ..default()
+            //         },
+            //         Color::srgb(0.0, 0.0, 1.0),
+            //     );
+            // }
             // }
         }
     }

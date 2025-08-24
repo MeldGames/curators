@@ -69,7 +69,8 @@ pub fn mesh_method_changed<M: Component>(
         return;
     };
 
-    writer.write(ChangedChunk { grid_entity: grid_chunk.entity, chunk_point: grid_chunk.position });
+    // writer.write(ChangedChunk { grid_entity: grid_chunk.entity, chunk_point:
+    // grid_chunk.position });
 }
 
 // pub fn mesh_method(

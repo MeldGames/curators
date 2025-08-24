@@ -101,12 +101,14 @@ bevy-inspector-egui = "0.32.0"
 # Other
 approx = "0.5.1"
 dashmap = "6.1.0"
+fxhash = "0.2.1"
 lazy_static = "1"
 mem_dbg = "0.3"
 num-derive = "0.4"
 num-traits = "0.2"
 rand = "0.9.1"
 serde = "1.0.219"
+slotmap = "1.0.7"
 thiserror = "2"
 
 [dev-dependencies]
