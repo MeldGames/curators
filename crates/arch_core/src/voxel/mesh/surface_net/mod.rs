@@ -17,8 +17,10 @@ use crate::voxel::mesh::binary_greedy::Chunks;
 use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::mesh::frustum_chunks::FrustumChunks;
 use crate::voxel::mesh::remesh::Remesh;
-use crate::voxel::mesh::{ChangedChunks, padded};
-use crate::voxel::{Voxel, Voxels};
+use crate::voxel::mesh::surface_net::fast_surface_nets::VoxelAccess;
+use crate::voxel::mesh::{ChangedChunk, padded};
+use crate::voxel::simulation::data::ChunkPoint;
+use crate::voxel::{UpdateVoxelMeshSet, Voxel, Voxels};
 
 pub mod fast_surface_nets;
 
@@ -29,7 +31,7 @@ pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
     fn build(&self, app: &mut App) {
         // app.add_observer(surface_net_components);
-        app.add_systems(PreUpdate, (update_surface_net_mesh, update_prev_counts).chain());
+        app.add_systems(PreUpdate, update_surface_net_mesh.in_set(UpdateVoxelMeshSet::Mesh));
     }
 }
 
@@ -57,23 +59,13 @@ pub struct SurfaceNetColliders {
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct SurfaceNetMeshes(HashMap<u16, Entity>);
 
-pub fn update_prev_counts(mut grids: Query<(&mut Voxels, &mut Remeshed)>) {
-    for (mut grid, mut remeshed) in &mut grids {
-        for chunk_point in remeshed.0.drain() {
-            if let Some(chunk) = grid.render_chunks.get_chunk_mut(chunk_point) {
-                chunk.clear_voxel_type_updates();
-            }
-        }
-    }
-}
-
 #[derive(Component, Default)]
-pub struct Remeshed(HashSet<IVec3>);
+pub struct Remeshed(HashSet<ChunkPoint>);
 
 pub fn update_surface_net_mesh(
     mut commands: Commands,
     is_surface_nets: Query<(), With<SurfaceNet>>,
-    mut grids: Query<(&Voxels, &Chunks, &mut Remeshed), Changed<Voxels>>,
+    mut grids: Query<(Entity, &Voxels, &Chunks, &mut Remeshed)>,
     mut chunk_mesh_entities: Query<(&mut SurfaceNetMeshes, &mut SurfaceNetColliders)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
@@ -81,10 +73,12 @@ pub fn update_surface_net_mesh(
     // voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
     // mut mesher: Local<BgmMesher>,
     mut surface_net_buffer: Local<SurfaceNetsBuffer>,
-    mut changed_chunks: EventReader<ChangedChunks>,
+    mut changed_chunks: EventReader<ChangedChunk>,
 
-    mut queue: Local<Vec<(Entity, IVec3)>>,
-    mut dedup: Local<HashSet<(Entity, IVec3)>>,
+    named: Query<NameOrEntity>,
+
+    mut queue: Local<Vec<ChangedChunk>>,
+    mut dedup: Local<HashSet<ChangedChunk>>,
 
     remesh: Res<Remesh>,
     frustum_chunks: Res<FrustumChunks>,
@@ -106,19 +100,18 @@ pub fn update_surface_net_mesh(
         }
     }
 
-    for ChangedChunks { voxel_entity, changed_chunks } in changed_chunks.read() {
-        for chunk in changed_chunks {
-            let new_entry = (*voxel_entity, *chunk);
-            if !dedup.contains(&new_entry) {
-                queue.push(new_entry);
-                dedup.insert(new_entry);
-            }
+    for &changed_chunk in changed_chunks.read() {
+        if !dedup.contains(&changed_chunk) {
+            queue.push(changed_chunk);
+            dedup.insert(changed_chunk);
         }
     }
 
-    queue.sort_by(|(entity_a, pos_a), (entity_b, pos_b)| {
-        let a_frustum = frustum_chunks.get(&(*entity_a, *pos_a));
-        let b_frustum = frustum_chunks.get(&(*entity_b, *pos_b));
+    queue.sort_by(|changed_a, changed_b| {
+        let ChangedChunk { grid_entity: entity_a, chunk_point: point_a } = changed_a;
+        let ChangedChunk { grid_entity: entity_b, chunk_point: point_b } = changed_b;
+        let a_frustum = frustum_chunks.get(&(*entity_a, *point_a));
+        let b_frustum = frustum_chunks.get(&(*entity_b, *point_b));
         match (a_frustum, b_frustum) {
             (Some(_), None) => Ordering::Greater, // the one in the frustum should be placed last
             (None, Some(_)) => Ordering::Less,
@@ -132,13 +125,14 @@ pub fn update_surface_net_mesh(
     let mut pop_count = 0;
     while pop_count < remesh.surface_net {
         pop_count += 1;
-        let Some((voxel_entity, chunk_point)) = queue.pop() else {
+        let Some(changed_chunk) = queue.pop() else {
             break;
         };
-        dedup.remove(&(voxel_entity, chunk_point));
+        dedup.remove(&changed_chunk);
+        let ChangedChunk { grid_entity, chunk_point } = changed_chunk;
 
-        let Ok((voxels, voxel_chunks, mut remeshed)) = grids.get_mut(voxel_entity) else {
-            warn!("No voxels for entity {voxel_entity:?}");
+        let Ok((_, voxels, voxel_chunks, mut remeshed)) = grids.get_mut(grid_entity) else {
+            warn!("No voxels for entity `{}`", named.get(grid_entity).unwrap());
             continue;
         };
 
@@ -148,10 +142,11 @@ pub fn update_surface_net_mesh(
         };
 
         if !is_surface_nets.contains(*chunk_entity) {
+            warn!("doesn't have surface net");
             continue;
         }
 
-        let Some(chunk) = voxels.render_chunks.get_chunk(chunk_point) else {
+        let Some(chunk) = voxels.sim_chunks.chunks.get(&chunk_point) else {
             warn!("No chunk at {chunk_point:?}");
             continue;
         };
@@ -159,26 +154,45 @@ pub fn update_surface_net_mesh(
         let Ok((mut chunk_meshes, mut chunk_colliders)) =
             chunk_mesh_entities.get_mut(*chunk_entity)
         else {
-            warn!("no chunk_mesh/chunk_collider for {:?}", chunk_entity);
+            warn!("no chunk_mesh/chunk_collider for {:?}", named.get(*chunk_entity).unwrap());
             continue;
         };
 
-        for (voxel_id, voxel) in chunk.voxel_type_updates() {
+        for voxel in chunk.voxel_changeset {
             if !voxel.rendered() {
                 continue;
             }
 
+            let voxel_id = voxel.id();
+
             let lod = 1;
             // info!("remeshing {:?}-{:?}", chunk_point, voxel);
             // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
-            chunk.create_surface_net(&mut surface_net_buffer, voxel_id, lod);
-            // for normal in surface_net_buffer.normals.iter_mut() {
-            //     *normal = (Vec3::from(*normal).normalize()).into();
-            // }
+            let chunk_size = IVec3::splat(16);
+            let chunk_min = chunk_size * *chunk_point;
+            let chunk_max = chunk_min + chunk_size;
+            voxels.create_surface_net(
+                &mut surface_net_buffer,
+                voxel_id,
+                chunk_min - IVec3::ONE,
+                chunk_max,
+                lod,
+            );
+            let SurfaceNetsBuffer { ref mut normals, ref mut positions, .. } = *surface_net_buffer;
+            for (position, normal) in positions.iter_mut().zip(normals.iter_mut()) {
+                *normal = (Vec3::from(*normal).normalize()).into();
+                // const STRETCH: [f32; 3] = [0.0, 0.0, 0.0];
+                const STRETCH: [f32; 3] = [0.5, 0.0, 0.5];
+                *position = [
+                    position[0] + normal[0] * STRETCH[0],
+                    position[1] + normal[1] * STRETCH[1],
+                    position[2] + normal[2] * STRETCH[2],
+                ];
+            }
 
             let mut mesh = surface_net_to_mesh(&surface_net_buffer);
             if voxel.collidable() {
-                let collider_mesh = surface_net_to_collider_trimesh(&surface_net_buffer, lod);
+                let collider_mesh = surface_net_to_collider_trimesh(&surface_net_buffer);
                 match collider_mesh {
                     Some(new_collider) => {
                         // create/modify chunk collider entity
@@ -280,7 +294,7 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
     mesh
 }
 
-pub fn surface_net_to_collider_trimesh(buffer: &SurfaceNetsBuffer, lod: u32) -> Option<Collider> {
+pub fn surface_net_to_collider_trimesh(buffer: &SurfaceNetsBuffer) -> Option<Collider> {
     let flags = TrimeshFlags::FIX_INTERNAL_EDGES | TrimeshFlags::DELETE_DEGENERATE_TRIANGLES;
 
     if buffer.positions.len() == 0 || buffer.indices.len() == 0 || buffer.indices.len() % 3 != 0 {
@@ -295,7 +309,7 @@ pub fn surface_net_to_collider_trimesh(buffer: &SurfaceNetsBuffer, lod: u32) -> 
         indices.push(tri);
     }
     let mut new_collider = Collider::trimesh_with_config(positions, indices, flags);
-    new_collider.set_scale(crate::voxel::GRID_SCALE * lod as f32, 32);
+    new_collider.set_scale(crate::voxel::GRID_SCALE, 32);
 
     Some(new_collider)
 }
@@ -303,7 +317,18 @@ pub fn surface_net_to_collider_trimesh(buffer: &SurfaceNetsBuffer, lod: u32) -> 
 // pub type ChunkShape = ConstPow2Shape3u32<{ 6 as u32 }, { 6 as u32 }, { 6 as
 // u32 }>; // 62^3 with 1 padding
 
-impl VoxelChunk {
+pub struct LodStep<'a> {
+    pub voxels: &'a Voxels,
+    pub lod_step: IVec3,
+}
+
+impl<'a> VoxelAccess for LodStep<'a> {
+    fn get_voxel(&self, point: IVec3) -> Voxel {
+        self.voxels.get_voxel(point * self.lod_step)
+    }
+}
+
+impl Voxels {
     // pub fn update_surface_net_samples(&self, samples: &mut Vec<f32>,
     // mesh_voxel_id: u16) {     let shape = ChunkShape {};
     //     for (i, voxel) in self.voxels.iter().enumerate() {
@@ -322,52 +347,19 @@ impl VoxelChunk {
     //     }
     // }
 
-    pub fn create_surface_net(&self, buffer: &mut SurfaceNetsBuffer, mesh_voxel_id: u16, lod: u32) {
-        // if lod == 1 {
-        surface_nets(&self.voxels, mesh_voxel_id, padded::SIZE as u32, buffer);
-        // } else {
-        //     let lod_size = 16 / lod;
-        //     let lod_arr_size = (lod_size * lod_size * lod_size) as usize;
-        //     let mut reduced_buffer = vec![0u16; lod_arr_size as usize];
-
-        //     let mut unreduced_index = 0;
-        //     for base_y in 0..lod_size {
-        //         for base_x in 0..lod_size {
-        //             for base_z in 0..lod_size {
-        //                 let reduced_point = IVec3::new(base_x as i32, base_y
-        // as i32, base_z as i32);                 let unreduced_point =
-        // reduced_point * lod as i32;                 let mut found =
-        // false;
-
-        //             'lod:
-        //                 for lod_y in 0..lod {
-        //                     for lod_x in 0..lod {
-        //                         for lod_z in 0..lod {
-        //                             let sample_point = unreduced_point +
-        // IVec3::new(lod_x as i32, lod_y as i32, lod_z as i32);
-
-        //                             let lod_index =
-        // padded::linearize(sample_point.into());
-        // if lod_index < self.voxels.len() {
-        // if Voxel::id_from_data(self.voxels[lod_index]) == mesh_voxel_id {
-        //                                     found = true;
-        //                                     break 'lod;
-        //                                 }
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-
-        //                 if found {
-        //                     reduced_buffer[unreduced_index] = mesh_voxel_id;
-        //                 }
-
-        //                 unreduced_index += 1;
-        //             }
-        //         }
-        //     }
-
-        //     surface_nets(&reduced_buffer, mesh_voxel_id,  (16 / lod) - 1,
-        // buffer); }
+    pub fn create_surface_net(
+        &self,
+        buffer: &mut SurfaceNetsBuffer,
+        mesh_voxel_id: u16,
+        min: IVec3,
+        max: IVec3,
+        lod: i32,
+    ) {
+        if lod == 1 {
+            surface_nets(self, mesh_voxel_id, min - 1, max, buffer);
+        } else {
+            let access = LodStep { voxels: self, lod_step: IVec3::splat(lod) };
+            surface_nets(&access, mesh_voxel_id, min - 1 * lod, max, buffer);
+        }
     }
 }

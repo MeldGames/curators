@@ -143,23 +143,40 @@ impl TerrainParams {
         let min = self.aabb.min;
         let max = self.aabb.max;
 
-        for x in min.x..=max.x {
-            for z in min.z..=max.z {
-                for y in min.y..=max.y {
-                    let box_voxel = if y == min.y { Voxel::Base } else { Voxel::Barrier };
+        // voxels.set_voxel_aabb(
+        //     VoxelAabb {
+        //         min: IVec3::new(self.aabb.min.x, self.aabb.min.y, self.aabb.min.z),
+        //         max: IVec3::new(self.aabb.max.x, self.aabb.min.y + 2,
+        // self.aabb.max.z),     },
+        //     Voxel::Base,
+        // );
 
-                    if x == min.x
-                        || x == max.x
-                        || y == min.y
-                        || y == max.y
-                        || z == min.z
-                        || z == max.z
-                    {
-                        voxels.set_voxel(IVec3::new(x, y, z), box_voxel);
-                    }
+        for z in min.z..=max.z {
+            for x in min.x..=max.x {
+                for y in min.y..=min.y + 4 {
+                    voxels.set_voxel(IVec3::new(x, y, z), Voxel::Base);
                 }
             }
         }
+
+        // for x in min.x..=max.x {
+        //     for z in min.z..=max.z {
+        //         for y in min.y..=max.y {
+        //             let box_voxel = if y == min.y { Voxel::Base } else {
+        // Voxel::Barrier };
+
+        //             if x == min.x
+        //                 || x == max.x
+        //                 || y == min.y
+        //                 || y == max.y
+        //                 || z == min.z
+        //                 || z == max.z
+        //             {
+        //                 voxels.set_voxel(IVec3::new(x, y, z), box_voxel);
+        //             }
+        //         }
+        //     }
+        // }
 
         Ok(())
     }

@@ -2,7 +2,7 @@ use arch_core::bevy;
 use arch_core::bevy::math::bounding::Aabb3d;
 use arch_core::bevy::render::RenderPlugin;
 use arch_core::sdf::{self, Sdf};
-use arch_core::voxel::simulation::update_render_voxels;
+use arch_core::voxel::simulation::SimSettings;
 use arch_core::voxel::{self, GRID_SCALE, Voxel, Voxels};
 use bevy::prelude::*;
 
@@ -12,7 +12,7 @@ pub fn bench_setup(app: &mut App) {
     app
         .add_plugins(voxel::voxels::plugin)
         .add_plugins(voxel::voxel::plugin)
-        .add_systems(PostUpdate, update_render_voxels)
+        // .add_systems(PostUpdate, update_render_voxels)
         .add_plugins(voxel::mesh::plugin)
         .add_plugins(voxel::simulation::data::plugin);
 }
@@ -45,7 +45,7 @@ pub fn mesh_benches() -> Vec<MeshBenchSetup> {
                 brushes: vec![(
                     IVec3::new(30, 30, 30),
                     Box::new(sdf::Torus { minor_radius: 2.0, major_radius: 3.0 }),
-                    Voxel::Water { lateral_energy: 32 },
+                    Voxel::Water(default()),
                 )],
             }
         },
@@ -75,7 +75,7 @@ pub fn mesh_benches() -> Vec<MeshBenchSetup> {
                 brushes: vec![(
                     IVec3::splat(128) / 2,
                     Box::new(sdf::Sphere { radius: 20.0 }),
-                    Voxel::Water { lateral_energy: 32 },
+                    Voxel::Water(default()),
                 )],
             }
         },

@@ -1,5 +1,7 @@
 use arch_core::bevy;
 use arch_core::sdf::{self, Sdf};
+use arch_core::voxel::mesh::ChangedChunk;
+use arch_core::voxel::simulation::SimSettings;
 use arch_core::voxel::{self, Voxel};
 use bevy::prelude::*;
 
@@ -8,11 +10,17 @@ use crate::{MeasurementSetup, VoxelSetup};
 pub fn plugin_setup() -> App {
     let mut app = App::new();
 
+    app.add_event::<ChangedChunk>();
+
+    app
+        .insert_resource(voxel::simulation::FallingSandTick(0))
+        .insert_resource(SimSettings::default());
+
     app.add_plugins(MinimalPlugins)
         .add_plugins(voxel::voxels::plugin)
-        .insert_resource(voxel::simulation::FallingSandTick(0))
-        .add_systems(Update, voxel::simulation::falling_sands)
-        .add_plugins(voxel::simulation::data::plugin);
+        .add_plugins(voxel::simulation::data::plugin)
+        .add_systems(Update, voxel::simulation::falling_sands);
+
     app
 }
 
@@ -62,7 +70,7 @@ pub fn basic_benches() -> Vec<SimBenchSetup> {
                 brushes: vec![(
                     IVec3::new(30, 30, 30),
                     Box::new(sdf::Torus { minor_radius: 2.0, major_radius: 3.0 }),
-                    Voxel::Water { lateral_energy: 32 },
+                    Voxel::Water(default()),
                 )],
             }
         },
@@ -94,7 +102,7 @@ pub fn basic_benches() -> Vec<SimBenchSetup> {
                 brushes: vec![(
                     IVec3::splat(128) / 2,
                     Box::new(sdf::Sphere { radius: 20.0 }),
-                    Voxel::Water { lateral_energy: 32 },
+                    Voxel::Water(default()),
                 )],
             }
         },

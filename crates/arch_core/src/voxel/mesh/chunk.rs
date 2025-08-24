@@ -306,8 +306,8 @@ pub mod tests {
         let mut chunk = VoxelChunk::new();
         chunk.set([0, 0, 0], Voxel::Dirt);
         assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Dirt);
-        chunk.set([0, 0, 0], Voxel::Water { lateral_energy: 4 });
-        assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Water { lateral_energy: 4 });
+        chunk.set([0, 0, 0], Voxel::Water(default()));
+        assert_eq!(chunk.voxel([0, 0, 0]), Voxel::Water(default()));
     }
 
     // #[test]

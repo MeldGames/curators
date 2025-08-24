@@ -108,15 +108,13 @@ pub fn draw_cursor(
         // );
 
         let brushes: Vec<&dyn sdf::Sdf> = vec![
-            &sdf::Torus { minor_radius: 2.0, major_radius: 5.0 },
-            &sdf::Sphere { radius: 4.0 },
+            &sdf::Torus { minor_radius: 4.0, major_radius: 12.0 },
+            &sdf::Sphere { radius: 3.0 },
             // &sdf::Sphere { radius: 0.2 },
         ];
 
         let brush_voxels: Vec<Voxel> =
-            vec![Voxel::Dirt, Voxel::Sand, Voxel::Water { lateral_energy: 4 }, Voxel::Oil {
-                lateral_energy: 4,
-            }];
+            vec![Voxel::Dirt, Voxel::Sand, Voxel::Water(default()), Voxel::Oil(default())];
 
         if key_input.just_pressed(KeyCode::KeyB) {
             *brush_index = (*brush_index + 1) % brushes.len();
@@ -175,7 +173,7 @@ pub fn draw_cursor(
             }) {
                 let point = point_ivec + raster_voxel.point;
                 if raster_voxel.distance < 0.0 {
-                    voxels.sim_chunks.push_sim_update(point);
+                    // voxels.sim_chunks.push_sim_update(point);
                 }
             }
         }

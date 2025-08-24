@@ -11,7 +11,7 @@ use super::raycast::Hit;
 use crate::sdf::Sdf;
 use crate::voxel::mesh::binary_greedy::Chunks;
 use crate::voxel::mesh::surface_net::Remeshed;
-use crate::voxel::mesh::{BinaryGreedy, SurfaceNet, RenderChunks};
+use crate::voxel::mesh::{BinaryGreedy, SurfaceNet};
 use crate::voxel::raycast::VoxelHit;
 use crate::voxel::simulation::data::SimChunks;
 use crate::voxel::{GRID_SCALE, UpdateVoxelMeshSet, Voxel, VoxelAabb};
@@ -29,9 +29,6 @@ pub fn plugin(app: &mut App) {
     Remeshed::default(),
 )]
 pub struct Voxels {
-    // Meshing data
-    pub render_chunks: RenderChunks,
-
     // Simulation data
     pub sim_chunks: SimChunks,
 
@@ -41,11 +38,7 @@ pub struct Voxels {
 
 impl Voxels {
     pub fn new(voxel_size: IVec3) -> Self {
-        Self {
-            render_chunks: RenderChunks::new(voxel_size),
-            sim_chunks: SimChunks::new(voxel_size),
-            voxel_size,
-        }
+        Self { sim_chunks: SimChunks::new(voxel_size), voxel_size }
     }
 
     #[inline]
@@ -55,9 +48,12 @@ impl Voxels {
 
     #[inline]
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
-        // self.render_chunks.set_voxel(point, voxel); // is this necessary? the sim
-        // chunks should update this later
         self.sim_chunks.set_voxel(point, voxel);
+    }
+
+    #[inline]
+    pub fn set_voxel_aabb(&mut self, aabb: VoxelAabb, voxel: Voxel) {
+        self.sim_chunks.set_voxel_aabb(aabb, voxel);
     }
 
     pub fn voxel_bounds(&self) -> (IVec3, IVec3) {

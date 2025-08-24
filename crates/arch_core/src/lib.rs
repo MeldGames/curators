@@ -23,6 +23,7 @@ pub mod character;
 pub mod cursor;
 pub mod item;
 pub mod map;
+pub mod pathfind;
 pub mod proc_mesh;
 pub mod sdf;
 pub mod ssao;
@@ -55,13 +56,14 @@ pub fn shared(app: &mut App) {
         .add_plugins(item::plugin)
         .add_plugins(map::plugin)
         .add_plugins(proc_mesh::plugin)
+        // .add_plugins(pathfind::plugin)
         .add_plugins(character::plugin)
-        // .add_plugins(EdgeDetectionPlugin {
-        //     // If you wish to apply Smaa anti-aliasing after edge detection,
-        //     // please ensure that the rendering order of [`EdgeDetectionNode`] is set before
-        //     // [`SmaaNode`].
-        //     before: Node3d::Smaa,
-        // })
+        .add_plugins(EdgeDetectionPlugin {
+            // If you wish to apply Smaa anti-aliasing after edge detection,
+            // please ensure that the rendering order of [`EdgeDetectionNode`] is set before
+            // [`SmaaNode`].
+            before: Node3d::Smaa,
+        })
         .add_plugins(WireframePlugin::default())
         .add_plugins(AutoExposurePlugin)
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
