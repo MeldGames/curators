@@ -91,16 +91,17 @@ pub struct Toggle;
 
 #[derive(Reflect, Default)]
 pub enum ActiveCamera {
-    Flying,
     #[default]
-    Follow,
+    Flying,
+    Player,
     // Digsite,
 }
 
 #[derive(Component, Reflect)]
 pub struct CameraEntities {
     pub follow: Entity,
-    pub flying: Entity,
+    pub player: Entity,
+    // pub flying: Entity,
     // pub digsite: Entity,
     pub active: ActiveCamera,
 }

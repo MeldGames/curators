@@ -7,7 +7,8 @@ use bevy::pbr::wireframe::WireframePlugin;
 use bevy::pbr::{DirectionalLightShadowMap, PointLightShadowMap};
 use bevy::prelude::*;
 use bevy_edge_detection::*;
-use bevy_enhanced_input::prelude::Actions;
+// use bevy_enhanced_input::{actions, bindings};
+use bevy_enhanced_input::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mod_outline::*;
@@ -16,6 +17,7 @@ use bevy_rand::prelude::EntropyPlugin;
 use iyes_perf_ui::prelude::*;
 use rand_core::RngCore;
 
+use crate::camera::flying::{CameraMove, CameraRotate};
 use crate::camera::{FlyingCamera, FlyingSettings, FlyingState, camera_components};
 
 pub mod camera;
@@ -97,6 +99,18 @@ pub fn spawn_flying_camera(mut commands: Commands) {
             .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
         //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        Actions::<FlyingCamera>::default(),
+        actions!(FlyingCamera[
+                (
+                    Action::<CameraMove>::new(),
+                    Bindings::spawn(Spatial::wasd_and(KeyCode::Space, KeyCode::ControlRight)),
+                ),
+                (
+                    Action::<CameraRotate>::new(),
+                    bindings![
+                        Binding::mouse_motion(),
+                    ],
+                ),
+            ]
+        ),
     ));
 }

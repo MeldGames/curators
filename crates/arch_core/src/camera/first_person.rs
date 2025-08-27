@@ -1,13 +1,3 @@
-//! A freecam-style camera controller plugin.
-//! To use in your own application:
-//! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to
-//!   your App.
-//! - Attach the [`CameraController`] component to an entity with a
-//!   [`Camera3d`].
-//!
-//! Unlike other examples, which demonstrate an application, this demonstrates a
-//! plugin library.
-
 use std::f32::consts::*;
 use std::fmt;
 
@@ -21,7 +11,7 @@ pub fn plugin(app: &mut App) {
     app.add_input_context::<FlyingCamera>();
     app.add_systems(Update, (handle_movement, handle_rotation));
 
-    app.add_observer(started_flying);
+    app.add_observer(camera_binding).add_observer(started_flying);
 }
 
 /// Based on Valorant's default sensitivity, not entirely sure why it is exactly
@@ -29,17 +19,34 @@ pub fn plugin(app: &mut App) {
 /// degrees/radians and then sticking with it because it felt nice.
 pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
-#[derive(Component)]
-// #[input_context(priority = 10)]
-pub struct FlyingCamera;
+#[derive(InputContext)]
+#[input_context(priority = 10)]
+pub struct FirstPersonCamera;
 
 #[derive(InputAction, Debug)]
-#[action_output(Vec3)]
-pub struct CameraMove;
-
-#[derive(InputAction, Debug)]
-#[action_output(Vec2)]
+#[input_action(output = Vec2)]
 pub struct CameraRotate;
+
+pub fn camera_binding(
+    trigger: Trigger<Bind<FlyingCamera>>,
+    mut flying: Query<&mut Actions<FlyingCamera>>,
+) {
+    let Ok(mut actions) = flying.get_mut(trigger.target()) else {
+        return;
+    };
+
+    info!("binding flying camera");
+    actions.bind::<CameraMove>().to(SixDOF {
+        forward: KeyCode::KeyW,
+        left: KeyCode::KeyA,
+        backward: KeyCode::KeyS,
+        right: KeyCode::KeyD,
+        up: KeyCode::Space,
+        down: KeyCode::ControlRight,
+    });
+
+    actions.bind::<CameraRotate>().to(Input::mouse_motion());
+}
 
 /// Camera controller [`Component`].
 #[derive(Component)]
@@ -108,20 +115,17 @@ Freecam Controls:
 }
 
 pub fn started_flying(
-    trigger: Trigger<OnInsert, ContextActivity<FlyingCamera>>,
-    mut query: Query<(&Transform, &ContextActivity<FlyingCamera>, &mut FlyingState)>,
+    trigger: Trigger<OnInsert, Actions<FlyingCamera>>, /* Maybe using Binding? Idk doesn't
+                                                        * matter much */
+    mut query: Query<(&Transform, &mut FlyingState)>,
 ) {
-    let Ok((transform, context_activity, mut state)) = query.get_mut(trigger.target()) else {
+    let Ok((transform, mut state)) = query.get_mut(trigger.target()) else {
         return;
     };
-
-    if *context_activity == ContextActivity::<FlyingCamera>::INACTIVE {
-        return;
-    }
-
     let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
     state.yaw = yaw;
     state.pitch = pitch;
+    // info!("{}", *controller);
 }
 
 pub fn handle_rotation(

@@ -5,16 +5,15 @@ use bevy_enhanced_input::prelude::*;
 use crate::camera::flying::FlyingCamera;
 use crate::character::input::PlayerInput;
 
-#[derive(InputContext, Debug)]
-#[input_context(priority = 10)]
+#[derive(Component, Debug)]
 pub struct Cursor;
 
 #[derive(InputAction, Debug)]
-#[input_action(output = bool)]
+#[action_output(bool)]
 pub struct FreeCursor;
 
 #[derive(InputAction, Debug)]
-#[input_action(output = bool)]
+#[action_output(bool)]
 pub struct ToggleCursor;
 
 pub fn plugin(app: &mut App) {
@@ -22,7 +21,6 @@ pub fn plugin(app: &mut App) {
     app.insert_resource(CursorGrabOffset(None));
     app.insert_resource(CursorGrabToggle(false));
 
-    app.add_observer(cursor_binding);
     app.add_systems(PostUpdate, cursor_grab);
     app.add_systems(Startup, spawn_cursor_input);
 }
@@ -33,16 +31,22 @@ pub fn cursor_grabbed(windows: Query<&Window>) -> bool {
 }
 
 pub fn spawn_cursor_input(mut commands: Commands) {
-    commands.spawn((Name::new("Cursor Input"), Actions::<Cursor>::default()));
-}
-
-pub fn cursor_binding(trigger: Trigger<Bind<Cursor>>, mut cursor: Query<&mut Actions<Cursor>>) {
-    let Ok(mut actions) = cursor.get_mut(trigger.target()) else {
-        return;
-    };
-
-    actions.bind::<FreeCursor>().to(KeyCode::AltLeft);
-    actions.bind::<ToggleCursor>().to(KeyCode::KeyZ).with_conditions(Press::default());
+    commands.spawn(
+        (
+        Name::new("Cursor Input"), 
+        Cursor,
+        actions!(Cursor[
+            (
+                Action::<FreeCursor>::new(),
+                bindings![KeyCode::AltLeft],
+            ),
+            (
+                Action::<ToggleCursor>::new(),
+                Press::default(),
+                bindings![KeyCode::KeyZ],
+            ),
+        ]),
+    ));
 }
 
 #[derive(Resource, Deref)]
@@ -54,14 +58,16 @@ pub struct CursorGrabToggle(pub bool);
 pub fn cursor_grab(
     mut offset: ResMut<CursorGrabOffset>,
     mut windows: Query<&mut Window>,
-    cursor: Query<&Actions<Cursor>>,
+    free_cursor: Query<&Action<FreeCursor>>,
+    toggle_cursor: Query<&ActionEvents, With<Action<ToggleCursor>>>,
     grabbers: Query<(), Or<(With<Actions<FlyingCamera>>, With<Actions<PlayerInput>>)>>,
     mut toggle: ResMut<CursorGrabToggle>,
 ) -> Result<()> {
-    let cursor = cursor.single().unwrap();
+    let free_cursor = free_cursor.single().unwrap();
+    let toggle_cursor = toggle_cursor.single().unwrap();
     let grabbers = grabbers.iter().count();
 
-    if cursor.state::<ToggleCursor>()? == ActionState::Fired {
+    if toggle_cursor.contains(ActionEvents::FIRED) {
         toggle.0 = !toggle.0;
         info!("toggled cursor: {:?}", toggle.0);
     }
@@ -74,8 +80,8 @@ pub fn cursor_grab(
                 grab = true;
             }
 
-            if cursor.value::<FreeCursor>()? {
-                grab = false;
+            if **free_cursor {
+                grab = false
             }
         }
 
