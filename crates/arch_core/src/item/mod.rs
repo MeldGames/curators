@@ -23,24 +23,21 @@ pub struct Hold {
     // pub local_grab_point: Vec3,
 }
 
-#[derive(Debug, InputContext)]
+#[derive(Debug, Component)]
 pub struct HandsFree;
 
 #[derive(Debug, InputAction)]
-#[input_action(output = bool, require_reset = true)]
+#[action_output(bool)]
 pub struct Grab;
 
-#[derive(Debug, InputContext)]
-pub struct Holding;
-
 #[derive(Debug, InputAction)]
-#[input_action(output = bool, require_reset = true)]
+#[action_output(bool)]
 pub struct Drop;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(prefab_registry::plugin);
 
-    app.add_input_context::<HandsFree>().add_input_context::<Holding>();
+    app.add_input_context::<HandsFree>().add_input_context::<Hold>();
 
     app.register_type::<Hold>();
 

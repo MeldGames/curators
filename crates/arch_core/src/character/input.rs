@@ -7,8 +7,7 @@ use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 #[derive(Component)]
 pub struct Controlling;
 
-#[derive(Component, InputContext)]
-#[input_context(priority = 0)]
+#[derive(Component)]
 pub struct PlayerInput;
 
 pub(super) fn plugin(app: &mut App) {
@@ -35,11 +34,11 @@ pub fn player_binding(
 }
 
 #[derive(Debug, InputAction)]
-#[input_action(output = Vec2)]
+#[action_output(Vec2)]
 pub struct Move;
 
 #[derive(Debug, InputAction)]
-#[input_action(output = bool)]
+#[action_output(bool)]
 pub struct Jump;
 
 /// Dig depends on the movement of the character.
@@ -49,7 +48,7 @@ pub struct Jump;
 /// We should probably have it "stick" so if you start mining while moving
 /// north, you stay digging north, rather than switch to digging down.
 #[derive(Debug, InputAction)]
-#[input_action(output = bool)]
+#[action_output(bool)]
 pub struct Dig;
 
 #[derive(Component, Debug, Reflect)]
@@ -139,13 +138,14 @@ pub fn dig_block(
                     if voxel.breakable() && dig_state.time_since_dig >= dig_state.dig_time {
                         let dig_power = 10;
 
-                        // if let Some(health) = voxels.health(voxel_pos.into()) {
-                        //     let new_health = health.saturating_sub(dig_power);
+                        // if let Some(health) = voxels.health(voxel_pos.into())
+                        // {     let new_health =
+                        // health.saturating_sub(dig_power);
                         //     if new_health == 0 {
-                        //         voxels.set_voxel(voxel_pos.into(), Voxel::Air);
-                        //     } else {
-                        //         voxels.set_health(voxel_pos.into(), new_health);
-                        //     }
+                        //         voxels.set_voxel(voxel_pos.into(),
+                        // Voxel::Air);     } else {
+                        //         voxels.set_health(voxel_pos.into(),
+                        // new_health);     }
 
                         //     dig_state.time_since_dig -= dig_state.dig_time;
                         // }

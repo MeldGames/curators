@@ -27,7 +27,6 @@ pub(super) fn plugin(app: &mut App) {
         (
             velocity_dampening,
             gravity_system,
-            handle_jump,
             movement::collide_and_slide_system,
             update_kinematic_character_controller,
             update_kinematic_floor,
@@ -293,50 +292,4 @@ impl Default for KCCJump {
             current_force: None,
         }
     }
-}
-
-pub fn handle_jump(
-    mut players: Query<(
-        &mut KinematicCharacterController,
-        &KCCGrounded,
-        &mut KCCJump,
-        &Actions<PlayerInput>,
-    )>,
-    time: Res<Time>,
-) -> Result<()> {
-    for (mut controller, grounded, mut jump, actions) in &mut players {
-        let mut falloff = 0.0;
-        match actions.state::<Jump>()? {
-            ActionState::Fired => {
-                if grounded.grounded {
-                    if jump.current_force.is_none() && !jump.last_jump {
-                        jump.last_jump = true;
-                        jump.current_force = Some(jump.initial_force);
-                    } else if jump.current_force.is_some() {
-                        jump.current_force = None;
-                    }
-                } else {
-                    falloff = jump.hold_falloff;
-                }
-            },
-            _ => {
-                jump.last_jump = false;
-                falloff = jump.falloff;
-            },
-        }
-
-        if let Some(force) = &mut jump.current_force {
-            *force -= falloff * time.delta_secs();
-        }
-
-        if jump.current_force.is_some_and(|force| force < 0.0) {
-            jump.current_force = None;
-        }
-
-        if let Some(force) = jump.current_force {
-            controller.velocity += Vec3::Y * force;
-        }
-    }
-
-    Ok(())
 }

@@ -1,27 +1,29 @@
-use bevy::prelude::*;
-use bevy_edge_detection::EdgeDetection;
-use bevy_enhanced_input::prelude::*;
-
 use bevy::core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass};
 use bevy::core_pipeline::smaa::{Smaa, SmaaPreset};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::{Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel};
+use bevy::prelude::*;
+use bevy_edge_detection::EdgeDetection;
+use bevy_enhanced_input::prelude::*;
 
-pub mod digsite;
+// pub mod digsite;
 pub mod flying;
-pub mod follow;
+// pub mod follow;
 
-pub use digsite::{DigsiteCamera, DigsiteEntity, DigsiteSettings, DigsiteState};
+// pub use digsite::{DigsiteCamera, DigsiteEntity, DigsiteSettings,
+// DigsiteState};
 pub use flying::{FlyingCamera, FlyingSettings, FlyingState};
-pub use follow::{FollowCamera, FollowPlayer, FollowSettings, FollowState};
 
+// pub use follow::{FollowCamera, FollowPlayer, FollowSettings, FollowState};
 use crate::voxel::mesh::camera_inside::BlockingMeshes;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<ActiveCamera>();
     app.add_input_context::<CameraToggle>();
 
-    app.add_plugins(follow::plugin).add_plugins(flying::plugin).add_plugins(digsite::plugin);
+    // app.add_plugins(follow::plugin).add_plugins(flying::plugin).
+    // add_plugins(digsite::plugin);
+    app.add_plugins(flying::plugin);
     app.add_systems(Update, changed_camera_toggle);
     app.add_observer(toggle_binding).add_observer(switch_cameras);
 }
@@ -81,12 +83,11 @@ pub fn camera_components() -> impl Bundle {
     )
 }
 
-#[derive(InputContext)]
-#[input_context(priority = 1)]
+#[derive(Component)]
 pub struct CameraToggle;
 
 #[derive(InputAction, Debug)]
-#[input_action(output = bool)]
+#[action_output(bool)]
 pub struct Toggle;
 
 #[derive(Reflect, Default)]
@@ -156,8 +157,8 @@ impl CameraEntities {
         }
 
         // if digsite_camera.is_active {
-        //     commands.entity(self.digsite).insert_if_new(Actions::<DigsiteCamera>::default());
-        // } else {
+        //     commands.entity(self.digsite).
+        // insert_if_new(Actions::<DigsiteCamera>::default()); } else {
         //     commands.entity(self.digsite).remove::<Actions<DigsiteCamera>>();
         // }
     }

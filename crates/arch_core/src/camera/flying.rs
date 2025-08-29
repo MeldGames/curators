@@ -115,7 +115,7 @@ pub fn started_flying(
         return;
     };
 
-    if *context_activity == ContextActivity::<FlyingCamera>::INACTIVE {
+    if !**context_activity {
         return;
     }
 
@@ -125,17 +125,18 @@ pub fn started_flying(
 }
 
 pub fn handle_rotation(
-    mut camera: Query<(&mut Transform, &mut FlyingState, &FlyingSettings, &Actions<FlyingCamera>)>,
+    trigger: Trigger<Fired<CameraRotate>>,
+    mut camera: Query<(&mut Transform, &mut FlyingState, &FlyingSettings)>,
     windows: Query<&Window>,
     mut cursor_grab_offset: ResMut<CursorGrabOffset>,
 ) -> Result<()> {
-    let Ok((mut transform, mut state, settings, actions)) = camera.single_mut() else {
+    let Ok((mut transform, mut state, settings)) = camera.get_mut(trigger.target()) else {
         return Ok(());
     };
 
-    // If the cursor grab setting caused this, prevent it from doing anything.
-    let mut rotation = actions.value::<CameraRotate>()?;
+    let mut rotation = trigger.value;
 
+    // If the cursor grab setting caused this, prevent it from doing anything.
     if !crate::cursor::cursor_grabbed(windows) {
         return Ok(());
     }
@@ -162,19 +163,17 @@ pub fn handle_rotation(
 }
 
 pub fn handle_movement(
+    trigger: Trigger<Fired<CameraMove>>,
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<
-        (&mut Transform, &Actions<FlyingCamera>, &FlyingSettings, &mut FlyingState),
-        With<Camera>,
-    >,
-) -> Result<()> {
+    mut query: Query<(&mut Transform, &FlyingSettings, &mut FlyingState), With<Camera>>,
+) {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, actions, settings, mut state)) = query.single_mut() else {
-        return Ok(());
+    let Ok((mut transform, settings, mut state)) = query.get_mut(trigger.target()) else {
+        return;
     };
-    let movement = actions.value::<CameraMove>()?;
+    let movement = trigger.value;
 
     // Apply movement update
     if movement != Vec3::ZERO {
@@ -198,41 +197,4 @@ pub fn handle_movement(
     transform.translation += state.velocity.x * dt * right
         + state.velocity.y * dt * up
         + -state.velocity.z * dt * forward;
-
-    // let mut cursor_grab_change = false;
-    // if key_input.just_pressed(controller.keyboard_key_toggle_cursor_grab) {
-    // toggle_cursor_grab = !*toggle_cursor_grab;
-    // cursor_grab_change = true;
-    // }
-    // if mouse_button_input.just_pressed(controller.mouse_key_cursor_grab) {
-    // mouse_cursor_grab = true;
-    // cursor_grab_change = true;
-    // }
-    // if mouse_button_input.just_released(controller.mouse_key_cursor_grab) {
-    // mouse_cursor_grab = false;
-    // cursor_grab_change = true;
-    // }
-    // let cursor_grab = *mouse_cursor_grab || *toggle_cursor_grab;
-    //
-    //
-    // Handle cursor grab
-    // if cursor_grab_change {
-    // if cursor_grab {
-    // for mut window in &mut windows {
-    // if !window.focused {
-    // continue;
-    // }
-    //
-    // window.cursor_options.grab_mode = CursorGrabMode::Locked;
-    // window.cursor_options.visible = false;
-    // }
-    // } else {
-    // for mut window in &mut windows {
-    // window.cursor_options.grab_mode = CursorGrabMode::None;
-    // window.cursor_options.visible = true;
-    // }
-    // }
-    // }
-
-    Ok(())
 }
