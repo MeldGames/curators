@@ -3,6 +3,9 @@
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
+use crate::character::input::Jump;
+use crate::character::kinematic::KCCJump;
+
 use super::input::{Dig, Move, PlayerInput};
 use super::kinematic::{KCCGrounded, KinematicCharacterController};
 
@@ -25,8 +28,9 @@ pub fn apply_movement(
         return;
     };
 
-    let move_input = actions.value::<Move>()?;
-    let dig = actions.value::<Dig>()?;
+    let move_input = trigger.value;
+    // let dig = actions.value::<Dig>()?; // how do i get this value now?
+    let dig = false;
 
     let speed = 5.0;
 
@@ -70,6 +74,7 @@ pub fn apply_movement(
 }
 
 pub fn apply_jump(
+    trigger: Trigger<Fired<Jump>>,
     mut players: Query<(
         &mut KinematicCharacterController,
         &KCCGrounded,
@@ -77,40 +82,40 @@ pub fn apply_jump(
         &Actions<PlayerInput>,
     )>,
     time: Res<Time>,
-) -> Result<()> {
-    for (mut controller, grounded, mut jump, actions) in &mut players {
-        let mut falloff = 0.0;
-        match actions.state::<Jump>()? {
-            ActionState::Fired => {
-                if grounded.grounded {
-                    if jump.current_force.is_none() && !jump.last_jump {
-                        jump.last_jump = true;
-                        jump.current_force = Some(jump.initial_force);
-                    } else if jump.current_force.is_some() {
-                        jump.current_force = None;
-                    }
-                } else {
-                    falloff = jump.hold_falloff;
+)  {
+    let Ok((mut controller, grounded, mut jump, actions)) = players.get_mut(trigger.target()) else {
+        return;
+    };
+
+    let mut falloff = 0.0;
+    match trigger.state {
+        ActionState::Fired => {
+            if grounded.grounded {
+                if jump.current_force.is_none() && !jump.last_jump {
+                    jump.last_jump = true;
+                    jump.current_force = Some(jump.initial_force);
+                } else if jump.current_force.is_some() {
+                    jump.current_force = None;
                 }
-            },
-            _ => {
-                jump.last_jump = false;
-                falloff = jump.falloff;
-            },
-        }
-
-        if let Some(force) = &mut jump.current_force {
-            *force -= falloff * time.delta_secs();
-        }
-
-        if jump.current_force.is_some_and(|force| force < 0.0) {
-            jump.current_force = None;
-        }
-
-        if let Some(force) = jump.current_force {
-            controller.velocity += Vec3::Y * force;
-        }
+            } else {
+                falloff = jump.hold_falloff;
+            }
+        },
+        _ => {
+            jump.last_jump = false;
+            falloff = jump.falloff;
+        },
     }
 
-    Ok(())
+    if let Some(force) = &mut jump.current_force {
+        *force -= falloff * time.delta_secs();
+    }
+
+    if jump.current_force.is_some_and(|force| force < 0.0) {
+        jump.current_force = None;
+    }
+
+    if let Some(force) = jump.current_force {
+        controller.velocity += Vec3::Y * force;
+    }
 }

@@ -19,9 +19,10 @@ use crate::cursor::CursorGrabOffset;
 /// A freecam-style camera controller plugin.
 pub fn plugin(app: &mut App) {
     app.add_input_context::<FlyingCamera>();
-    app.add_systems(Update, (handle_movement, handle_rotation));
 
-    app.add_observer(started_flying);
+    app.add_observer(started_flying)
+        .add_observer(handle_movement)
+        .add_observer(handle_rotation);
 }
 
 /// Based on Valorant's default sensitivity, not entirely sure why it is exactly

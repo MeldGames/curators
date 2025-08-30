@@ -55,6 +55,8 @@ pub fn shared(app: &mut App) {
     // app.insert_resource(DirectionalLightShadowMap { size: 8192 });
     app.add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin::default()));
 
+    // app.add_plugins(bevy_egui::EguiPlugin::default());
+
     app.add_plugins(voxel::VoxelPlugin::default())
         .add_plugins(item::plugin)
         .add_plugins(input::plugin)

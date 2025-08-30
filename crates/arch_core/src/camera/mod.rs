@@ -25,7 +25,7 @@ pub fn plugin(app: &mut App) {
     // add_plugins(digsite::plugin);
     app.add_plugins(flying::plugin);
     app.add_systems(Update, changed_camera_toggle);
-    app.add_observer(toggle_binding).add_observer(switch_cameras);
+    app.add_observer(switch_cameras);
 }
 
 pub fn camera_components() -> impl Bundle {
@@ -100,27 +100,16 @@ pub enum ActiveCamera {
 
 #[derive(Component, Reflect)]
 pub struct CameraEntities {
-    pub follow: Entity,
+    // pub follow: Entity,
     pub player: Entity,
-    // pub flying: Entity,
+    pub flying: Entity,
     // pub digsite: Entity,
     pub active: ActiveCamera,
 }
 
-pub fn toggle_binding(
-    trigger: Trigger<Bind<CameraToggle>>,
-    mut toggle: Query<&mut Actions<CameraToggle>>,
-) {
-    let Ok(mut actions) = toggle.get_mut(trigger.target()) else {
-        return;
-    };
-
-    actions.bind::<Toggle>().to(KeyCode::KeyP.with_conditions(Release::default()));
-}
-
 impl CameraEntities {
     pub fn assert_state(&self, commands: &mut Commands, cameras: &mut Query<&mut Camera>) {
-        let Ok(mut cameras) = cameras.get_many_mut([self.flying, self.follow]) else {
+        let Ok(mut cameras) = cameras.get_many_mut([self.flying, self.player]) else {
             return;
         };
 
@@ -130,30 +119,30 @@ impl CameraEntities {
             }
         }
 
-        let [mut flying_camera, mut follow_camera] = cameras;
+        let [mut flying_camera, mut player_camera] = cameras;
 
         match self.active {
             ActiveCamera::Flying => {
                 flying_camera.is_active = true;
             },
-            ActiveCamera::Follow => {
-                follow_camera.is_active = true;
+            ActiveCamera::Player => {
+                player_camera.is_active = true;
             },
             // ActiveCamera::Digsite => {
             //     digsite_camera.is_active = true;
             // },
         }
 
-        if follow_camera.is_active {
-            commands.entity(self.follow).insert_if_new(Actions::<FollowCamera>::default());
-        } else {
-            commands.entity(self.follow).remove::<Actions<FollowCamera>>();
-        }
+        // if player_camera.is_active {
+        //     commands.entity(self.player).insert(ContextActivity::<FirstPersonCamera>::ACTIVE);
+        // } else {
+        //     commands.entity(self.player).insert(ContextActivity::<FirstPersonCamera>::INACTIVE);
+        // }
 
         if flying_camera.is_active {
-            commands.entity(self.flying).insert_if_new(Actions::<FlyingCamera>::default());
+            commands.entity(self.flying).insert(ContextActivity::<FlyingCamera>::ACTIVE);
         } else {
-            commands.entity(self.flying).remove::<Actions<FlyingCamera>>();
+            commands.entity(self.flying).insert(ContextActivity::<FlyingCamera>::INACTIVE);
         }
 
         // if digsite_camera.is_active {
@@ -184,9 +173,9 @@ pub fn switch_cameras(
 
     match camera_entities.active {
         ActiveCamera::Flying => {
-            camera_entities.active = ActiveCamera::Follow;
+            camera_entities.active = ActiveCamera::Player;
         },
-        ActiveCamera::Follow => {
+        ActiveCamera::Player => {
             // camera_entities.active = ActiveCamera::Digsite;
             camera_entities.active = ActiveCamera::Flying;
         },

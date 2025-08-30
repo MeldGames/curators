@@ -96,7 +96,7 @@ binary-greedy-meshing = "0.5.0"
 # Debug
 iyes_perf_ui = "0.5.0"
 #iyes_perf_ui = { git = "https://github.com/olekspickle/iyes_perf_ui", branch = "main" }
-bevy-inspector-egui = "0.32.0"
+bevy-inspector-egui = "0.33.1"
 # tracy-client = { version = "0.17.3", optional = true }
 
 # Other
