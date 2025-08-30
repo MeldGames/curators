@@ -15,7 +15,7 @@ pub fn disable_mouse(
     egui_wants: Res<EguiWantsInput>,
 ) {
     // bevy ui
-    let bevy_ui_using = interactions.iter().all(|&interaction| interaction == Interaction::None);
+    let bevy_ui_using = interactions.iter().any(|&interaction| interaction != Interaction::None);
     // egui
     let egui_using = egui_wants.wants_any_pointer_input();
 

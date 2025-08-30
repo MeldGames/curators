@@ -4,7 +4,7 @@ pub fn to_morton_index(point: IVec3) -> usize {
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("bmi2") {
-            x86_64::to_morton_index_bmi2(point)
+            unsafe { x86_64::to_morton_index_bmi2(point) }
         } else {
             to_morton_index_shift(point)
         }
@@ -20,7 +20,7 @@ pub fn from_morton_index(index: usize) -> IVec3 {
     #[cfg(target_arch = "x86_64")]
     {
         if is_x86_feature_detected!("bmi2") {
-            x86_64::from_morton_index_bmi2(index)
+            unsafe { x86_64::from_morton_index_bmi2(index) }
         } else {
             from_morton_index_shift(index)
         }
@@ -84,16 +84,19 @@ pub fn to_morton_index_lut(point: IVec3) -> usize {
         0x0209, 0x0240, 0x0241, 0x0248, 0x0249,
     ];
     unsafe {
-        (MORTON.get_unchecked(point.x as usize) | (2 * MORTON.get_unchecked(point.y as usize)) | (4 * MORTON.get_unchecked(point.z as usize)))
-            as usize
+        (MORTON.get_unchecked(point.x as usize)
+            | (2 * MORTON.get_unchecked(point.y as usize))
+            | (4 * MORTON.get_unchecked(point.z as usize))) as usize
     }
 }
 
 #[cfg(target_arch = "x86_64")]
-mod x64_64 {
+mod x86_64 {
     use std::arch::x86_64::{_pdep_u64, _pext_u64};
 
-    pub unsafe fn into_morton_index_bmi2(point: IVec3) -> usize {
+    use bevy::prelude::*;
+
+    pub unsafe fn to_morton_index_bmi2(point: IVec3) -> usize {
         let x_expanded = _pdep_u64(point.x as u64, 0x2492492492492492u64); // Every 3rd bit starting at 0
         let y_expanded = _pdep_u64(point.y as u64, 0x4924924924924924u64); // Every 3rd bit starting at 1  
         let z_expanded = _pdep_u64(point.z as u64, 0x9249249249249249u64); // Every 3rd bit starting at 2
