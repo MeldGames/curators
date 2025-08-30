@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
 use super::input::DigState;
+use crate::camera::flying::{CameraMove, CameraRotate};
 use crate::camera::*;
 use crate::character::input::{Move, Jump, Dig};
 // use crate::item::Hold;
@@ -72,6 +73,7 @@ pub fn spawn_player(
     let flying = commands
         .spawn((
             Name::new("Flying camera"),
+            FlyingCamera,
             FlyingSettings::default(),
             FlyingState::default(),
             camera_components(),
@@ -80,6 +82,21 @@ pub fn spawn_player(
                 .looking_at(Vec3::new(100.0, 0.0, 0.0), Vec3::Y),
             //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
             //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+
+            ContextPriority::<FlyingCamera>::new(10),
+            actions!(FlyingCamera[
+                    (
+                        Action::<CameraMove>::new(),
+                        Bindings::spawn(Spatial::wasd_and(KeyCode::Space, KeyCode::ControlRight)),
+                    ),
+                    (
+                        Action::<CameraRotate>::new(),
+                        bindings![
+                            Binding::mouse_motion(),
+                        ],
+                    ),
+                ]
+            ),
         ))
         .id();
 
