@@ -4,8 +4,10 @@ use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
 use super::input::DigState;
+use crate::camera::flying::{CameraMove, CameraRotate};
 use crate::camera::*;
-use crate::item::Hold;
+use crate::character::input::{Move, Jump, Dig};
+// use crate::item::Hold;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(Startup, spawn_player);
@@ -45,9 +47,13 @@ pub fn spawn_player(
             MeshMaterial3d(
                 materials.add(StandardMaterial { base_color: GRAY.into(), ..Default::default() }),
             ),
-            Actions::<super::input::PlayerInput>::default(),
+            actions!(Player[
+                (Action::<Move>::new(), Bindings::spawn(Cardinal::wasd_keys())),
+                (Action::<Jump>::new(), bindings![KeyCode::Space]),
+                (Action::<Dig>::new(), bindings![KeyCode::KeyE, MouseButton::Left]),
+            ]),
             DigState::default(),
-            Hold { entity: None, hold_entity },
+            // Hold { entity: None, hold_entity },
         ))
         .with_child((
             Name::new("Player Spotlight"),
@@ -67,6 +73,7 @@ pub fn spawn_player(
     let flying = commands
         .spawn((
             Name::new("Flying camera"),
+            FlyingCamera,
             FlyingSettings::default(),
             FlyingState::default(),
             camera_components(),
@@ -75,20 +82,36 @@ pub fn spawn_player(
                 .looking_at(Vec3::new(100.0, 0.0, 0.0), Vec3::Y),
             //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
             //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+
+            ContextPriority::<FlyingCamera>::new(10),
+            actions!(FlyingCamera[
+                    (
+                        Action::<CameraMove>::new(),
+                        Bindings::spawn(Spatial::wasd_and(KeyCode::Space, KeyCode::ControlRight)),
+                    ),
+                    (
+                        Action::<CameraRotate>::new(),
+                        bindings![
+                            Binding::mouse_motion(),
+                        ],
+                    ),
+                ]
+            ),
         ))
         .id();
 
-    let follow = commands
-        .spawn((
-            Name::new("Follow camera"),
-            FollowSettings::default(),
-            FollowState::default(),
-            FollowPlayer(player),
-            camera_components(),
-            Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
-                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-        ))
-        .id();
+
+    // let follow = commands
+    //     .spawn((
+    //         Name::new("Follow camera"),
+    //         FollowSettings::default(),
+    //         FollowState::default(),
+    //         FollowPlayer(player),
+    //         camera_components(),
+    //         Transform::from_translation(Vec3::new(8.0, 10.0, 8.0))
+    //             .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    //     ))
+    //     .id();
 
     // let digsite = commands
     //     .spawn((
@@ -103,7 +126,9 @@ pub fn spawn_player(
 
     commands.spawn((
         Name::new("Camera toggle"),
-        Actions::<CameraToggle>::default(),
-        CameraEntities { flying, follow, /* digsite, */ active: ActiveCamera::Flying },
+        actions!(CameraToggle[
+            (Action::<Toggle>::new(), Release::default(), bindings![KeyCode::KeyP]),
+        ]),
+        CameraEntities { flying: flying, player: flying, /* digsite, */ active: ActiveCamera::Flying },
     ));
 }

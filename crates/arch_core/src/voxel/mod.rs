@@ -13,6 +13,7 @@ pub mod raycast;
 pub mod simulation;
 pub mod voxel;
 pub mod voxel_aabb;
+pub mod painter;
 pub mod voxels;
 
 // pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
@@ -31,6 +32,7 @@ impl Plugin for VoxelPlugin {
             .add_plugins(collider::plugin)
             .add_plugins(mesh::plugin)
             .add_plugins(raycast::plugin)
+            .add_plugins(painter::plugin)
             .add_plugins(simulation::plugin);
 
         app.add_systems(Startup, spawn_voxel_grid);

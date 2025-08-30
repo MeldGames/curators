@@ -14,8 +14,7 @@ pub fn plugin(app: &mut App) {
     app.add_systems(Update, (attach_digsite, follow_digsite).chain());
 }
 
-#[derive(InputContext)]
-#[input_context(priority = 10)]
+#[derive(Component)]
 pub struct DigsiteCamera;
 
 // No actions for digsite camera right now.

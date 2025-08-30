@@ -9,7 +9,7 @@ use bevy_math::bounding::Aabb3d;
 pub mod ops;
 pub mod voxel_rasterize;
 
-pub trait Sdf {
+pub trait Sdf: Send + Sync {
     fn sdf(&self, point: Vec3) -> f32;
     fn aabb(&self) -> Option<Aabb3d>;
 }

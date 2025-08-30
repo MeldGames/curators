@@ -1,5 +1,37 @@
 use bevy::prelude::*;
 
+pub fn to_morton_index(point: IVec3) -> usize {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if is_x86_feature_detected!("bmi2") {
+            x86_64::to_morton_index_bmi2(point)
+        } else {
+            to_morton_index_shift(point)
+        }
+    }
+
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        to_morton_index_shift(point)
+    }
+}
+
+pub fn from_morton_index(index: usize) -> IVec3 {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if is_x86_feature_detected!("bmi2") {
+            x86_64::from_morton_index_bmi2(index)
+        } else {
+            from_morton_index_shift(index)
+        }
+    }
+
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        from_morton_index_shift(index)
+    }
+}
+
 // Morton Curve (Z-Order) implementation for 3D points in Rust
 // Range: 0..16 (exclusive) for x, y, z coordinates
 
@@ -28,7 +60,7 @@ const fn compact_bits(mut value: usize) -> usize {
 
 /// Converts 3D coordinates to Morton index (linearization)
 #[inline]
-pub const fn to_morton_index_shift_and(point: IVec3) -> usize {
+pub const fn to_morton_index_shift(point: IVec3) -> usize {
     // Interleave bits: z gets the highest bits, then y, then x
     spread_bits(point.x as usize)
         | (spread_bits(point.y as usize) << 1)
@@ -36,7 +68,7 @@ pub const fn to_morton_index_shift_and(point: IVec3) -> usize {
 }
 
 #[inline]
-pub const fn from_morton_index(index: usize) -> IVec3 {
+pub const fn from_morton_index_shift(index: usize) -> IVec3 {
     // Extract interleaved bits for each coordinate
     let x = compact_bits(index); // Extract every 3rd bit starting from bit 0
     let y = compact_bits(index >> 1); // Extract every 3rd bit starting from bit 1
@@ -57,20 +89,21 @@ pub fn to_morton_index_lut(point: IVec3) -> usize {
     }
 }
 
-// use std::arch::x86_64::{_pdep_u64, _pext_u64};
+#[cfg(target_arch = "x86_64")]
+mod x64_64 {
+    use std::arch::x86_64::{_pdep_u64, _pext_u64};
 
-// #[target_feature(enable = "bmi2")]
-// pub unsafe fn into_morton_index_bmi2(point: IVec3) -> usize {
-//     let x_expanded = _pdep_u64(point.x as u64, 0x2492492492492492u64); // Every 3rd bit starting at 0
-//     let y_expanded = _pdep_u64(point.y as u64, 0x4924924924924924u64); // Every 3rd bit starting at 1  
-//     let z_expanded = _pdep_u64(point.z as u64, 0x9249249249249249u64); // Every 3rd bit starting at 2
-//     (x_expanded | y_expanded | z_expanded) as usize
-// }
+    pub unsafe fn into_morton_index_bmi2(point: IVec3) -> usize {
+        let x_expanded = _pdep_u64(point.x as u64, 0x2492492492492492u64); // Every 3rd bit starting at 0
+        let y_expanded = _pdep_u64(point.y as u64, 0x4924924924924924u64); // Every 3rd bit starting at 1  
+        let z_expanded = _pdep_u64(point.z as u64, 0x9249249249249249u64); // Every 3rd bit starting at 2
+        (x_expanded | y_expanded | z_expanded) as usize
+    }
 
-// #[target_feature(enable = "bmi2")]
-// pub unsafe fn from_morton_index_bmi2(morton: usize) -> IVec3 {
-//     let x = _pext_u64(morton as u64, 0x2492492492492492u64); // Extract every 3rd bit starting at 0
-//     let y = _pext_u64(morton as u64, 0x4924924924924924u64); // Extract every 3rd bit starting at 1
-//     let z = _pext_u64(morton as u64, 0x9249249249249249u64); // Extract every 3rd bit starting at 2
-//     ivec3(x as i32, y as i32, z as i32)
-// }
+    pub unsafe fn from_morton_index_bmi2(morton: usize) -> IVec3 {
+        let x = _pext_u64(morton as u64, 0x2492492492492492u64); // Extract every 3rd bit starting at 0
+        let y = _pext_u64(morton as u64, 0x4924924924924924u64); // Extract every 3rd bit starting at 1
+        let z = _pext_u64(morton as u64, 0x9249249249249249u64); // Extract every 3rd bit starting at 2
+        ivec3(x as i32, y as i32, z as i32)
+    }
+}

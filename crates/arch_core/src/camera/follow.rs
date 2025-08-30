@@ -12,8 +12,7 @@ pub fn plugin(app: &mut App) {
     app.add_systems(PostUpdate, follow_player.after(PhysicsSet::Sync));
 }
 
-#[derive(InputContext)]
-#[input_context(priority = 10)]
+#[derive(Component)]
 pub struct FollowCamera;
 
 // No actions for follow camera right now.

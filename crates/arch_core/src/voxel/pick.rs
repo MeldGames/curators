@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+use bevy_enhanced_input::prelude::*;
 
 use crate::sdf;
 use crate::sdf::voxel_rasterize::RasterConfig;
@@ -68,12 +69,7 @@ pub fn cursor_voxel(
 pub fn draw_cursor(
     cursor_voxel: Res<CursorVoxel>,
     mut voxels: Query<(&GlobalTransform, &mut Voxels)>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-    key_input: Res<ButtonInput<KeyCode>>,
     mut gizmos: Gizmos,
-
-    mut brush_index: Local<usize>,
-    mut voxel_index: Local<usize>,
 ) {
     // Calculate if and where the ray is hitting a voxel.
     let Ok((voxel_transform, mut voxels)) = voxels.single_mut() else {
@@ -100,82 +96,5 @@ pub fn draw_cursor(
             0.05,
             Color::WHITE,
         );
-
-        // gizmos.circle(
-        // Isometry3d::new(direct_point, Quat::from_rotation_arc(Vec3::Z,
-        // normal)), 0.05,
-        // Color::srgb(1.0, 0.0, 0.0),
-        // );
-
-        let brushes: Vec<&dyn sdf::Sdf> = vec![
-            &sdf::Torus { minor_radius: 4.0, major_radius: 12.0 },
-            &sdf::Sphere { radius: 3.0 },
-            // &sdf::Sphere { radius: 0.2 },
-        ];
-
-        let brush_voxels: Vec<Voxel> =
-            vec![Voxel::Dirt, Voxel::Sand, Voxel::Water(default()), Voxel::Oil(default())];
-
-        if key_input.just_pressed(KeyCode::KeyB) {
-            *brush_index = (*brush_index + 1) % brushes.len();
-        }
-
-        if key_input.just_pressed(KeyCode::KeyV) {
-            *voxel_index = (*voxel_index + 1) % brush_voxels.len();
-        }
-
-        let brush = brushes[*brush_index];
-        let brush_voxel = brush_voxels[*voxel_index];
-
-        if mouse_input.just_pressed(MouseButton::Right)
-            || (mouse_input.pressed(MouseButton::Right) && key_input.pressed(KeyCode::ShiftLeft))
-        {
-            // Place block
-            let normal_block = point_ivec + normal_ivec;
-
-            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(brush, RasterConfig {
-                clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-                grid_scale: crate::voxel::GRID_SCALE,
-                pad_bounds: Vec3::splat(3.0),
-            }) {
-                let point = normal_block + raster_voxel.point;
-                if raster_voxel.distance < 0.0 {
-                    if voxels.get_voxel(point) == Voxel::Air && point.y > -10 {
-                        voxels.set_voxel(point, brush_voxel);
-                    }
-                }
-            }
-
-            // voxels.set_voxel(normal_block.into(), Voxel::Sand);
-        } else if mouse_input.just_pressed(MouseButton::Left)
-            || (mouse_input.pressed(MouseButton::Left) && key_input.pressed(KeyCode::ShiftLeft))
-        {
-            // Remove block
-            let break_point = point_ivec;
-
-            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(brush, RasterConfig {
-                clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-                grid_scale: crate::voxel::GRID_SCALE,
-                pad_bounds: Vec3::splat(3.0),
-            }) {
-                let point = break_point + raster_voxel.point;
-                if raster_voxel.distance < 0.0 {
-                    if voxels.get_voxel(point).breakable() && point.y > -10 {
-                        voxels.set_voxel(point, Voxel::Air);
-                    }
-                }
-            }
-        } else if key_input.pressed(KeyCode::KeyU) {
-            for raster_voxel in crate::sdf::voxel_rasterize::rasterize(brush, RasterConfig {
-                clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-                grid_scale: crate::voxel::GRID_SCALE,
-                pad_bounds: Vec3::splat(3.0),
-            }) {
-                let point = point_ivec + raster_voxel.point;
-                if raster_voxel.distance < 0.0 {
-                    // voxels.sim_chunks.push_sim_update(point);
-                }
-            }
-        }
     }
 }
