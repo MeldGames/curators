@@ -20,7 +20,7 @@ pub fn plugin(app: &mut App) {
     // app.add_plugins(super::voxel::plugin);
 }
 
-#[derive(Debug, Component, Clone, PartialEq, Eq)]
+#[derive(Debug, Component, Clone)]
 #[require(
     Name::new("Voxels"),
     Transform { scale: GRID_SCALE, ..default() },
@@ -32,8 +32,16 @@ pub struct Voxels {
     // Simulation data
     pub sim_chunks: SimChunks,
 
+    pub chunks: HashMap<ChunkPoint, Chunk>,
+
     // Shared data
     pub voxel_size: IVec3,
+}
+
+#[derive(Debug, Clone)]
+pub enum Chunk {
+    Active(ChunkKey),
+    RLE(RLEChunk),
 }
 
 impl Voxels {

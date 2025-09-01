@@ -96,11 +96,16 @@ mod x86_64 {
 
     use bevy::prelude::*;
 
-    pub unsafe fn to_morton_index_bmi2(point: IVec3) -> usize {
-        let x_expanded = _pdep_u64(point.x as u64, 0x2492492492492492u64); // Every 3rd bit starting at 0
-        let y_expanded = _pdep_u64(point.y as u64, 0x4924924924924924u64); // Every 3rd bit starting at 1  
-        let z_expanded = _pdep_u64(point.z as u64, 0x9249249249249249u64); // Every 3rd bit starting at 2
-        (x_expanded | y_expanded | z_expanded) as usize
+    pub fn to_morton_index_bmi2(point: IVec3) -> usize {
+        assert!(point.x < 16 && point.y < 16 && point.z < 16);
+        // x 0b1111 -> 0b001001001001;
+        // y 0b1111 -> 0b010010010010;
+        // z 0b1111 -> 0b100100100100;
+        let combined: u64 = (point.x as u64) | ((point.y as u64) << 4) | ((point.z as u64) << 8);
+
+        // Safety: all values are in the range of 0..16
+        let expanded = unsafe { _pdep_u64(combined, 0b_100100100100_010010010010_001001001001) };
+        ((expanded | (expanded >> 12) | (expanded >> 24)) & 0b111111111111) as usize
     }
 
     pub unsafe fn from_morton_index_bmi2(morton: usize) -> IVec3 {
@@ -108,5 +113,20 @@ mod x86_64 {
         let y = _pext_u64(morton as u64, 0x4924924924924924u64); // Extract every 3rd bit starting at 1
         let z = _pext_u64(morton as u64, 0x9249249249249249u64); // Extract every 3rd bit starting at 2
         ivec3(x as i32, y as i32, z as i32)
+    }
+
+    #[cfg(test)]
+    pub mod test {
+
+        #[test]
+        pub fn bmi_morton_same_as_simple() {
+            for x in 0..16 {
+                for y in 0..16 {
+                    for z in 0..16 {
+                        println!("{:?}", to_morton_index_bmi2(IVec3::new(x, y, z)));
+                    }
+                }
+            }
+        }
     }
 }

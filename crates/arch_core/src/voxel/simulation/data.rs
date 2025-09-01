@@ -9,6 +9,7 @@ use slotmap::SlotMap;
 use tracing::*;
 
 use crate::voxel::simulation::SimSwapBuffer;
+use crate::voxel::simulation::rle::RLEChunk;
 use crate::voxel::voxel::VoxelChangeset;
 use crate::voxel::{Voxel, Voxels};
 
@@ -21,44 +22,26 @@ pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Reflect, Deref, DerefMut, Hash)]
 pub struct ChunkPoint(pub IVec3);
 
-// impl Hash for ChunkPoint {
-//     fn hash<H: Hasher>(&self, state: &mut H) {
-//         (self.0.as_i16vec3()).hash(state);
-//     }
-// }
-
 pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
-
-    app.add_observer(insert_voxels_sim_chunks);
 }
-
-pub fn insert_voxels_sim_chunks(
-    trigger: Trigger<OnInsert, Voxels>,
-    mut commands: Commands,
-    voxels: Query<&Voxels>,
-) {
-    let Ok(voxels) = voxels.get(trigger.target()) else {
-        return;
-    };
-    // println!("adding sim chunks");
-    let sim_swap_buffer = SimSwapBuffer(voxels.sim_chunks.create_update_buffer());
-    commands.entity(trigger.target()).insert(sim_swap_buffer);
-}
-
-// #[derive(Debug, Clone, PartialEq, Eq, Reflect)]
-pub type UpdateBuffer = HashMap<ChunkPoint, [u64; CHUNK_LENGTH / 64]>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct SimChunk {
     pub voxel_changeset: VoxelChangeset,
+    /// Voxels that are considered dirty still.
+    pub dirty: [u64; CHUNK_LENGTH / 64],
     // lets try just a 4x4x4 chunk
     pub voxels: [u16; CHUNK_LENGTH],
 }
 
 impl Default for SimChunk {
     fn default() -> Self {
-        Self { voxel_changeset: default(), voxels: [0; CHUNK_LENGTH] }
+        Self {
+            voxel_changeset: default(),
+            dirty: [0u64; CHUNK_LENGTH / 64],
+            voxels: [0; CHUNK_LENGTH],
+        }
     }
 }
 
@@ -68,18 +51,13 @@ impl SimChunk {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Reflect)]
-pub struct SimChunks {
-    // pub chunks: Vec<SimChunk>,
-    // pub chunk_strides: [usize; 3],
-    // pub chunks: SlotMap<SimChunk>,
-    // pub chunks_map: HashMap<ChunkPoint, SlotKey>,
-    pub chunks: HashMap<ChunkPoint, SimChunk>,
+slotmap::new_key_type! { struct ChunkKey; }
 
-    pub sim_updates: UpdateBuffer, // bitmask of updates
-    // pub render_updates: UpdateBuffer, // bitmask of updates
-    // pub updated_chunks: HashSet<ChunkPoint>,
-    pub chunk_size: IVec3,
+#[derive(Debug, Clone, Reflect)]
+pub struct SimChunks {
+    #[reflect(ignore)]
+    pub active_chunks: SlotMap<ChunkKey, SimChunk>, // active chunks
+
     pub voxel_size: IVec3,
 }
 
@@ -135,15 +113,7 @@ pub fn chunk_point(point: IVec3) -> ChunkPoint {
     ChunkPoint(point >> (CHUNK_WIDTH_BITSHIFT as i32))
 }
 
-pub struct UpdateIterator<'a> {
-    // pub chunk_updates: &'a mut UpdateBuffer,
-    // pub chunk_points: Vec<IVec3>,
-    // pub chunk_index: usize,
-    pub iter: IterMut<'a, ChunkPoint, [u64; CHUNK_LENGTH / 64]>,
-    pub current_mask: Option<(&'a ChunkPoint, &'a mut [u64; CHUNK_LENGTH / 64])>,
-    pub mask_index: usize,
-}
-
+/*
 impl<'a> Iterator for UpdateIterator<'a> {
     type Item = (ChunkPoint, usize);
 
@@ -187,51 +157,12 @@ impl<'a> Iterator for UpdateIterator<'a> {
         None
     }
 }
+*/
 
 impl SimChunks {
     pub fn new(voxel_size: IVec3) -> Self {
-        let chunk_size = voxel_size / CHUNK_WIDTH as i32;
-        Self {
-            // chunks: vec![SimChunk::new(); (chunk_size.x * chunk_size.y * chunk_size.z) as usize],
-            chunks: HashMap::with_capacity((chunk_size.x * 3 * chunk_size.z) as usize),
-            sim_updates: Self::create_update_buffer_from_size(chunk_size),
-            // updated_chunks: HashSet::new(),
-            // chunk_strides,
-            chunk_size,
-            voxel_size,
-        }
+        Self { chunks: SlotMap::with_key(), voxel_size }
     }
-
-    pub fn create_update_buffer_from_size(chunk_size: IVec3) -> UpdateBuffer {
-        info!(
-            "creating update buffer from size: {:?} -> {}",
-            chunk_size,
-            (chunk_size.x * chunk_size.y * chunk_size.z) as usize
-        );
-        // vec![[0; CHUNK_LENGTH / 64]; (chunk_size.x * chunk_size.y * chunk_size.z) as
-        // usize]
-        HashMap::with_capacity((chunk_size.x * chunk_size.y * chunk_size.z) as usize)
-    }
-
-    pub fn create_update_buffer(&self) -> UpdateBuffer {
-        Self::create_update_buffer_from_size(self.chunk_size)
-    }
-
-    // #[inline]
-    // pub fn chunk_linearize(&self, chunk_point: IVec3) -> usize {
-    //     chunk_point.x as usize
-    //         + chunk_point.z as usize * self.chunk_strides[1]
-    //         + chunk_point.y as usize * self.chunk_strides[2]
-    // }
-
-    // #[inline]
-    // pub fn chunk_delinearize(&self, mut chunk_index: usize) -> IVec3 {
-    //     let y = chunk_index / self.chunk_strides[2];
-    //     chunk_index -= y * self.chunk_strides[2];
-    //     let z = chunk_index / self.chunk_strides[1];
-    //     let x = chunk_index % self.chunk_strides[1];
-    //     ivec3(x as i32, y as i32, z as i32)
-    // }
 
     #[inline]
     pub fn in_bounds(&self, point: IVec3) -> bool {
@@ -252,6 +183,14 @@ impl SimChunks {
         let Some(chunk) = self.chunks.get(&chunk_point) else {
             return Voxel::Air;
         };
+
+        match self.chunks.get(&chunk_point) {
+            Some(Chunk::Active(chunk)) => {
+                self.active_chunks.get(chunk)
+            }
+            Some(Chunk::RLE(chunk)) => chunk.
+            None => Voxel::Air,
+        }
 
         let voxel = if cfg!(feature = "safe-bounds") {
             chunk.voxels[voxel_index]
@@ -401,23 +340,6 @@ impl SimChunks {
                 *chunk_mask.get_unchecked_mut(mask_index) |= 1 << bit_index;
             }
         }
-    }
-
-    pub fn clear_updates(&mut self) {
-        self.sim_updates.clear();
-    }
-
-    pub fn sim_updates<'a, 'b: 'a>(
-        &mut self,
-        swap_buffer: &'b mut UpdateBuffer,
-    ) -> UpdateIterator<'a> {
-        #[cfg(feature = "trace")]
-        let span = info_span!("sim_updates").entered();
-        // debug_assert_eq!(self.sim_updates.len(), swap_buffer.len());
-        std::mem::swap(&mut self.sim_updates, swap_buffer);
-        let mut iter = swap_buffer.iter_mut();
-        let first = iter.next();
-        UpdateIterator { iter, current_mask: first, mask_index: 0 }
     }
 
     #[inline]

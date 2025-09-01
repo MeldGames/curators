@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::voxel::Voxel;
 use crate::voxel::simulation::data::SimChunk;
 
+#[derive(Clone, Debug, Reflect)]
 pub struct RLEChunk {
     pub runs: Vec<(Voxel, u16)>,
 }
@@ -10,6 +11,24 @@ pub struct RLEChunk {
 impl RLEChunk {
     pub fn new() -> Self {
         Self { runs: Vec::new() }
+    }
+
+    #[inline]
+    pub fn get_voxel(&self, point: IVec3) -> Voxel {
+        self.get_voxel_from_index(crate::voxel::simulation::data::linearize(point))
+    }
+
+    #[inline]
+    pub fn get_voxel_from_index(&self, voxel_index: usize) -> Voxel {
+        let mut count: usize = 0;
+        for (run_voxel, run_count) in &self.runs {
+            count += *run_count as usize;
+            if voxel_index < count {
+                return *run_voxel;
+            }
+        }
+
+        panic!("voxel_index out of bounds: {:?}", voxel_index);
     }
 
     pub fn from_sim(sim: &SimChunk) -> Self {
