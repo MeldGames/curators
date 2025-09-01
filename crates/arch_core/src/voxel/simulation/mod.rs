@@ -12,6 +12,7 @@ use crate::voxel::simulation::data::{CHUNK_LENGTH, SimChunks, UpdateBuffer};
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 
 pub mod data;
+pub mod gpu;
 pub mod kinds;
 pub mod morton;
 // pub mod octree;

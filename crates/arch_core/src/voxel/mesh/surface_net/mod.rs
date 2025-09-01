@@ -59,13 +59,13 @@ pub struct SurfaceNetColliders {
 #[derive(Component, Debug, Default, Deref, DerefMut)]
 pub struct SurfaceNetMeshes(HashMap<u16, Entity>);
 
-#[derive(Component, Default)]
-pub struct Remeshed(HashSet<ChunkPoint>);
+// #[derive(Component, Default)]
+// pub struct Remeshed(HashSet<ChunkPoint>);
 
 pub fn update_surface_net_mesh(
     mut commands: Commands,
     is_surface_nets: Query<(), With<SurfaceNet>>,
-    mut grids: Query<(Entity, &Voxels, &Chunks, &mut Remeshed)>,
+    grids: Query<(Entity, &Voxels, &Chunks /* &mut Remeshed */)>,
     mut chunk_mesh_entities: Query<(&mut SurfaceNetMeshes, &mut SurfaceNetColliders)>,
 
     mut meshes: ResMut<Assets<Mesh>>,
@@ -131,7 +131,7 @@ pub fn update_surface_net_mesh(
         dedup.remove(&changed_chunk);
         let ChangedChunk { grid_entity, chunk_point } = changed_chunk;
 
-        let Ok((_, voxels, voxel_chunks, mut remeshed)) = grids.get_mut(grid_entity) else {
+        let Ok((_, voxels, voxel_chunks)) = grids.get(grid_entity) else {
             warn!("No voxels for entity `{}`", named.get(grid_entity).unwrap());
             continue;
         };
@@ -225,7 +225,7 @@ pub fn update_surface_net_mesh(
             mesh.duplicate_vertices();
             mesh.compute_flat_normals();
 
-            remeshed.0.insert(chunk_point);
+            // remeshed.0.insert(chunk_point);
 
             // 몰리
 

@@ -10,7 +10,7 @@ use tracing::*;
 use super::raycast::Hit;
 use crate::sdf::Sdf;
 use crate::voxel::mesh::binary_greedy::Chunks;
-use crate::voxel::mesh::surface_net::Remeshed;
+// use crate::voxel::mesh::surface_net::Remeshed;
 use crate::voxel::mesh::{BinaryGreedy, SurfaceNet};
 use crate::voxel::raycast::VoxelHit;
 use crate::voxel::simulation::data::SimChunks;
@@ -26,7 +26,7 @@ pub fn plugin(app: &mut App) {
     Transform { scale: GRID_SCALE, ..default() },
     Visibility::Inherited,
     Chunks::default(),
-    Remeshed::default(),
+    // Remeshed::default(),
 )]
 pub struct Voxels {
     // Simulation data
