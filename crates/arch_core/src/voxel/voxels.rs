@@ -29,24 +29,17 @@ pub fn plugin(app: &mut App) {
     // Remeshed::default(),
 )]
 pub struct Voxels {
-    // Simulation data
-    pub sim_chunks: SimChunks,
+    pub chunks: HashMap<ChunkPoint, RLEChunk>,
 
-    pub chunks: HashMap<ChunkPoint, Chunk>,
+    pub updated_set: HashSet<ChunkPoint>,
 
     // Shared data
     pub voxel_size: IVec3,
 }
 
-#[derive(Debug, Clone)]
-pub enum Chunk {
-    Active(ChunkKey),
-    RLE(RLEChunk),
-}
-
 impl Voxels {
     pub fn new(voxel_size: IVec3) -> Self {
-        Self { sim_chunks: SimChunks::new(voxel_size), voxel_size }
+        Self { voxel_size }
     }
 
     #[inline]

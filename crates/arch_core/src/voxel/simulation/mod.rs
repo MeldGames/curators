@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use tracing::*;
 
 use crate::voxel::mesh::ChangedChunk;
-use crate::voxel::simulation::data::{CHUNK_LENGTH, SimChunks, UpdateBuffer};
+use crate::voxel::simulation::data::{CHUNK_LENGTH, SimChunks};
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 
 pub mod data;
@@ -17,6 +17,7 @@ pub mod kinds;
 pub mod morton;
 // pub mod octree;
 pub mod rle;
+pub mod view;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>().register_type::<SimSettings>();
@@ -139,7 +140,7 @@ impl StackUpdates {
 }
 
 pub fn falling_sands(
-    mut grids: Query<(Entity, &mut Voxels, &mut SimSwapBuffer)>,
+    mut grids: Query<(Entity, &mut SimChunks, &mut SimSwapBuffer)>,
     mut sim_tick: ResMut<FallingSandTick>,
 
     sim_settings: Res<SimSettings>,
@@ -155,19 +156,19 @@ pub fn falling_sands(
 
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
-    for (grid_entity, mut grid, mut sim_swap_buffer) in &mut grids {
+    for (grid_entity, mut sim_chunks, mut sim_swap_buffer) in &mut grids {
         sim_swap_buffer.0.clear();
 
-        for (chunk_point, voxel_index) in grid.sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
+        for (chunk_point, voxel_index) in sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
             #[cfg(feature = "trace")]
             let update_span = info_span!("update_voxel").entered();
 
             changed_chunk_event.write(ChangedChunk { grid_entity, chunk_point });
 
-            let sim_voxel = grid.sim_chunks.get_voxel_from_indices(chunk_point, voxel_index);
+            let sim_voxel = sim_chunks.get_voxel_from_indices(chunk_point, voxel_index);
             // if sim_voxel.is_simulated() {
             let point = SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
-            sim_voxel.simulate(&mut grid.sim_chunks, point, &sim_tick);
+            sim_voxel.simulate(&mut sim_chunks, point, &sim_tick);
 
             // if let Some(gizmos) = gizmos.as_mut() &&
             // sim_settings.display_simulated {     gizmos.cuboid(

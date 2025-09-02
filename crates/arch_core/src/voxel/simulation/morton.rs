@@ -117,6 +117,7 @@ mod x86_64 {
 
     #[cfg(test)]
     pub mod test {
+        use crate::voxel::simulation::morton::x86_64::to_morton_index_bmi2;
 
         #[test]
         pub fn bmi_morton_same_as_simple() {
