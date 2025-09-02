@@ -13,7 +13,7 @@ use crate::voxel::mesh::binary_greedy::Chunks;
 // use crate::voxel::mesh::surface_net::Remeshed;
 use crate::voxel::mesh::{BinaryGreedy, SurfaceNet};
 use crate::voxel::raycast::VoxelHit;
-use crate::voxel::simulation::data::{ChunkPoint, SimChunks};
+use crate::voxel::simulation::data::{ChunkPoint, SimChunks, chunk_point};
 use crate::voxel::simulation::rle::RLEChunk;
 use crate::voxel::{GRID_SCALE, UpdateVoxelMeshSet, Voxel, VoxelAabb};
 
@@ -46,12 +46,22 @@ impl Voxels {
 
     #[inline]
     pub fn get_voxel(&self, point: IVec3) -> Voxel {
-        self.sim_chunks.get_voxel(point)
+        let chunk_point = chunk_point(point);
+        if let Some(chunk) = self.chunks.get(&chunk_point) {
+            chunk.get_voxel(point)
+        } else {
+            Voxel::Air
+        }
     }
 
     #[inline]
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
-        self.sim_chunks.set_voxel(point, voxel);
+        let chunk_point = chunk_point(point);
+        if let Some(chunk) = self.chunks.get_mut(&chunk_point) {
+            chunk.get(point)
+        } else {
+            Voxel::Air
+        }
     }
 
     #[inline]

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::voxel::Voxel;
 use crate::voxel::simulation::data::SimChunk;
 
+// 16^3 chunk encoded in run lengths.
 #[derive(Clone, Debug, Reflect)]
 pub struct RLEChunk {
     pub runs: Vec<(Voxel, u16)>,
@@ -14,21 +15,34 @@ impl RLEChunk {
     }
 
     #[inline]
-    pub fn get_voxel(&self, point: IVec3) -> Voxel {
+    pub fn get_voxel(&self, relative_point: IVec3) -> Voxel {
         self.get_voxel_from_index(crate::voxel::simulation::data::linearize(point))
     }
 
     #[inline]
-    pub fn get_voxel_from_index(&self, voxel_index: usize) -> Voxel {
+    pub fn set_voxel(&mut self, relative_point: IVec3, voxel: Voxel) {
+        let voxel_index = crate::voxel::simulation::data::linearize(relative_point);
+        let run_index = self.run_index(voxel_index);
+    }
+
+    #[inline]
+    pub fn run_index(&self, voxel_index: usize) -> usize {
         let mut count: usize = 0;
-        for (run_voxel, run_count) in &self.runs {
+        for (run_index, (_run_voxel, run_count)) in self.runs.iter().enumerate() {
             count += *run_count as usize;
             if voxel_index < count {
-                return *run_voxel;
+                return run_index;
             }
         }
 
         panic!("voxel_index out of bounds: {:?}", voxel_index);
+    }
+
+    #[inline]
+    pub fn get_voxel_from_index(&self, voxel_index: usize) -> Voxel {
+        let run_index = self.run_index(voxel_index);
+        let (voxel, _) = self.runs[run_index];
+        voxel
     }
 
     pub fn from_sim(sim: &SimChunk) -> Self {

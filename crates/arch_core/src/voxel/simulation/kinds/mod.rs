@@ -6,7 +6,7 @@ use crate::voxel::simulation::data::ChunkView;
 use crate::voxel::simulation::{FallingSandTick, SimChunks};
 
 // pub mod fire;
-// pub mod liquid;
+pub mod liquid;
 pub mod semisolid;
 
 impl Voxel {
