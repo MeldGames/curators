@@ -346,7 +346,7 @@ pub fn debug_raycast(
             );
         }
 
-        let voxel = voxels.sim_chunks.get_voxel(hit.voxel);
+        let voxel = voxels.get_voxel(hit.voxel);
         if voxel.pickable() {
             break;
         }

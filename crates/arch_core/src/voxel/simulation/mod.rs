@@ -41,38 +41,6 @@ pub fn islands(mut grids: Query<&mut Voxels>) {}
 #[reflect(Resource)]
 pub struct FallingSandTick(pub u32);
 
-// 62x1x62 vertical chunks separated by 2 vertical slices,
-// need buffers around boundaries to avoid race conditions
-
-// requirements:
-// - deterministic
-// - no overlaps with other work groups for parallelism
-// - no more than ~6000 voxels simulated per work group
-
-// 62x1x62 chunks aligns with xz plane which has better contiguous memory ~12kb
-// of memory for the surrounding 62x3x62 voxels what to do about boundaries?
-// need at least somewhat uniform simulation, so spreading it out over multiple
-// chunks would be good maybe offset spirals?:
-//
-
-// Take 2 on parallelization:
-// - each thread has a work pool of a chunk, each chunk keeps a record of dirty
-//   voxels (need to figure out a good way to store these too that isn't too
-//   rough to set)
-// - thread runs through each dirty voxel and marks where it'd like to go
-// - collect all of the commands/movements, flatten duplicates based on distance
-//   of the movement for determinism
-// - give each thread a couple of dirty chunks to apply movements to and the
-//   lists of movements
-// 1 other thing is I really need to smooth this processing over multiple frames
-
-// pub struct ChunkMovements {
-//     pub movements: Vec<IVec3>,
-// }
-
-#[derive(Component, Clone)]
-pub struct SimSwapBuffer(pub UpdateBuffer);
-
 #[derive(Resource, Copy, Clone, Reflect)]
 #[reflect(Resource)]
 pub struct SimSettings {
@@ -84,11 +52,16 @@ pub struct SimSettings {
 
     /// Display voxels marked for updates but not simulated.
     pub display_checked: bool,
+
+    /// How many threads for the simulation.
+    pub sim_threads: usize,
 }
 
 impl Default for SimSettings {
     fn default() -> Self {
-        Self { run: true, display_simulated: false, display_checked: false }
+        let threads =
+            std::thread::available_parallelism().map(|nonzero| nonzero.get()).unwrap_or(4);
+        Self { run: true, display_simulated: false, display_checked: false, sim_threads: threads }
     }
 }
 
@@ -140,7 +113,7 @@ impl StackUpdates {
 }
 
 pub fn falling_sands(
-    mut grids: Query<(Entity, &mut SimChunks, &mut SimSwapBuffer)>,
+    mut grids: Query<(Entity, &mut SimChunks)>,
     mut sim_tick: ResMut<FallingSandTick>,
 
     sim_settings: Res<SimSettings>,
@@ -156,45 +129,56 @@ pub fn falling_sands(
 
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
-    for (grid_entity, mut sim_chunks, mut sim_swap_buffer) in &mut grids {
-        sim_swap_buffer.0.clear();
+    for (grid_entity, mut sim_chunks) in &mut grids {
+        // sim_swap_buffer.0.clear();
 
-        for (chunk_point, voxel_index) in sim_chunks.sim_updates(&mut sim_swap_buffer.0) {
-            #[cfg(feature = "trace")]
-            let update_span = info_span!("update_voxel").entered();
+        // let chunk_views = sim_chunks.chunk_views();
+        // let per_thread = (chunk_views.len() / sim_settings.sim_threads);
 
-            changed_chunk_event.write(ChangedChunk { grid_entity, chunk_point });
-
-            let sim_voxel = sim_chunks.get_voxel_from_indices(chunk_point, voxel_index);
-            // if sim_voxel.is_simulated() {
-            let point = SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
-            sim_voxel.simulate(&mut sim_chunks, point, &sim_tick);
-
-            // if let Some(gizmos) = gizmos.as_mut() &&
-            // sim_settings.display_simulated {     gizmos.cuboid(
-            //         Transform {
-            //             translation: point.as_vec3() * GRID_SCALE,
-            //             scale: GRID_SCALE,
-            //             ..default()
-            //         },
-            //         Color::srgb(1.0, 0.0, 0.0),
-            //     );
-            // }
-            // } else {
-            // if let Some(gizmos) = gizmos.as_mut() &&
-            // sim_settings.display_checked {     let point =
-            //         SimChunks::point_from_chunk_and_voxel_indices(chunk_point, voxel_index);
-            //     gizmos.cuboid(
-            //         Transform {
-            //             translation: point.as_vec3() * GRID_SCALE,
-            //             scale: GRID_SCALE,
-            //             ..default()
-            //         },
-            //         Color::srgb(0.0, 0.0, 1.0),
-            //     );
-            // }
-            // }
+        for mut chunk_view in sim_chunks.chunk_views() {
+            chunk_view.simulate(*sim_tick);
         }
+
+        // for (chunk_point, voxel_index) in sim_chunks.sim_updates(&mut
+        // sim_swap_buffer.0) {     #[cfg(feature = "trace")]
+        //     let update_span = info_span!("update_voxel").entered();
+
+        //     changed_chunk_event.write(ChangedChunk { grid_entity, chunk_point
+        // });
+
+        //     let sim_voxel = sim_chunks.get_voxel_from_indices(chunk_point,
+        // voxel_index);     // if sim_voxel.is_simulated() {
+        //     let point =
+        // SimChunks::point_from_chunk_and_voxel_indices(chunk_point,
+        // voxel_index);     sim_voxel.simulate(&mut sim_chunks, point,
+        // &sim_tick);
+
+        //     // if let Some(gizmos) = gizmos.as_mut() &&
+        //     // sim_settings.display_simulated {     gizmos.cuboid(
+        //     //         Transform {
+        //     //             translation: point.as_vec3() * GRID_SCALE,
+        //     //             scale: GRID_SCALE,
+        //     //             ..default()
+        //     //         },
+        //     //         Color::srgb(1.0, 0.0, 0.0),
+        //     //     );
+        //     // }
+        //     // } else {
+        //     // if let Some(gizmos) = gizmos.as_mut() &&
+        //     // sim_settings.display_checked {     let point =
+        //     //
+        // SimChunks::point_from_chunk_and_voxel_indices(chunk_point,
+        // voxel_index);     //     gizmos.cuboid(
+        //     //         Transform {
+        //     //             translation: point.as_vec3() * GRID_SCALE,
+        //     //             scale: GRID_SCALE,
+        //     //             ..default()
+        //     //         },
+        //     //         Color::srgb(0.0, 0.0, 1.0),
+        //     //     );
+        //     // }
+        //     // }
+        // }
     }
 }
 

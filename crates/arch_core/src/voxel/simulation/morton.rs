@@ -124,7 +124,8 @@ mod x86_64 {
             for x in 0..16 {
                 for y in 0..16 {
                     for z in 0..16 {
-                        println!("{:?}", to_morton_index_bmi2(IVec3::new(x, y, z)));
+                        // println!("{:?}", to_morton_index_bmi2(IVec3::new(x,
+                        // y, z)));
                     }
                 }
             }

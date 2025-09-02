@@ -13,7 +13,8 @@ use crate::voxel::mesh::binary_greedy::Chunks;
 // use crate::voxel::mesh::surface_net::Remeshed;
 use crate::voxel::mesh::{BinaryGreedy, SurfaceNet};
 use crate::voxel::raycast::VoxelHit;
-use crate::voxel::simulation::data::SimChunks;
+use crate::voxel::simulation::data::{ChunkPoint, SimChunks};
+use crate::voxel::simulation::rle::RLEChunk;
 use crate::voxel::{GRID_SCALE, UpdateVoxelMeshSet, Voxel, VoxelAabb};
 
 pub fn plugin(app: &mut App) {
@@ -29,6 +30,7 @@ pub fn plugin(app: &mut App) {
     // Remeshed::default(),
 )]
 pub struct Voxels {
+    // compressed data as z-order curve run-length encoded data.
     pub chunks: HashMap<ChunkPoint, RLEChunk>,
 
     pub updated_set: HashSet<ChunkPoint>,
@@ -39,12 +41,12 @@ pub struct Voxels {
 
 impl Voxels {
     pub fn new(voxel_size: IVec3) -> Self {
-        Self { voxel_size }
+        Self { chunks: HashMap::new(), updated_set: HashSet::new(), voxel_size }
     }
 
     #[inline]
     pub fn get_voxel(&self, point: IVec3) -> Voxel {
-        self.sim_chunks.get_voxel(point) // sim is source of truth
+        self.sim_chunks.get_voxel(point)
     }
 
     #[inline]

@@ -8,17 +8,19 @@ use slotmap::SlotMap;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::SimSwapBuffer;
+use crate::voxel::simulation::FallingSandTick;
 use crate::voxel::simulation::rle::RLEChunk;
-use crate::voxel::simulation::view::ChunkView;
 use crate::voxel::voxel::VoxelChangeset;
 use crate::voxel::{Voxel, Voxels};
 
 pub const CHUNK_WIDTH_BITSHIFT: usize = 4;
 pub const CHUNK_WIDTH_BITSHIFT_Y: usize = CHUNK_WIDTH_BITSHIFT * 2;
-pub const CHUNK_REMAINDER: i32 = (CHUNK_WIDTH - 1) as i32;
+pub const CHUNK_REMAINDER: usize = CHUNK_WIDTH - 1;
 pub const CHUNK_WIDTH: usize = 1 << CHUNK_WIDTH_BITSHIFT;
 pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
+
+pub const CHUNK_VIEW_SIZE: usize = 2;
+pub const CHUNK_VIEW_LENGTH: usize = CHUNK_VIEW_SIZE * CHUNK_VIEW_SIZE * CHUNK_VIEW_SIZE;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Reflect, Deref, DerefMut, Hash)]
 pub struct ChunkPoint(pub IVec3);
@@ -101,12 +103,11 @@ pub fn to_linear_index(relative_point: IVec3) -> usize {
 pub fn from_linear_index(index: usize) -> IVec3 {
     debug_assert!(index < CHUNK_LENGTH);
 
-    let mut index = index as i32;
     let y = index >> CHUNK_WIDTH_BITSHIFT_Y;
-    index -= y << CHUNK_WIDTH_BITSHIFT_Y;
-    let x = index >> CHUNK_WIDTH_BITSHIFT;
+    let x = (index >> CHUNK_WIDTH_BITSHIFT) & CHUNK_REMAINDER;
     let z = index & CHUNK_REMAINDER; // index % CHUNK_WIDTH 
-    ivec3(x, y, z)
+
+    ivec3(x as i32, y as i32, z as i32)
 }
 
 #[inline]
@@ -266,11 +267,11 @@ impl SimChunks {
     }
 
     /// Create a 2x2x2 area of chunks based on the current margolus offset.
-    pub fn construct_blocks(&self) -> Vec<[Option<ChunkKey>; 8]> {
+    pub fn construct_blocks(&self) -> Vec<ChunkKeys> {
         use bevy::platform::collections::hash_map::Entry;
 
         let mut to_index: HashMap<ChunkPoint, usize> = HashMap::new();
-        let mut blocks: Vec<[Option<ChunkKey>; 8]> = Vec::new();
+        let mut blocks: Vec<ChunkKeys> = Vec::new();
 
         let offset = MARGOLUS_OFFSETS[self.margolus_offset];
         for (&chunk_point, &chunk_key) in self.from_chunk_point.iter() {
@@ -278,13 +279,13 @@ impl SimChunks {
 
             // Linearize the chunk position into a 2x2x2 block (x, y, z in {0,1})
             let rel = *chunk_point - anchor * 2;
-            let chunk_index =
-                (rel.x as usize & 1) | ((rel.y as usize & 1) << 1) | ((rel.z as usize & 1) << 2);
+            let chunk_index = ChunkView::linearize_chunk(rel);
 
             let block_index = match to_index.entry(ChunkPoint(anchor)) {
                 Entry::Occupied(entry) => *entry.get(),
                 Entry::Vacant(entry) => {
-                    blocks.push([None; 8]);
+                    blocks.push(ChunkKeys { start_chunk_point: anchor, keys: [None; 8] });
+
                     let block_index = blocks.len() - 1;
                     entry.insert(block_index);
                     block_index
@@ -292,7 +293,7 @@ impl SimChunks {
             };
 
             let block = blocks.get_mut(block_index).unwrap();
-            block[chunk_index] = Some(chunk_key);
+            block.keys[chunk_index] = Some(chunk_key);
         }
 
         blocks
@@ -300,14 +301,18 @@ impl SimChunks {
 
     /// Split the [`SimChunks`] into a list of [`ChunkView`]s that can be
     /// processed in parallel.
-    pub fn chunk_views<'a>(&'a mut self) -> Vec<ChunkView<'a, 2>> {
+    pub fn chunk_views<'a>(&'a mut self) -> Vec<ChunkView<'a>> {
         let blocks = self.construct_blocks();
 
         unsafe {
-            if let Some(mut disjoint_chunks) = self.get_disjoint_blocks_mut(blocks.as_slice()) {
+            if let Some(disjoint_chunks) = self.get_disjoint_blocks_mut(blocks.as_slice()) {
                 disjoint_chunks
-                    .iter()
-                    .map(|block| ChunkView::<2> { chunks: block })
+                    .into_iter()
+                    .zip(blocks)
+                    .map(|(block, keys)| ChunkView {
+                        start_chunk_point: keys.start_chunk_point,
+                        chunks: block,
+                    })
                     .collect::<Vec<_>>()
             } else {
                 panic!("Some blocks were joint");
@@ -318,19 +323,22 @@ impl SimChunks {
     /// Get each individual chunk in a block as a mutable reference.
     pub unsafe fn get_disjoint_blocks_mut(
         &mut self,
-        blocks: &[[Option<ChunkKey>; 8]],
-    ) -> Option<Vec<[Option<&mut SimChunk>; 8]>> {
-        let mut ptrs: Vec<[Option<*mut SimChunk>; 8]> = vec![[None; 8]; blocks.len()];
+        blocks: &[ChunkKeys],
+    ) -> Option<Vec<[Option<&mut SimChunk>; CHUNK_VIEW_LENGTH]>> {
+        let mut ptrs: Vec<[Option<*mut SimChunk>; CHUNK_VIEW_LENGTH]> =
+            vec![[None; CHUNK_VIEW_LENGTH]; blocks.len()];
 
         // Verify chunk keys are already aliased
         let mut aliased = HashSet::new();
 
+        // Safety: Each chunk key should only be aliased once, otherwise we return early
+        // and no references can be used.
         unsafe {
-            for block_index in 0..blocks.len() {
-                for chunk_index in 0..8 {
-                    if let Some(chunk_key) = blocks[block_index][chunk_index] {
+            for (block_index, block) in blocks.iter().enumerate() {
+                for (chunk_index, chunk_key) in block.keys.iter().enumerate() {
+                    if let Some(chunk_key) = chunk_key {
                         ptrs[block_index][chunk_index] =
-                            self.chunks.get_mut(chunk_key).map(|s| s as *mut SimChunk);
+                            self.chunks.get_mut(*chunk_key).map(|s| s as *mut SimChunk);
 
                         if aliased.contains(&chunk_key) {
                             return None;
@@ -387,6 +395,165 @@ impl SimChunks {
     //         }
     //     }
     // }
+}
+
+pub struct ChunkKeys {
+    pub start_chunk_point: IVec3,
+    pub keys: [Option<ChunkKey>; CHUNK_VIEW_LENGTH],
+}
+
+pub struct ChunkView<'a> {
+    pub start_chunk_point: IVec3,
+    pub chunks: [Option<&'a mut SimChunk>; CHUNK_VIEW_LENGTH],
+}
+
+impl<'a> ChunkView<'a> {
+    pub fn linearize_chunk(point: IVec3) -> usize {
+        assert!(
+            point.x >= 0
+                && point.y >= 0
+                && point.z >= 0
+                && (point.x as usize) < CHUNK_VIEW_SIZE
+                && (point.y as usize) < CHUNK_VIEW_SIZE
+                && (point.z as usize) < CHUNK_VIEW_SIZE
+        );
+        point.z as usize
+            + point.x as usize * CHUNK_VIEW_SIZE
+            + point.y as usize * CHUNK_VIEW_SIZE * CHUNK_VIEW_SIZE
+    }
+
+    pub fn delinearize_chunk(index: usize) -> IVec3 {
+        assert!(index < CHUNK_VIEW_LENGTH);
+
+        let y = index / (CHUNK_VIEW_SIZE * CHUNK_VIEW_SIZE);
+        let x = (index / CHUNK_VIEW_SIZE) % CHUNK_VIEW_SIZE;
+        let z = index % CHUNK_VIEW_SIZE;
+        ivec3(x as i32, y as i32, z as i32)
+    }
+
+    pub fn get_voxel(&self, chunk_index: usize, voxel_index: usize) -> Option<Voxel> {
+        if let Some(chunk) = &self.chunks[chunk_index] {
+            Some(Voxel::from_data(chunk.voxels[voxel_index]))
+        } else {
+            None
+        }
+    }
+
+    pub fn set_voxel(&mut self, chunk_index: usize, voxel_index: usize, voxel: Voxel) {
+        if let Some(chunk) = &mut self.chunks[chunk_index] {
+            chunk.voxels[voxel_index] = voxel.data();
+        }
+    }
+
+    pub fn get_relative_voxel(
+        &self,
+        origin_chunk_index: usize,
+        origin_voxel_index: usize,
+        relative: IVec3,
+    ) -> Option<(usize, usize, Voxel)> {
+        let (chunk_index, voxel_index) =
+            self.get_relative_voxel_indices(origin_chunk_index, origin_voxel_index, relative)?;
+        let voxel = self.get_voxel(chunk_index, voxel_index)?;
+        Some((chunk_index, voxel_index, voxel))
+    }
+
+    // Note: this will not work on relative positions larger than 16 movements
+    // outside of a chunk
+    pub fn get_relative_voxel_indices(
+        &self,
+        origin_chunk_index: usize,
+        origin_voxel_index: usize,
+        relative: IVec3,
+    ) -> Option<(usize, usize)> {
+        // happy path, we just add the stride
+        let z_stride = relative.z as usize;
+        let x_stride = (relative.x as usize) * CHUNK_WIDTH;
+        let y_stride = (relative.y as usize) * CHUNK_WIDTH * CHUNK_WIDTH;
+        let relative_stride = z_stride + x_stride + y_stride;
+
+        let new_index = origin_voxel_index + relative_stride;
+        // use underflowing to our advantage, if the stride goes under 0 it'll wrap to
+        // usize::MAX and fail this.
+        if new_index < CHUNK_LENGTH {
+            // happy path
+            return Some((origin_chunk_index, new_index));
+        }
+
+        // handle edge case
+        assert!(
+            relative.x.abs() < CHUNK_WIDTH as i32
+                && relative.y.abs() < CHUNK_WIDTH as i32
+                && relative.z.abs() < CHUNK_WIDTH as i32
+        );
+
+        let origin_point = delinearize(origin_voxel_index);
+        let mut combined_point = origin_point + relative;
+
+        let mut chunk_point = Self::delinearize_chunk(origin_chunk_index);
+        if combined_point.x < 0 {
+            chunk_point.x -= 1;
+            combined_point.x += CHUNK_WIDTH as i32;
+        } else if combined_point.x > CHUNK_WIDTH as i32 {
+            chunk_point.x += 1;
+            combined_point.x -= CHUNK_WIDTH as i32;
+        }
+
+        if combined_point.y < 0 {
+            chunk_point.y -= 1;
+            combined_point.y += CHUNK_WIDTH as i32;
+        } else if combined_point.y > CHUNK_WIDTH as i32 {
+            chunk_point.y += 1;
+            combined_point.y -= CHUNK_WIDTH as i32;
+        }
+
+        if combined_point.z < 0 {
+            chunk_point.z -= 1;
+            combined_point.z += CHUNK_WIDTH as i32;
+        } else if combined_point.z > CHUNK_WIDTH as i32 {
+            chunk_point.z += 1;
+            combined_point.z -= CHUNK_WIDTH as i32;
+        }
+
+        let relative_chunk_index = Self::linearize_chunk(chunk_point);
+        if relative_chunk_index < CHUNK_VIEW_LENGTH {
+            let relative_voxel_index = linearize(combined_point);
+            Some((relative_chunk_index, relative_voxel_index))
+        } else {
+            None
+        }
+    }
+
+    pub fn simulate(&mut self, tick: FallingSandTick) {
+        // TODO: Iterate through internal voxels first to avoid accessing other chunks,
+        // then iterate through each 'face', then iterate through each 'corner'.
+        // This should minimize cache misses, but may cause some visible seams.
+
+        // For now just iterate through every voxel in a linear fashion.
+
+        // TODO: figure out update masks here
+        // we can't clear voxels on the edges of chunks, because they might
+        // still be able to move if the neighboring chunk was within the
+        // active area. so
+        for chunk_index in 0..self.chunks.len() {
+            if self.chunks[chunk_index].is_none() {
+                continue;
+            }
+
+            for voxel_index in 0..CHUNK_LENGTH {
+                let voxel = {
+                    let chunk = self.chunks[chunk_index].as_ref().unwrap();
+                    let voxel_data = chunk.voxels[voxel_index];
+                    Voxel::from_data(voxel_data)
+                };
+
+                if !voxel.is_simulated() {
+                    continue;
+                }
+
+                voxel.simulate(self, chunk_index, voxel_index, tick);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
