@@ -125,8 +125,8 @@ pub fn delinearize(index: usize) -> IVec3 {
 }
 
 #[inline]
-pub fn voxel_relative_point(point: IVec3) -> ChunkPoint {
-    point.rem_euclid(CHUNK_WIDTH)
+pub fn voxel_relative_point(point: IVec3) -> IVec3 {
+    point.rem_euclid(IVec3::splat(CHUNK_WIDTH as i32))
 }
 
 #[inline]
@@ -134,7 +134,7 @@ pub fn chunk_point(point: IVec3) -> ChunkPoint {
     // not euclidean (point / 16)
     // ChunkPoint(point >> (CHUNK_WIDTH_BITSHIFT as i32))
 
-    ChunkPoint(point.div_euclid(CHUNK_WIDTH))
+    ChunkPoint(point.div_euclid(IVec3::splat(CHUNK_WIDTH as i32)))
 }
 
 // impl<'a> Iterator for UpdateIterator<'a> {

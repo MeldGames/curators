@@ -16,7 +16,7 @@ impl RLEChunk {
 
     #[inline]
     pub fn get_voxel(&self, relative_point: IVec3) -> Voxel {
-        self.get_voxel_from_index(crate::voxel::simulation::data::linearize(point))
+        self.get_voxel_from_index(crate::voxel::simulation::data::linearize(relative_point))
     }
 
     #[inline]
