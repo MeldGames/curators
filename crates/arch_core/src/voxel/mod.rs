@@ -10,6 +10,7 @@ pub mod collider;
 pub mod mesh;
 pub mod pick;
 pub mod raycast;
+pub mod tree;
 pub mod simulation;
 pub mod voxel;
 pub mod voxel_aabb;
