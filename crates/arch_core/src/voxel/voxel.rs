@@ -544,15 +544,15 @@ impl VoxelMaterials {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
-pub struct VoxelChangeset(u16);
+pub struct VoxelSet(u16);
 
-impl Default for VoxelChangeset {
+impl Default for VoxelSet {
     fn default() -> Self {
         Self(0)
     }
 }
 
-impl Iterator for VoxelChangeset {
+impl Iterator for VoxelSet {
     type Item = Voxel;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -568,7 +568,7 @@ impl Iterator for VoxelChangeset {
     }
 }
 
-impl VoxelChangeset {
+impl VoxelSet {
     pub fn clear(&mut self) {
         self.0 = 0;
     }

@@ -275,6 +275,7 @@ dependencies = [
  "binary-greedy-meshing",
  "criterion",
  "dashmap",
+ "fast-surface-nets",
  "fxhash",
  "iyes_perf_ui",
  "lazy_static",
@@ -2776,6 +2777,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fast-surface-nets"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2aef9e8d9e33f51d8120a2e997a819f18239ad7c2735e353ade79208a9a1c442"
+dependencies = [
+ "glam",
+ "ndshape",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4041,6 +4052,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys",
+]
+
+[[package]]
+name = "ndshape"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "975bce586ad637e27f6dc26ee907c07050686a588695bfd64b7873a9d48a700c"
+dependencies = [
+ "static_assertions",
 ]
 
 [[package]]

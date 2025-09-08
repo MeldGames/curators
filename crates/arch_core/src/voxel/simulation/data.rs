@@ -10,7 +10,7 @@ use tracing::*;
 
 use crate::voxel::simulation::FallingSandTick;
 use crate::voxel::simulation::rle::RLEChunk;
-use crate::voxel::voxel::VoxelChangeset;
+use crate::voxel::voxel::VoxelSet;
 use crate::voxel::{Voxel, Voxels};
 
 pub const CHUNK_WIDTH_BITSHIFT: usize = 4;
@@ -31,7 +31,7 @@ pub fn plugin(app: &mut App) {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct SimChunk {
-    pub voxel_changeset: VoxelChangeset,
+    // pub voxel_changeset: VoxelSet,
     /// Voxels that are considered dirty still.
     pub dirty: [u64; CHUNK_LENGTH / 64],
     // lets try just a 4x4x4 chunk
@@ -41,7 +41,7 @@ pub struct SimChunk {
 impl Default for SimChunk {
     fn default() -> Self {
         Self {
-            voxel_changeset: default(),
+            // voxel_changeset: default(),
             dirty: [0u64; CHUNK_LENGTH / 64],
             voxels: [0; CHUNK_LENGTH],
         }
@@ -262,7 +262,7 @@ impl SimChunks {
                 }
             }
 
-            chunk.voxel_changeset.set(voxel);
+            // chunk.voxel_changeset.set(voxel);
 
             true
         } else {

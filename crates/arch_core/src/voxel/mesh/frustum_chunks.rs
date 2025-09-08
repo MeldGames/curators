@@ -74,6 +74,7 @@ impl FrustumChunks {
         use crate::voxel::mesh::unpadded::SIZE as CHUNK_SIZE;
         let chunk_size = Vec3::splat(CHUNK_SIZE as f32) * Vec3::from(GRID_SCALE);
 
+        /*
         for &chunk_pos in voxels.sim_chunks.chunks.keys() {
             let min = chunk_pos.as_vec3() * chunk_size;
             let max = min + chunk_size;
@@ -106,6 +107,7 @@ impl FrustumChunks {
             // gizmos.line(Vec3::new(min.x, min.y, min.z), Vec3::new(min.x,
             // min.y, max.z), color);
         }
+        */
 
         // info!("intersecting: {:?}", frustum_chunks);
     }

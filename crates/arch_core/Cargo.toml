@@ -86,7 +86,7 @@ noiz = "0.2.0"
 rand_core = "0.9"
 
 # Meshing
-# fast-surface-nets = "0.2.1"
+fast-surface-nets = "0.2.1"
 binary-greedy-meshing = "0.5.0"
 # binary-greedy-meshing = { git = "https://github.com/Aceeri/binary-greedy-meshing", branch = "main" }
 # binary-greedy-meshing = { path = "../../../binary-greedy-meshing" }

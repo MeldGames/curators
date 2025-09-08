@@ -1,5 +1,5 @@
 use crate::voxel::Voxel;
-use bevy::prelude::*;
+use bevy::{platform::collections::HashSet, prelude::*};
 use std::fmt::{self, Debug, Formatter};
 
 pub const TREE_ARY: usize = 4;
@@ -12,9 +12,15 @@ pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
 
 /// Get the width of a region at a specific layer including the leaf chunk width.
 #[inline]
-pub const fn layer_width(layer: usize) -> usize {
-    // 2^(log2(TREE_ARY) * layer)) * CHUNK_WIDTH
-    (1 << (TREE_ARY_ILOG2 * layer)) * CHUNK_WIDTH
+pub const fn layer_width_voxel(layer: usize) -> usize {
+    layer_width_chunk(layer) * CHUNK_WIDTH
+}
+
+/// Get the width of a region at a specific layer excluding the leaf chunk width.
+#[inline]
+pub const fn layer_width_chunk(layer: usize) -> usize {
+    // 2^(log2(TREE_ARY) * layer)
+    1 << (TREE_ARY_ILOG2 * layer)
 }
 
 /// Given a voxel point, find minimum position of the region the voxel point is in.
@@ -22,13 +28,15 @@ pub const fn layer_width(layer: usize) -> usize {
 /// This is useful for finding the relative position of the voxel to the region and then
 /// the relative position of the subdivided regions from this region.
 #[inline]
-pub fn layer_min(layer: usize, voxel_point: IVec3) -> IVec3 {
-    let size = IVec3::splat(layer_width(layer) as i32);
+pub fn layer_min_from_voxel(layer: usize, voxel_point: IVec3) -> IVec3 {
+    let size = IVec3::splat(layer_width_voxel(layer) as i32);
     (voxel_point / size) * size
 }
 
-pub fn leaf_point(point: IVec3) -> IVec3 {
-    point.div_euclid(IVec3::splat(CHUNK_WIDTH as i32))
+#[inline]
+pub fn layer_min_from_chunk(layer: usize, chunk_point: IVec3) -> IVec3 {
+    let size = IVec3::splat(layer_width_chunk(layer) as i32);
+    (chunk_point / size) * size
 }
 
 /// Get the index into the leaf's voxel storage.
@@ -52,15 +60,37 @@ pub fn to_child_index(relative_ary_point: IVec3) -> usize {
 }
 
 #[inline]
-pub fn get_sublayer_index(layer: usize, voxel_point: IVec3) -> usize {
-    let layer_min = layer_min(layer, voxel_point);
+pub fn from_child_index(child_index: usize) -> IVec3 {
+    assert!(child_index < TREE_LENGTH);
+
+    let z = child_index % TREE_ARY;
+    let x = (child_index / TREE_ARY) % TREE_ARY;
+    let y = child_index / (TREE_ARY * TREE_ARY);
+    IVec3::new(x as i32, y as i32, z as i32)
+}
+
+#[inline]
+pub fn get_sublayer_index_from_voxel(layer: usize, voxel_point: IVec3) -> usize {
+    let layer_min = layer_min_from_voxel(layer, voxel_point);
     let relative_voxel_point = voxel_point - layer_min;
 
-    let subregion = relative_voxel_point / IVec3::splat(layer_width(layer - 1) as i32);
+    let subregion = relative_voxel_point / IVec3::splat(layer_width_voxel(layer - 1) as i32);
     // println!("layer: {:?}, relative_voxel_point: {:?}, subregion: {:?}", layer, relative_voxel_point, subregion);
     let sublayer_index = to_child_index(subregion);
     sublayer_index
 }
+
+#[inline]
+pub fn get_sublayer_index_from_chunk(layer: usize, chunk_point: IVec3) -> usize {
+    let layer_min = layer_min_from_chunk(layer, chunk_point);
+    let relative_voxel_point = chunk_point - layer_min;
+
+    let subregion = relative_voxel_point / IVec3::splat(layer_width_chunk(layer - 1) as i32);
+    // println!("layer: {:?}, relative_voxel_point: {:?}, subregion: {:?}", layer, relative_voxel_point, subregion);
+    let sublayer_index = to_child_index(subregion);
+    sublayer_index
+}
+
 
 #[derive(Clone)]
 pub enum VoxelNode {
@@ -115,6 +145,40 @@ impl Debug for VoxelNode {
 }
 
 impl VoxelNode {
+    pub fn renderable_chunks(&self, origin: IVec3, buffer: &mut Vec<IVec3>) {
+        match self {
+            Self::Solid {
+                layer, voxel
+            } => {
+                if !voxel.rendered() {
+                    return;
+                }
+
+                // TODO: Only add the chunks on the surface of this solid region to the list.
+
+                // add every chunk point from this layer 
+                let width = layer_width_chunk(*layer) as i32;
+                for x in 0..width {
+                    for y in 0..width {
+                        for z in 0..width {
+                            buffer.push(origin + IVec3::new(x, y, z));
+                        }
+                    }
+                }
+            }
+            Self::Leaf { .. } => { // assume there is a renderable voxel in this leaf
+                buffer.push(origin);
+            }
+            Self::Children { layer, children } => {
+                for (child_index, child) in children.iter().enumerate() {
+                    let child_position = from_child_index(child_index);
+                    let chunk_space_offset = child_position * layer_width_chunk(*layer) as i32;
+                    child.renderable_chunks(origin + chunk_space_offset, buffer);
+                }
+            }
+        }
+    }
+
     pub fn subdivide(&mut self) {
         // layer 0 subdivision is a leaf
         // layer 1+ subdivision are children
@@ -190,29 +254,11 @@ impl VoxelNode {
         }
     }
 
-    pub fn get_leaf<'a>(
-        &'a self,
-        voxel_point: IVec3, // voxel point divided by chunk/leaf size
-    ) -> &'a VoxelNode {
-        match self {
-            VoxelNode::Children { layer, children } => {
-                assert!(*layer > 0);
-
-                let sublayer_index = get_sublayer_index(*layer, voxel_point);
-                // println!("sublayer_index: {:?}", sublayer_index);
-                let next_node = &children[sublayer_index];
-                next_node.get_leaf(voxel_point)
-            },
-            leaf @ VoxelNode::Leaf { .. } => leaf,
-            solid @ VoxelNode::Solid { .. } => solid,
-        }
-    }
-
     pub fn get_voxel(&self, voxel_point: IVec3) -> Voxel {
         match self {
             // traverse downwards
             VoxelNode::Children { layer, children } => {
-                let sublayer_index = get_sublayer_index(*layer, voxel_point);
+                let sublayer_index = get_sublayer_index_from_voxel(*layer, voxel_point);
                 let next_node = &children[sublayer_index];
                 next_node.get_voxel(voxel_point)
             },
@@ -235,13 +281,13 @@ impl VoxelNode {
         &mut self,
         voxel_point: IVec3,
         voxel: Voxel,
-    ) {
+    ) -> bool {
         match self {
             // traverse downwards
             VoxelNode::Children { layer, children } => {
-                let sublayer_index = get_sublayer_index(*layer, voxel_point);
+                let sublayer_index = get_sublayer_index_from_voxel(*layer, voxel_point);
                 let next_node = &mut children[sublayer_index];
-                next_node.set_voxel(voxel_point, voxel);
+                next_node.set_voxel(voxel_point, voxel)
             },
             // fracture into child or leaf
             solid @ VoxelNode::Solid { .. } => {
@@ -249,7 +295,7 @@ impl VoxelNode {
                 match solid {
                     VoxelNode::Solid { voxel: solid_voxel, .. } => {
                         if *solid_voxel == voxel {
-                            return;
+                            return false;
                         }
                     }
                     _ => unreachable!(),
@@ -257,16 +303,61 @@ impl VoxelNode {
 
                 solid.subdivide();
                 let subdivided = solid;
-                subdivided.set_voxel(voxel_point, voxel); // recurse into the correct path
+                subdivided.set_voxel(voxel_point, voxel) // recurse into the correct path
             }
             VoxelNode::Leaf { leaf } => {
                 let relative_voxel_point = voxel_point.rem_euclid(IVec3::splat(CHUNK_WIDTH as i32));
                 let voxel_index = to_leaf_index(relative_voxel_point);
                 if voxel_index > CHUNK_LENGTH {
                     warn!("voxel index out of bounds");
+                    false
                 } else {
                     leaf[voxel_index] = voxel;
+                    true
                 }
+            }
+        }
+    }
+
+    /// Get the contents of a bottom level chunk
+    pub fn get_chunk<'a>(
+        &'a self,
+        chunk_point: IVec3, // voxel point divided by chunk/leaf size
+    ) -> &'a VoxelNode {
+        match self {
+            VoxelNode::Children { layer, children } => {
+                assert!(*layer > 0);
+
+                let sublayer_index = get_sublayer_index_from_chunk(*layer, chunk_point);
+                // println!("sublayer_index: {:?}", sublayer_index);
+                let next_node = &children[sublayer_index];
+                next_node.get_chunk(chunk_point)
+            },
+            leaf @ VoxelNode::Leaf { .. } => leaf,
+            solid @ VoxelNode::Solid { .. } => solid,
+        }
+    }
+
+    pub fn set_chunk_data<'a>(
+        &'a mut self,
+        chunk_point: IVec3, // voxel point divided by chunk/leaf size
+        chunk_data: [Voxel; CHUNK_LENGTH],
+    ) {
+        match self {
+            // traverse downwards
+            VoxelNode::Children { layer, children } => {
+                let sublayer_index = get_sublayer_index_from_chunk(*layer, chunk_point);
+                let next_node = &mut children[sublayer_index];
+                next_node.set_chunk_data(chunk_point, chunk_data);
+            },
+            // fracture into child or leaf
+            solid @ VoxelNode::Solid { .. } => {
+                solid.subdivide();
+                let subdivided = solid;
+                subdivided.set_chunk_data(chunk_point, chunk_data); // recurse into the correct path
+            }
+            VoxelNode::Leaf { leaf } => {
+                **leaf = chunk_data;
             }
         }
     }
@@ -293,20 +384,25 @@ impl VoxelNode {
         }
     }
 
-    pub fn width(&self) -> usize {
-        layer_width(self.layer())
+    pub fn voxel_width(&self) -> usize {
+        layer_width_voxel(self.layer())
+    }
+
+    pub fn chunk_width(&self) -> usize {
+        layer_width_chunk(self.layer())
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct VoxelTree {
     pub root: VoxelNode,
+    pub changed_chunks: HashSet<IVec3>,
 }
 
 impl VoxelTree {
     pub fn new() -> VoxelTree {
         // TODO: is 1 the starting layer good? or should it be 0 indexed?
-        Self { root: VoxelNode::Solid { layer: 0, voxel: Voxel::Air } }
+        Self { root: VoxelNode::Solid { layer: 0, voxel: Voxel::Air }, changed_chunks: Vec::new(), }
     }
 
     pub fn root_layer(&self) -> usize {
@@ -315,7 +411,6 @@ impl VoxelTree {
 
     pub fn grow_layer(&mut self) {
         let root_layer = self.root_layer();
-
 
         // take the root with a temporary value
         // let root = std::mem::swap(self.root, 
@@ -345,16 +440,32 @@ impl VoxelTree {
     }
 
     pub fn get_voxel(&self, voxel_point: IVec3) -> Voxel {
+        if !self.voxel_point_in_bounds(voxel_point) {
+            return Voxel::Barrier;
+        }
+
         self.root.get_voxel(voxel_point)
     }
     
     pub fn set_voxel(&mut self, voxel_point: IVec3, voxel: Voxel) {
-        assert!(self.point_in_bounds(voxel_point));
-        self.root.set_voxel(voxel_point, voxel);
+        assert!(self.voxel_point_in_bounds(voxel_point));
+        if self.root.set_voxel(voxel_point, voxel) {
+            self.changed_chunks.insert(voxel_point / IVec3::splat(CHUNK_WIDTH as i32));
+        }
     }
 
-    pub fn point_in_bounds(&self, voxel_point: IVec3) -> bool {
-        voxel_point.max_element() < self.root.size() && voxel_point.min_element() > 0
+    pub fn set_chunk_data(&mut self, chunk_point: IVec3, chunk_data: [Voxel; 4096]) {
+        assert!(self.chunk_point_in_bounds(chunk_point));
+        self.root.set_chunk_data(chunk_point, chunk_data);
+        self.changed_chunks.insert(chunk_point);
+    }
+
+    pub fn voxel_point_in_bounds(&self, voxel_point: IVec3) -> bool {
+        voxel_point.max_element() < self.root.voxel_width() as i32 && voxel_point.min_element() > 0
+    }
+
+    pub fn chunk_point_in_bounds(&self, chunk_point: IVec3) -> bool {
+        chunk_point.max_element() < self.root.chunk_width() as i32 && chunk_point.min_element() > 0
     }
 }
 
@@ -366,9 +477,9 @@ mod test {
     #[test]
     pub fn get_set_sanity() {
         let mut tree = VoxelTree::new();
-        tree.grow_n_layers(3);
+        tree.grow_n_layers(2);
         eprintln!("initial tree: {:?}", tree);
-        eprintln!("tree size: {:?}", tree.root.size());
+        eprintln!("tree size: {:?}", tree.root.voxel_width());
 
         const N: i32 = 4 * 4 * 16;
         let mut iter = 0;
@@ -402,10 +513,10 @@ mod test {
         let voxel_point = IVec3::splat(6000);
         // let voxel_point = IVec3::new(8, 8, 8);
         for layer in 0..6 {
-            println!("width: {:?}", layer_width(layer));
-            println!("min: {:?}", layer_min(layer, voxel_point));
-            println!("relative_voxel: {:?}", voxel_point - layer_min(layer, voxel_point));
-            println!("layer_in: {:?}", (voxel_point - layer_min(layer, voxel_point)).rem_euclid(IVec3::splat(TREE_ARY as i32)));
+            println!("width: {:?}", layer_width_voxel(layer));
+            println!("min: {:?}", layer_min_from_voxel(layer, voxel_point));
+            println!("relative_voxel: {:?}", voxel_point - layer_min_from_voxel(layer, voxel_point));
+            println!("layer_in: {:?}", (voxel_point - layer_min_from_voxel(layer, voxel_point)).rem_euclid(IVec3::splat(TREE_ARY as i32)));
         }
     }
 

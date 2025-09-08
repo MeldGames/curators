@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 
-// use fast_surface_nets::ndshape::{ConstPow2Shape3u32, RuntimeShape, Shape};
-// use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
+use fast_surface_nets::ndshape::{ConstShape3u32, RuntimeShape, Shape};
+use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 use avian3d::collision::collider::TrimeshFlags;
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
@@ -17,19 +17,21 @@ use crate::voxel::mesh::binary_greedy::Chunks;
 use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::mesh::frustum_chunks::FrustumChunks;
 use crate::voxel::mesh::remesh::Remesh;
-use crate::voxel::mesh::surface_net::fast_surface_nets::VoxelAccess;
+// use crate::voxel::mesh::surface_net::fast_surface_nets::VoxelAccess;
 use crate::voxel::mesh::{ChangedChunk, padded};
 use crate::voxel::simulation::data::ChunkPoint;
+use crate::voxel::voxel::VoxelSet;
 use crate::voxel::{UpdateVoxelMeshSet, Voxel, Voxels};
 
-pub mod fast_surface_nets;
+// pub mod fast_surface_nets;
 
-// use fast_surface_nets::ndshape::{Shape};
-use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
+// use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 
 pub struct SurfaceNetPlugin;
 impl Plugin for SurfaceNetPlugin {
     fn build(&self, app: &mut App) {
+        app.insert_resource(SampleBuffers::default());
+
         // app.add_observer(surface_net_components);
         app.add_systems(PreUpdate, update_surface_net_mesh.in_set(UpdateVoxelMeshSet::Mesh));
     }
@@ -62,6 +64,33 @@ pub struct SurfaceNetMeshes(HashMap<u16, Entity>);
 // #[derive(Component, Default)]
 // pub struct Remeshed(HashSet<ChunkPoint>);
 
+pub const VOXEL_TYPE_COUNT: usize = 16;
+
+#[derive(Resource, Debug, Clone)]
+pub struct SampleBuffers {
+    pub buffers: Vec<[f32; 18 * 18 * 18]>,
+    pub voxel_set: VoxelSet,
+}
+
+impl Default for SampleBuffers {
+    fn default() -> Self { 
+        Self {
+            buffers: vec![[1.0; 18 * 18 * 18]; VOXEL_TYPE_COUNT],
+            voxel_set: VoxelSet::default(),
+        }
+    }
+}
+
+impl SampleBuffers {
+    pub fn clear(&mut self) {
+        for voxel in self.voxel_set {
+            self.buffers[voxel.id() as usize] = [1.0; 18 * 18 * 18];
+        }
+
+        self.voxel_set.clear();
+    }
+}
+
 pub fn update_surface_net_mesh(
     mut commands: Commands,
     is_surface_nets: Query<(), With<SurfaceNet>>,
@@ -73,6 +102,8 @@ pub fn update_surface_net_mesh(
     // voxel_materials: Res<VoxelMaterials>, // buggy when reusing material rn, figure it out later
     // mut mesher: Local<BgmMesher>,
     mut surface_net_buffer: Local<SurfaceNetsBuffer>,
+    mut sample_buffers: ResMut<SampleBuffers>,
+
     mut changed_chunks: EventReader<ChangedChunk>,
 
     named: Query<NameOrEntity>,
@@ -84,6 +115,7 @@ pub fn update_surface_net_mesh(
     frustum_chunks: Res<FrustumChunks>,
 
     mut apply_later: Local<Vec<(Entity, Handle<Mesh>, Option<Aabb>, usize)>>,
+
 ) {
     apply_later.retain(|(_, _, _, count)| *count != 0);
 
@@ -141,15 +173,16 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
-        if !is_surface_nets.contains(*chunk_entity) {
-            warn!("doesn't have surface net");
-            continue;
-        }
+        // if !is_surface_nets.contains(*chunk_entity) {
+        //     warn!("doesn't have surface net");
+        //     continue;
+        // }
 
-        let Some(chunk) = voxels.sim_chunks.chunks.get(&chunk_point) else {
-            warn!("No chunk at {chunk_point:?}");
-            continue;
-        };
+        let chunk_size = IVec3::splat(16);
+        let min = (*chunk_point * 16) - IVec3::ONE;
+        let max = (*chunk_point + chunk_size) + IVec3::ONE;
+
+        VoxelSampler::sample(&voxels, &mut sample_buffers, min, max);
 
         let Ok((mut chunk_meshes, mut chunk_colliders)) =
             chunk_mesh_entities.get_mut(*chunk_entity)
@@ -158,26 +191,16 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
-        for voxel in chunk.voxel_changeset {
+        for voxel in sample_buffers.voxel_set {
             if !voxel.rendered() {
                 continue;
             }
 
             let voxel_id = voxel.id();
+            let sample_buffer = sample_buffers.buffers[voxel_id as usize];
+            let shape = SurfaceNetShape {};
+            surface_nets(&sample_buffer, &shape, [0; 3], [17; 3], &mut surface_net_buffer);
 
-            let lod = 1;
-            // info!("remeshing {:?}-{:?}", chunk_point, voxel);
-            // chunk.update_surface_net_samples(&mut samples.0, voxel.id());
-            let chunk_size = IVec3::splat(16);
-            let chunk_min = chunk_size * *chunk_point;
-            let chunk_max = chunk_min + chunk_size;
-            voxels.create_surface_net(
-                &mut surface_net_buffer,
-                voxel_id,
-                chunk_min - IVec3::ONE,
-                chunk_max,
-                lod,
-            );
             let SurfaceNetsBuffer { ref mut normals, ref mut positions, .. } = *surface_net_buffer;
             for (position, normal) in positions.iter_mut().zip(normals.iter_mut()) {
                 *normal = (Vec3::from(*normal).normalize()).into();
@@ -314,52 +337,36 @@ pub fn surface_net_to_collider_trimesh(buffer: &SurfaceNetsBuffer) -> Option<Col
     Some(new_collider)
 }
 
-// pub type ChunkShape = ConstPow2Shape3u32<{ 6 as u32 }, { 6 as u32 }, { 6 as
-// u32 }>; // 62^3 with 1 padding
+pub struct VoxelSampler;
 
-pub struct LodStep<'a> {
-    pub voxels: &'a Voxels,
-    pub lod_step: IVec3,
-}
+// 1 padding around 16^3 chunk
+pub type SurfaceNetShape = ConstShape3u32<18, 18, 18>;
 
-impl<'a> VoxelAccess for LodStep<'a> {
-    fn get_voxel(&self, point: IVec3) -> Voxel {
-        self.voxels.get_voxel(point * self.lod_step)
-    }
-}
+impl VoxelSampler {
+    // min should be chunk minimum - 1
+    // max is chunk maximum + 1
+    // this adds the padding around the chunk
+    pub fn sample(voxels: &Voxels, buffers: &mut SampleBuffers, min: IVec3, max: IVec3) {
+        buffers.clear();
+        let shape = SurfaceNetShape {};
 
-impl Voxels {
-    // pub fn update_surface_net_samples(&self, samples: &mut Vec<f32>,
-    // mesh_voxel_id: u16) {     let shape = ChunkShape {};
-    //     for (i, voxel) in self.voxels.iter().enumerate() {
-    //         let voxel = Voxel::from_data(*voxel);
-    //         let voxel_id = voxel.id();
+        for z in min.z..max.z {
+            for x in min.x..max.x {
+                for y in min.y..max.y {
+                    let voxel_point = IVec3::new(x, y, z);
+                    let voxel = voxels.get_voxel(voxel_point);
+                    if !voxel.rendered() {
+                        continue;
+                    }
 
-    //         let sample = if mesh_voxel_id == voxel_id {
-    //             -1.0
-    //         } else {
-    //             1.0
-    //         };
+                    let buffer_index = voxel.id() as usize;
+                    buffers.voxel_set.set(voxel);
 
-    //         let point = padded::delinearize(i);
-    //         let shape_index = shape.linearize(point.map(|x| x as u32));
-    //         samples[shape_index as usize] = sample;
-    //     }
-    // }
-
-    pub fn create_surface_net(
-        &self,
-        buffer: &mut SurfaceNetsBuffer,
-        mesh_voxel_id: u16,
-        min: IVec3,
-        max: IVec3,
-        lod: i32,
-    ) {
-        if lod == 1 {
-            surface_nets(self, mesh_voxel_id, min - 1, max, buffer);
-        } else {
-            let access = LodStep { voxels: self, lod_step: IVec3::splat(lod) };
-            surface_nets(&access, mesh_voxel_id, min - 1 * lod, max, buffer);
+                    let voxel_index = shape.linearize([x as u32, y as u32, z as u32]);
+                    let buffer = &mut buffers.buffers[buffer_index];
+                    buffer[voxel_index as usize] = -1.0;
+                }
+            }
         }
     }
 }
