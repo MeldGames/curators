@@ -53,6 +53,7 @@ impl Default for BgmMesher {
 }
 
 #[derive(Component, Debug, Reflect)]
+#[require(Visibility::Inherited)]
 pub struct GridChunk {
     pub entity: Entity,
     pub position: ChunkPoint,
@@ -84,11 +85,9 @@ pub fn spawn_chunk_entities(
                     ChildOf(voxels_entity),
                     GridChunk { entity: voxels_entity, position: *chunk_point },
                     Transform {
-                        // translation: chunk_point.as_vec3()
-                        // * crate::voxel::mesh::unpadded::SIZE as f32,
+                        translation: chunk_point.as_vec3() * crate::voxel::mesh::unpadded::SIZE as f32,
                         ..default()
                     },
-                    Visibility::Inherited,
                 ))
                 .id();
 

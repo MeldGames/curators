@@ -112,6 +112,22 @@ impl StackUpdates {
     }
 }
 
+// Pull relevant chunks from the 64tree into our linear array.
+pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
+    for (grid_entity, voxels, mut sim_chunks) in &mut grids {
+        // sim_chunks.add_chunk(chunk_point, sim_chunk);
+    } 
+}
+
+pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
+    for (grid_entity, mut voxels, sim_chunks) in &mut grids {
+        for (chunk_point, chunk_key) in &sim_chunks.from_chunk_point {
+            let sim_chunk = sim_chunks.chunks.get(*chunk_key).unwrap();
+            voxels.tree.set_chunk_data(**chunk_point, sim_chunk.voxels);
+        }
+    }
+}
+
 pub fn falling_sands(
     mut grids: Query<(Entity, &mut SimChunks)>,
     mut sim_tick: ResMut<FallingSandTick>,

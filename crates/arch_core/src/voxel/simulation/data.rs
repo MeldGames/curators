@@ -35,7 +35,7 @@ pub struct SimChunk {
     /// Voxels that are considered dirty still.
     pub dirty: [u64; CHUNK_LENGTH / 64],
     // lets try just a 4x4x4 chunk
-    pub voxels: [u16; CHUNK_LENGTH],
+    pub voxels: [Voxel; CHUNK_LENGTH],
 }
 
 impl Default for SimChunk {
@@ -43,7 +43,7 @@ impl Default for SimChunk {
         Self {
             // voxel_changeset: default(),
             dirty: [0u64; CHUNK_LENGTH / 64],
-            voxels: [0; CHUNK_LENGTH],
+            voxels: [Voxel::Air; CHUNK_LENGTH],
         }
     }
 }
@@ -54,7 +54,7 @@ impl SimChunk {
     }
 }
 
-slotmap::new_key_type! { struct ChunkKey; }
+slotmap::new_key_type! { pub struct ChunkKey; }
 
 #[derive(Component, Debug, Clone)]
 pub struct SimChunks {
@@ -235,7 +235,7 @@ impl SimChunks {
             unsafe { *chunk.voxels.get_unchecked(voxel_index) }
         };
 
-        Voxel::from_data(voxel)
+        voxel
     }
 
     #[inline]
@@ -255,10 +255,10 @@ impl SimChunks {
             let chunk = self.chunks.get_mut(chunk_key).unwrap();
 
             if cfg!(feature = "safe-bounds") {
-                chunk.voxels[voxel_index] = voxel.data();
+                chunk.voxels[voxel_index] = voxel;
             } else {
                 unsafe {
-                    *chunk.voxels.get_unchecked_mut(voxel_index) = voxel.data();
+                    *chunk.voxels.get_unchecked_mut(voxel_index) = voxel;
                 }
             }
 
@@ -440,7 +440,7 @@ impl<'a> ChunkView<'a> {
 
     pub fn get_voxel(&self, chunk_index: usize, voxel_index: usize) -> Option<Voxel> {
         if let Some(chunk) = &self.chunks[chunk_index] {
-            Some(Voxel::from_data(chunk.voxels[voxel_index]))
+            Some(chunk.voxels[voxel_index])
         } else {
             None
         }
@@ -448,7 +448,7 @@ impl<'a> ChunkView<'a> {
 
     pub fn set_voxel(&mut self, chunk_index: usize, voxel_index: usize, voxel: Voxel) {
         if let Some(chunk) = &mut self.chunks[chunk_index] {
-            chunk.voxels[voxel_index] = voxel.data();
+            chunk.voxels[voxel_index] = voxel;
         }
     }
 
@@ -550,7 +550,7 @@ impl<'a> ChunkView<'a> {
                 let voxel = {
                     let chunk = self.chunks[chunk_index].as_ref().unwrap();
                     let voxel_data = chunk.voxels[voxel_index];
-                    Voxel::from_data(voxel_data)
+                    voxel_data
                 };
 
                 if !voxel.is_simulated() {

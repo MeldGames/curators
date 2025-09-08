@@ -402,7 +402,7 @@ pub struct VoxelTree {
 impl VoxelTree {
     pub fn new() -> VoxelTree {
         // TODO: is 1 the starting layer good? or should it be 0 indexed?
-        Self { root: VoxelNode::Solid { layer: 0, voxel: Voxel::Air }, changed_chunks: Vec::new(), }
+        Self { root: VoxelNode::Solid { layer: 0, voxel: Voxel::Air }, changed_chunks: default(), }
     }
 
     pub fn root_layer(&self) -> usize {
@@ -448,7 +448,11 @@ impl VoxelTree {
     }
     
     pub fn set_voxel(&mut self, voxel_point: IVec3, voxel: Voxel) {
-        assert!(self.voxel_point_in_bounds(voxel_point));
+        if !self.voxel_point_in_bounds(voxel_point) {
+            warn!("voxel point set out-of-bounds: {:?} {:?}", voxel_point, voxel);
+            return;
+        }
+
         if self.root.set_voxel(voxel_point, voxel) {
             self.changed_chunks.insert(voxel_point / IVec3::splat(CHUNK_WIDTH as i32));
         }
@@ -461,11 +465,11 @@ impl VoxelTree {
     }
 
     pub fn voxel_point_in_bounds(&self, voxel_point: IVec3) -> bool {
-        voxel_point.max_element() < self.root.voxel_width() as i32 && voxel_point.min_element() > 0
+        voxel_point.max_element() < self.root.voxel_width() as i32 && voxel_point.min_element() >= 0
     }
 
     pub fn chunk_point_in_bounds(&self, chunk_point: IVec3) -> bool {
-        chunk_point.max_element() < self.root.chunk_width() as i32 && chunk_point.min_element() > 0
+        chunk_point.max_element() < self.root.chunk_width() as i32 && chunk_point.min_element() >= 0
     }
 }
 

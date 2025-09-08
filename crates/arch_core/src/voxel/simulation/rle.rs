@@ -50,17 +50,15 @@ impl RLEChunk {
 
         // for now read from sim chunk in a linearized fashion
         let mut iter = sim.voxels.iter().enumerate();
-        let mut run = iter.next().map(|(_, voxel_packed)| Voxel::from_data(*voxel_packed)).unwrap();
+        let mut run = iter.next().map(|(_, voxel_packed)| *voxel_packed).unwrap();
         let mut run_count = 1;
 
-        for (_voxel_index, voxel_packed) in iter {
-            let voxel = Voxel::from_data(*voxel_packed);
-
-            if voxel == run {
+        for (_voxel_index, voxel) in iter {
+            if *voxel == run {
                 run_count += 1;
             } else {
                 rle.runs.push((run, run_count));
-                run = voxel;
+                run = *voxel;
                 run_count = 1;
             }
         }
@@ -77,10 +75,10 @@ impl RLEChunk {
         for (run, run_count) in &self.runs {
             for _ in 0..*run_count {
                 if cfg!(feature = "safe-bounds") {
-                    chunk.voxels[voxel_index] = run.data();
+                    chunk.voxels[voxel_index] = *run;
                 } else {
                     unsafe {
-                        *chunk.voxels.get_unchecked_mut(voxel_index) = run.data();
+                        *chunk.voxels.get_unchecked_mut(voxel_index) = *run;
                     }
                 }
                 voxel_index += 1;
@@ -105,7 +103,7 @@ mod tests {
     #[test]
     pub fn sanity() {
         let mut sim_chunk = SimChunk::new();
-        sim_chunk.voxels[linearize(ivec3(1, 1, 1))] = Voxel::Dirt.data();
+        sim_chunk.voxels[linearize(ivec3(1, 1, 1))] = Voxel::Dirt;
 
         let rle = RLEChunk::from_sim(&sim_chunk);
         let from_rle = rle.to_sim();

@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::ops::RangeInclusive;
+use std::os::unix::raw::gid_t;
 
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
@@ -11,14 +12,25 @@ use super::raycast::Hit;
 use crate::sdf::Sdf;
 use crate::voxel::mesh::binary_greedy::Chunks;
 // use crate::voxel::mesh::surface_net::Remeshed;
-use crate::voxel::mesh::{BinaryGreedy, SurfaceNet};
+use crate::voxel::mesh::{BinaryGreedy, ChangedChunk, SurfaceNet};
 use crate::voxel::raycast::VoxelHit;
-use crate::voxel::simulation::data::SimChunks;
+use crate::voxel::simulation::data::{ChunkPoint, SimChunks};
 use crate::voxel::tree::VoxelTree;
 use crate::voxel::{GRID_SCALE, UpdateVoxelMeshSet, Voxel, VoxelAabb};
 
 pub fn plugin(app: &mut App) {
     // app.add_plugins(super::voxel::plugin);
+    app.add_systems(PreUpdate, changed_chunks_writer);
+}
+
+pub fn changed_chunks_writer(mut grids: Query<(Entity, &mut Voxels)>, mut writer: EventWriter<ChangedChunk>) {
+    for (grid_entity, mut voxels) in &mut grids {
+        for chunk_point in voxels.tree.changed_chunks.drain() {
+            writer.write(ChangedChunk {
+                grid_entity, chunk_point: ChunkPoint(chunk_point),
+            });
+        }
+    }
 }
 
 #[derive(Debug, Component, Clone)]
@@ -41,7 +53,7 @@ pub struct Voxels {
 impl Voxels {
     pub fn new(voxel_size: IVec3) -> Self {
         let mut tree = VoxelTree::new();
-        tree.grow_n_layers(4);
+        tree.grow_n_layers(3);
         Self { tree, voxel_size }
     }
 

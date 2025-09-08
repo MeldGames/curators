@@ -139,20 +139,21 @@ pub fn update_surface_net_mesh(
         }
     }
 
-    queue.sort_by(|changed_a, changed_b| {
-        let ChangedChunk { grid_entity: entity_a, chunk_point: point_a } = changed_a;
-        let ChangedChunk { grid_entity: entity_b, chunk_point: point_b } = changed_b;
-        let a_frustum = frustum_chunks.get(&(*entity_a, *point_a));
-        let b_frustum = frustum_chunks.get(&(*entity_b, *point_b));
-        match (a_frustum, b_frustum) {
-            (Some(_), None) => Ordering::Greater, // the one in the frustum should be placed last
-            (None, Some(_)) => Ordering::Less,
-            (None, None) => Ordering::Equal,
-            (Some(&a_frustum), Some(&b_frustum)) => {
-                a_frustum.partial_cmp(&b_frustum).unwrap_or(Ordering::Equal)
-            },
-        }
-    });
+    // TODO: re-add meshing priority
+    // queue.sort_by(|changed_a, changed_b| {
+    //     let ChangedChunk { grid_entity: entity_a, chunk_point: point_a } = changed_a;
+    //     let ChangedChunk { grid_entity: entity_b, chunk_point: point_b } = changed_b;
+    //     let a_frustum = frustum_chunks.get(&(*entity_a, *point_a));
+    //     let b_frustum = frustum_chunks.get(&(*entity_b, *point_b));
+    //     match (a_frustum, b_frustum) {
+    //         (Some(_), None) => Ordering::Greater, // the one in the frustum should be placed last
+    //         (None, Some(_)) => Ordering::Less,
+    //         (None, None) => Ordering::Equal,
+    //         (Some(&a_frustum), Some(&b_frustum)) => {
+    //             a_frustum.partial_cmp(&b_frustum).unwrap_or(Ordering::Equal)
+    //         },
+    //     }
+    // });
 
     let mut pop_count = 0;
     while pop_count < remesh.surface_net {
@@ -160,6 +161,7 @@ pub fn update_surface_net_mesh(
         let Some(changed_chunk) = queue.pop() else {
             break;
         };
+
         dedup.remove(&changed_chunk);
         let ChangedChunk { grid_entity, chunk_point } = changed_chunk;
 
@@ -199,6 +201,7 @@ pub fn update_surface_net_mesh(
             let voxel_id = voxel.id();
             let sample_buffer = sample_buffers.buffers[voxel_id as usize];
             let shape = SurfaceNetShape {};
+            info!("creating surface net mesh");
             surface_nets(&sample_buffer, &shape, [0; 3], [17; 3], &mut surface_net_buffer);
 
             let SurfaceNetsBuffer { ref mut normals, ref mut positions, .. } = *surface_net_buffer;
@@ -253,6 +256,7 @@ pub fn update_surface_net_mesh(
             // 몰리
 
             if let Some(entity) = chunk_meshes.get(&voxel.id()) {
+                info!("existing chunk mesh");
                 // let mut entity_commands = commands.entity(*entity);
                 let aabb = mesh.compute_aabb();
                 let mesh_handle = meshes.add(mesh);
@@ -263,13 +267,14 @@ pub fn update_surface_net_mesh(
             //     entity_commands.insert(aabb);
             // }
             } else {
+                info!("missing chunk mesh");
                 // if let Some(mesh) = render_mesh {
                 let mesh_handle = meshes.add(mesh);
                 let material = materials.add(voxel.material());
                 // let material = materials.add(voxel.material());
                 // let material = voxel_materials.get(voxel);
                 let voxel_mesh_commands = commands.spawn((
-                    // Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
+                    Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
                     Mesh3d(mesh_handle),
                     MeshMaterial3d(material),
                     ChildOf(*chunk_entity),
