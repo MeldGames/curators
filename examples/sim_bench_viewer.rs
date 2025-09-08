@@ -19,7 +19,7 @@ pub fn main() {
         Update,
         (arch::core::voxel::simulation::falling_sands, increment_step).run_if(should_run),
     );
-    app.add_systems(PostUpdate, arch::core::voxel::simulation::update_render_voxels);
+    // app.add_systems(PostUpdate, arch::core::voxel::simulation::update_render_voxels);
 
     app.add_plugins(arch::core::voxel::simulation::data::plugin);
 
