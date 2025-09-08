@@ -75,7 +75,7 @@ pub struct SampleBuffers {
 impl Default for SampleBuffers {
     fn default() -> Self { 
         Self {
-            buffers: vec![[1.0; 18 * 18 * 18]; VOXEL_TYPE_COUNT],
+            buffers: vec![[0.4; 18 * 18 * 18]; VOXEL_TYPE_COUNT],
             voxel_set: VoxelSet::default(),
         }
     }
@@ -84,7 +84,7 @@ impl Default for SampleBuffers {
 impl SampleBuffers {
     pub fn clear(&mut self) {
         for voxel in self.voxel_set {
-            self.buffers[voxel.id() as usize] = [1.0; 18 * 18 * 18];
+            self.buffers[voxel.id() as usize] = [0.4; 18 * 18 * 18];
         }
 
         self.voxel_set.clear();
@@ -133,9 +133,22 @@ pub fn update_surface_net_mesh(
     }
 
     for &changed_chunk in changed_chunks.read() {
-        if !dedup.contains(&changed_chunk) {
-            queue.push(changed_chunk);
-            dedup.insert(changed_chunk);
+        for x in -1..1 {
+            for y in -1..1 {
+                for z in -1..1 {
+                    let offset = IVec3::new(x, y, z);
+                    // add all neighboring chunks to be updated as well
+                    let neighbor_changed = ChangedChunk {
+                        grid_entity: changed_chunk.grid_entity,
+                        chunk_point: ChunkPoint(*changed_chunk.chunk_point + offset),
+                    };
+
+                    if !dedup.contains(&neighbor_changed) {
+                        queue.push(neighbor_changed);
+                        dedup.insert(neighbor_changed);
+                    }
+                }
+            }
         }
     }
 
@@ -181,8 +194,11 @@ pub fn update_surface_net_mesh(
         // }
 
         let chunk_size = IVec3::splat(16);
-        let min = (*chunk_point * 16) - IVec3::ONE;
-        let max = (*chunk_point + chunk_size) + IVec3::ONE;
+        let chunk_min = (*chunk_point * 16);
+        let chunk_max = chunk_min + chunk_size;
+        let min = chunk_min - IVec3::ONE;
+        let max = chunk_max + IVec3::ONE;
+        info!("chunk_min: {chunk_min}, chunk_max: {chunk_max:?}");
 
         VoxelSampler::sample(&voxels, &mut sample_buffers, min, max);
 
@@ -359,6 +375,8 @@ impl VoxelSampler {
             for x in min.x..max.x {
                 for y in min.y..max.y {
                     let voxel_point = IVec3::new(x, y, z);
+                    let relative_point = voxel_point - min;
+
                     let voxel = voxels.get_voxel(voxel_point);
                     if !voxel.rendered() {
                         continue;
@@ -367,9 +385,9 @@ impl VoxelSampler {
                     let buffer_index = voxel.id() as usize;
                     buffers.voxel_set.set(voxel);
 
-                    let voxel_index = shape.linearize([x as u32, y as u32, z as u32]);
+                    let voxel_index = shape.linearize([relative_point.x as u32, relative_point.y as u32, relative_point.z as u32]);
                     let buffer = &mut buffers.buffers[buffer_index];
-                    buffer[voxel_index as usize] = -1.0;
+                    buffer[voxel_index as usize] = -0.4;
                 }
             }
         }

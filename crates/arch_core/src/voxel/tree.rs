@@ -1,4 +1,4 @@
-use crate::voxel::Voxel;
+use crate::voxel::{Voxel, Voxels};
 use bevy::{platform::collections::HashSet, prelude::*};
 use std::fmt::{self, Debug, Formatter};
 
@@ -9,6 +9,24 @@ pub const TREE_ARY_ILOG2: usize = TREE_ARY.ilog2() as usize;
 
 pub const CHUNK_WIDTH: usize = 16;
 pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
+
+pub fn plugin(app: &mut App) {
+    app.add_systems(Update, draw_tree);
+    app.add_systems(Update, compress_tree);
+}
+
+pub fn draw_tree(grids: Query<(&Voxels,)>, mut gizmos: Gizmos) {
+    for (voxels,) in &grids {
+        voxels.tree.root.draw_gizmo(IVec3::ZERO, &mut gizmos);
+    }
+}
+
+pub fn compress_tree(mut grids: Query<(&mut Voxels,)>) {
+    for (mut voxels,) in &mut grids {
+        voxels.tree.root.compress();
+    }
+}
+
 
 /// Get the width of a region at a specific layer including the leaf chunk width.
 #[inline]
@@ -145,6 +163,34 @@ impl Debug for VoxelNode {
 }
 
 impl VoxelNode {
+    pub fn draw_gizmo(&self, origin: IVec3, gizmos: &mut Gizmos) {
+        match self {
+            Self::Solid { layer, .. }=> {
+                let width = layer_width_voxel(*layer) as i32;
+                gizmos.cuboid(Transform {
+                    translation: (origin.as_vec3() + Vec3::splat(width as f32) / 2.0) * crate::voxel::GRID_SCALE,
+                    scale: Vec3::splat(width as f32) * crate::voxel::GRID_SCALE,
+                    ..default()
+                }, Color::srgb(1.0, 0.0, 0.0));
+            }
+            Self::Children { layer, children } => {
+                for (child_index, child) in children.iter().enumerate() {
+                    let child_position = from_child_index(child_index);
+                    let voxel_space_offset = child_position * layer_width_voxel(*layer - 1) as i32;
+                    child.draw_gizmo(origin + voxel_space_offset, gizmos);
+                }
+            }
+            Self::Leaf { .. } => {
+                let width = layer_width_voxel(0) as i32;
+                gizmos.cuboid(Transform {
+                    translation: (origin.as_vec3() + Vec3::splat(width as f32) / 2.0) * crate::voxel::GRID_SCALE,
+                    scale: Vec3::splat(width as f32) * crate::voxel::GRID_SCALE,
+                    ..default()
+                }, Color::srgb(1.0, 0.0, 0.0));
+            }
+        }
+    }
+
     pub fn renderable_chunks(&self, origin: IVec3, buffer: &mut Vec<IVec3>) {
         match self {
             Self::Solid {
