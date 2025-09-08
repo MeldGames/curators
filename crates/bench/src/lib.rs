@@ -1,4 +1,5 @@
 use arch_core::bevy;
+use arch_core::voxel::simulation::data::{ChunkPoint, SimChunk, SimChunks};
 use arch_core::voxel::{Voxel, Voxels};
 use arch_core::sdf::Sdf;
 use bevy::prelude::*;
@@ -41,7 +42,27 @@ impl Default for VoxelSetup {
 
 impl VoxelSetup {
     pub fn new_voxels(&self) -> Voxels {
-        Voxels::new(self.voxel_size)
+        let voxels = Voxels::new(self.voxel_size);
+        voxels
+    }
+
+    pub fn new_sim(&self) -> SimChunks {
+        let mut chunks = SimChunks::new();
+        for z in 0..6 {
+            for x in 0..6 {
+                for y in 0..6 {
+                    let chunk_point = IVec3::new(x, y, z);
+                    chunks.add_chunk(ChunkPoint(chunk_point), SimChunk::new());
+                }
+            }
+        }
+        chunks
+    }
+
+    pub fn apply_brushes_sim(&self, sim: &mut SimChunks) {
+        for (center, brush, voxel) in &self.brushes {
+            sim.set_voxel_brush(*center, &**brush, *voxel);
+        }
     }
 
     pub fn apply_brushes(&self, voxels: &mut Voxels) {

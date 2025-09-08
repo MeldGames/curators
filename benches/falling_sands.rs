@@ -9,7 +9,7 @@ use arch::core::{
         self,
         voxel_rasterize::{RasterConfig, RasterVoxel, rasterize},
     },
-    voxel::simulation::{SimSwapBuffer, data::SimChunks},
+    voxel::simulation::{data::SimChunks},
 };
 use bench::falling_sands::{SimBenchSetup, plugin_setup};
 
@@ -25,14 +25,14 @@ fn falling_sand(c: &mut Criterion) {
                 b.iter_batched(
                     || {
                         let mut app = plugin_setup();
-                        app.world_mut().spawn(bench.voxel.new_voxels());
+                        app.world_mut().spawn(bench.voxel.new_sim());
                         app.update(); // initialization stuffs
 
                         let world = app.world_mut();
-                        let mut query = world.query::<&mut Voxels>();
-                        let mut voxels = query.single_mut(world).unwrap();
+                        let mut query = world.query::<&mut SimChunks>();
+                        let mut sim_chunks = query.single_mut(world).unwrap();
 
-                        bench.voxel.apply_brushes(&mut voxels);
+                        bench.voxel.apply_brushes_sim(&mut sim_chunks);
                         app
                     },
                     |mut app: App| {

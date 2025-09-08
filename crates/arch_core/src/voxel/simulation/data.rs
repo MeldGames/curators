@@ -3,11 +3,13 @@ use std::hash::{Hash, Hasher};
 use bevy::platform::collections::hash_map::IterMut;
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
+use bevy_math::bounding::Aabb3d;
 use fxhash::FxHashMap;
 use slotmap::SlotMap;
 #[cfg(feature = "trace")]
 use tracing::*;
 
+use crate::sdf::Sdf;
 use crate::voxel::simulation::FallingSandTick;
 use crate::voxel::simulation::rle::RLEChunk;
 use crate::voxel::voxel::VoxelSet;
@@ -273,6 +275,22 @@ impl SimChunks {
         // self.push_neighbor_sim_updates(point);
     }
 
+    pub fn set_voxel_brush<S: Sdf>(&mut self, center: IVec3, brush: S, voxel: Voxel) {
+        let half_size = Vec3A::splat(500.0);
+        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
+            brush,
+            crate::sdf::voxel_rasterize::RasterConfig {
+                clip_bounds: Aabb3d { min: -half_size, max: half_size },
+                grid_scale: crate::voxel::GRID_SCALE,
+                pad_bounds: Vec3::ZERO,
+            },
+        ) {
+            if raster_voxel.distance <= 0.0 {
+                self.set_voxel(raster_voxel.point + center, voxel);
+            }
+        }
+    }
+
     /// Create a 2x2x2 area of chunks based on the current margolus offset.
     pub fn construct_blocks(&self) -> Vec<ChunkKeys> {
         use bevy::platform::collections::hash_map::Entry;
@@ -327,6 +345,8 @@ impl SimChunks {
         }
     }
 
+    // TODO: Fix this, it currently leads to a double free issue.
+
     /// Get each individual chunk in a block as a mutable reference.
     pub unsafe fn get_disjoint_blocks_mut(
         &mut self,
@@ -346,6 +366,8 @@ impl SimChunks {
                     if let Some(chunk_key) = chunk_key {
                         ptrs[block_index][chunk_index] =
                             self.chunks.get_mut(*chunk_key).map(|s| s as *mut SimChunk);
+
+                            self.chunks.get_disjoint_mut(keys)
 
                         if aliased.contains(&chunk_key) {
                             return None;

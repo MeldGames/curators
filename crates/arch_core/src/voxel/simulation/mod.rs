@@ -133,7 +133,7 @@ pub fn falling_sands(
     mut sim_tick: ResMut<FallingSandTick>,
 
     sim_settings: Res<SimSettings>,
-    mut changed_chunk_event: EventWriter<ChangedChunk>,
+    // mut changed_chunk_event: EventWriter<ChangedChunk>,
     // mut gizmos: Option<Gizmos>,
 ) {
     if !sim_settings.run {
