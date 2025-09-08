@@ -10,9 +10,9 @@ pub const TREE_ARY_ILOG2: usize = TREE_ARY.ilog2() as usize;
 pub const CHUNK_WIDTH: usize = 16;
 pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
 
-/// Get the size of a region at a specific layer including the leaf chunk width.
+/// Get the width of a region at a specific layer including the leaf chunk width.
 #[inline]
-pub const fn layer_size(layer: usize) -> usize {
+pub const fn layer_width(layer: usize) -> usize {
     // 2^(log2(TREE_ARY) * layer)) * CHUNK_WIDTH
     (1 << (TREE_ARY_ILOG2 * layer)) * CHUNK_WIDTH
 }
@@ -23,7 +23,7 @@ pub const fn layer_size(layer: usize) -> usize {
 /// the relative position of the subdivided regions from this region.
 #[inline]
 pub fn layer_min(layer: usize, voxel_point: IVec3) -> IVec3 {
-    let size = IVec3::splat(layer_size(layer) as i32);
+    let size = IVec3::splat(layer_width(layer) as i32);
     (voxel_point / size) * size
 }
 
@@ -56,7 +56,7 @@ pub fn get_sublayer_index(layer: usize, voxel_point: IVec3) -> usize {
     let layer_min = layer_min(layer, voxel_point);
     let relative_voxel_point = voxel_point - layer_min;
 
-    let subregion = relative_voxel_point / IVec3::splat(layer_size(layer - 1) as i32);
+    let subregion = relative_voxel_point / IVec3::splat(layer_width(layer - 1) as i32);
     // println!("layer: {:?}, relative_voxel_point: {:?}, subregion: {:?}", layer, relative_voxel_point, subregion);
     let sublayer_index = to_child_index(subregion);
     sublayer_index
@@ -293,8 +293,8 @@ impl VoxelNode {
         }
     }
 
-    pub fn size(&self) -> usize {
-        layer_size(self.layer())
+    pub fn width(&self) -> usize {
+        layer_width(self.layer())
     }
 }
 
@@ -347,7 +347,15 @@ impl VoxelTree {
     pub fn get_voxel(&self, voxel_point: IVec3) -> Voxel {
         self.root.get_voxel(voxel_point)
     }
+    
+    pub fn set_voxel(&mut self, voxel_point: IVec3, voxel: Voxel) {
+        assert!(self.point_in_bounds(voxel_point));
+        self.root.set_voxel(voxel_point, voxel);
+    }
 
+    pub fn point_in_bounds(&self, voxel_point: IVec3) -> bool {
+        voxel_point.max_element() < self.root.size() && voxel_point.min_element() > 0
+    }
 }
 
 #[cfg(test)]
@@ -394,7 +402,7 @@ mod test {
         let voxel_point = IVec3::splat(6000);
         // let voxel_point = IVec3::new(8, 8, 8);
         for layer in 0..6 {
-            println!("size: {:?}", layer_size(layer));
+            println!("width: {:?}", layer_width(layer));
             println!("min: {:?}", layer_min(layer, voxel_point));
             println!("relative_voxel: {:?}", voxel_point - layer_min(layer, voxel_point));
             println!("layer_in: {:?}", (voxel_point - layer_min(layer, voxel_point)).rem_euclid(IVec3::splat(TREE_ARY as i32)));

@@ -14,6 +14,7 @@ use crate::voxel::mesh::binary_greedy::Chunks;
 use crate::voxel::mesh::{BinaryGreedy, SurfaceNet};
 use crate::voxel::raycast::VoxelHit;
 use crate::voxel::simulation::data::SimChunks;
+use crate::voxel::tree::VoxelTree;
 use crate::voxel::{GRID_SCALE, UpdateVoxelMeshSet, Voxel, VoxelAabb};
 
 pub fn plugin(app: &mut App) {
@@ -30,7 +31,9 @@ pub fn plugin(app: &mut App) {
 )]
 pub struct Voxels {
     // Simulation data
-    pub sim_chunks: SimChunks,
+    // pub sim_chunks: SimChunks,
+
+    pub tree: VoxelTree,
 
     // Shared data
     pub voxel_size: IVec3,
@@ -38,23 +41,25 @@ pub struct Voxels {
 
 impl Voxels {
     pub fn new(voxel_size: IVec3) -> Self {
-        Self { sim_chunks: SimChunks::new(voxel_size), voxel_size }
+        let mut tree = VoxelTree::new();
+        tree.grow_n_layers(4);
+        Self { tree: tree, voxel_size }
     }
 
     #[inline]
     pub fn get_voxel(&self, point: IVec3) -> Voxel {
-        self.sim_chunks.get_voxel(point) // sim is source of truth
+        self.tree.get_voxel(point) // sim is source of truth
     }
 
     #[inline]
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) {
-        self.sim_chunks.set_voxel(point, voxel);
+        self.tree.set_voxel(point, voxel);
     }
 
-    #[inline]
-    pub fn set_voxel_aabb(&mut self, aabb: VoxelAabb, voxel: Voxel) {
-        self.sim_chunks.set_voxel_aabb(aabb, voxel);
-    }
+    // #[inline]
+    // pub fn set_voxel_aabb(&mut self, aabb: VoxelAabb, voxel: Voxel) {
+    //     self.tree.set_voxel_aabb(aabb, voxel);
+    // }
 
     pub fn voxel_bounds(&self) -> (IVec3, IVec3) {
         // let (min, max) = self.chunk_bounds();
