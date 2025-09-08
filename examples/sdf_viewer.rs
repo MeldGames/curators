@@ -73,7 +73,7 @@ pub fn rasterize_sdf(mut voxels: Query<&mut Voxels>, input: Res<ButtonInput<KeyC
         if raster_voxel.distance < 0.0 {
             voxels.set_voxel(raster_voxel.point, Voxel::Grass);
         } else if raster_voxel.distance < 3. {
-            voxels.set_voxel(raster_voxel.point, Voxel::Water { lateral_energy: 4 });
+            // voxels.set_voxel(raster_voxel.point, Voxel::Water { lateral_energy: 4 });
         }
     }
 }
