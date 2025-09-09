@@ -31,6 +31,39 @@ pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
 }
 
+pub struct DirtySet {
+    set: [u64; CHUNK_LENGTH / 64],
+}
+
+impl DirtySet {
+    pub fn empty() -> Self {
+        Self {
+            set: [0u64; CHUNK_LENGTH / 64],
+        }
+    }
+
+    // pub fn spread(&mut self) {
+    //     for mask_index in 0..CHUNK_LENGTH / 64{
+    //         let z_adjacent = self.set[mask_index - 1];
+    //         let z_adjacent_2 = self.set[mask_index + 1];
+    //         // spread z
+    //         self.set[mask_index] |= (*mask << 1) | (*mask >> 1);
+    //         // spread x
+    //         // spread on lower layer
+    //         *mask |= (*mask << 16) | (*mask >> 16);
+    //         // spread on surrounding
+    //     }
+    // }
+
+    pub fn display(&self) -> String {
+        let mut layers = String::new();
+        for mask in self.set {
+            layers += &format!("\n{:0b}", mask);
+        }
+        layers
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct SimChunk {
     // pub voxel_changeset: VoxelSet,
@@ -42,17 +75,20 @@ pub struct SimChunk {
 
 impl Default for SimChunk {
     fn default() -> Self {
-        Self {
-            // voxel_changeset: default(),
-            dirty: [0u64; CHUNK_LENGTH / 64],
-            voxels: [Voxel::Air; CHUNK_LENGTH],
-        }
+        Self::fill(Voxel::Air)
     }
 }
 
 impl SimChunk {
     pub fn new() -> Self {
         Self::default()
+    }
+    
+    pub fn fill(voxel: Voxel) -> Self {
+        Self {
+            dirty: [0u64; CHUNK_LENGTH / 64],
+            voxels: [voxel; CHUNK_LENGTH],
+        }
     }
 }
 
@@ -213,8 +249,21 @@ impl SimChunks {
     }
 
     pub fn add_chunk(&mut self, chunk_point: ChunkPoint, sim_chunk: SimChunk) {
-        let chunk_key = self.chunks.insert(sim_chunk);
-        self.from_chunk_point.insert(chunk_point, chunk_key);
+        let mut existing_chunk = None;
+
+        if let Some(chunk_key) = self.from_chunk_point.get(&chunk_point) {
+            if let Some(chunk) = self.chunks.get_mut(*chunk_key) {
+                existing_chunk = Some(chunk);
+            }
+        }
+
+        if let Some(existing_chunk) = existing_chunk {
+            *existing_chunk = sim_chunk;
+        } else {
+            // drop(existing_chunk);
+            let chunk_key = self.chunks.insert(sim_chunk);
+            self.from_chunk_point.insert(chunk_point, chunk_key);
+        }
     }
 
     #[inline]

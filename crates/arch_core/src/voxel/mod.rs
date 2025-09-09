@@ -5,6 +5,8 @@ pub use voxel::Voxel;
 pub use voxel_aabb::VoxelAabb;
 pub use voxels::Voxels;
 
+use crate::voxel::simulation::data::SimChunks;
+
 pub mod brush;
 pub mod collider;
 pub mod mesh;
@@ -48,6 +50,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         Voxels::new(IVec3::new(1000, 1000, 1000)),
         // Voxels::new(IVec3::new(15, 15, 15)),
         Transform { scale: GRID_SCALE, ..default() },
+        SimChunks::new(),
         mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
         // mesh::meshem::Meshem,

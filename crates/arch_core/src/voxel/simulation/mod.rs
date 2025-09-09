@@ -8,7 +8,8 @@ use bevy::prelude::*;
 use tracing::*;
 
 use crate::voxel::mesh::ChangedChunk;
-use crate::voxel::simulation::data::{CHUNK_LENGTH, SimChunks};
+use crate::voxel::simulation::data::{ChunkPoint, SimChunk, SimChunks, CHUNK_LENGTH};
+use crate::voxel::tree::VoxelNode;
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 
 pub mod data;
@@ -25,7 +26,7 @@ pub fn plugin(app: &mut App) {
     app.insert_resource(FallingSandTick(0));
     app.insert_resource(SimSettings::default());
 
-    app.add_systems(FixedPostUpdate, falling_sands);
+    app.add_systems(FixedPostUpdate, (add_sand, pull_from_tree, falling_sands, propagate_to_tree).chain());
     app.add_systems(PostUpdate, sim_settings);
 
     app.add_systems(Startup, || {
@@ -115,16 +116,45 @@ impl StackUpdates {
 // Pull relevant chunks from the 64tree into our linear array.
 pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
     for (grid_entity, voxels, mut sim_chunks) in &mut grids {
-        // sim_chunks.add_chunk(chunk_point, sim_chunk);
+        for z in 0..2{
+            for x in 0..2 {
+                for y in 0..2 {
+                    let chunk_point = IVec3::new(x, y, z);
+                    let sim_chunk = match voxels.tree.root.get_chunk(chunk_point) {
+                        VoxelNode::Solid { voxel, .. } => {
+                            Some(SimChunk::fill(*voxel))
+                        }
+                        VoxelNode::Leaf { leaf } => {
+                            Some(SimChunk {
+                                dirty: [0u64; 64],
+                                voxels: **leaf,
+                            })
+                        }
+                        _ => None
+                    };
+
+                    if let Some(sim_chunk) = sim_chunk {
+                        sim_chunks.add_chunk(ChunkPoint(chunk_point), sim_chunk);
+                    }
+                }
+            }
+        }
     } 
 }
 
 pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
     for (grid_entity, mut voxels, sim_chunks) in &mut grids {
         for (chunk_point, chunk_key) in &sim_chunks.from_chunk_point {
+            // info!("propagating to tree: {:?}", chunk_point);
             let sim_chunk = sim_chunks.chunks.get(*chunk_key).unwrap();
             voxels.tree.set_chunk_data(**chunk_point, sim_chunk.voxels);
         }
+    }
+}
+
+pub fn add_sand(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
+    for (grid_entity, mut voxels, sim_chunks) in &mut grids {
+        voxels.set_voxel(IVec3::new(10, 20, 10), Voxel::Sand);
     }
 }
 
@@ -152,11 +182,9 @@ pub fn falling_sands(
         let views = sim_chunks.chunk_views();
 
         // Parallel version
-        /*
-        views.into_par_iter().for_each(|mut chunk_view| {
-            chunk_view.simulate(*sim_tick);
-        });
-        */
+        // views.into_par_iter().for_each(|mut chunk_view| {
+        //     chunk_view.simulate(*sim_tick);
+        // });
 
         // Single threaded version
         views.into_iter().for_each(|mut chunk_view| {
