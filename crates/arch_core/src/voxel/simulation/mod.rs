@@ -148,12 +148,20 @@ pub fn falling_sands(
     for (grid_entity, mut sim_chunks) in &mut grids {
         // sim_swap_buffer.0.clear();
 
-        // let chunk_views = sim_chunks.chunk_views();
-        // let per_thread = (chunk_views.len() / sim_settings.sim_threads);
+        use rayon::prelude::*;
+        let views = sim_chunks.chunk_views();
 
-        for mut chunk_view in sim_chunks.chunk_views() {
+        // Parallel version
+        /*
+        views.into_par_iter().for_each(|mut chunk_view| {
             chunk_view.simulate(*sim_tick);
-        }
+        });
+        */
+
+        // Single threaded version
+        views.into_iter().for_each(|mut chunk_view| {
+            chunk_view.simulate(*sim_tick);
+        });
 
         // for (chunk_point, voxel_index) in sim_chunks.sim_updates(&mut
         // sim_swap_buffer.0) {     #[cfg(feature = "trace")]

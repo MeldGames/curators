@@ -111,6 +111,7 @@ rand = "0.9.1"
 serde = "1.0.219"
 slotmap = "1.0.7"
 thiserror = "2"
+rayon = "1.11"
 
 [dev-dependencies]
 criterion = {version = "0.6.0", features = ["html_reports"]}

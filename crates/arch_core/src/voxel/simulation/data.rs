@@ -328,7 +328,31 @@ impl SimChunks {
     /// processed in parallel.
     pub fn chunk_views<'a>(&'a mut self) -> Vec<ChunkView<'a>> {
         let blocks = self.construct_blocks();
+        let mut views = blocks.iter().map(|keys| ChunkView {
+            start_chunk_point: keys.start_chunk_point,
+            chunks: std::array::from_fn(|_| None),
+        }).collect::<Vec<_>>();
 
+        // block_index, key_index, key
+        let flattened = blocks.iter()
+            .enumerate()
+            .flat_map(|(block_index, block)| {
+                block.keys.iter()
+                    .enumerate()
+                    .filter_map(move |(key_index, key)| {
+                        key.map(|key| (block_index, key_index, key))
+                    })
+            })
+            .collect::<Vec<_>>();
+        
+        let keys = flattened.iter().map(|(_, _, key)| *key).collect::<Vec<_>>();
+        let disjoint = unsafe { self.get_disjoint_mut_unchecked(&keys.as_slice()) };
+        for (chunk_ref, (block_index, key_index, key)) in disjoint.into_iter().zip(flattened) {
+            views[block_index].chunks[key_index] = Some(chunk_ref);
+        }
+
+        views
+        /*
         unsafe {
             if let Some(disjoint_chunks) = self.get_disjoint_blocks_mut(blocks.as_slice()) {
                 disjoint_chunks
@@ -343,11 +367,23 @@ impl SimChunks {
                 panic!("Some blocks were joint");
             }
         }
+        */
     }
 
     // TODO: Fix this, it currently leads to a double free issue.
 
-    /// Get each individual chunk in a block as a mutable reference.
+    /// # Safety
+    /// - The caller must guarantee that all `keys` are valid and unique (disjoint).
+    pub unsafe fn get_disjoint_mut_unchecked<'a>(&'a mut self, keys: &[ChunkKey]) -> Vec<&'a mut SimChunk> {
+        let mut result = Vec::with_capacity(keys.len());
+        for &key in keys {
+            // SAFETY: The caller must guarantee that all keys are valid and disjoint.
+            let ptr = self.chunks.get_unchecked_mut(key) as *mut SimChunk;
+            result.push(&mut *ptr);
+        }
+        result
+    }
+    /*
     pub unsafe fn get_disjoint_blocks_mut(
         &mut self,
         blocks: &[ChunkKeys],
@@ -367,8 +403,6 @@ impl SimChunks {
                         ptrs[block_index][chunk_index] =
                             self.chunks.get_mut(*chunk_key).map(|s| s as *mut SimChunk);
 
-                            self.chunks.get_disjoint_mut(keys)
-
                         if aliased.contains(&chunk_key) {
                             return None;
                         } else {
@@ -381,6 +415,7 @@ impl SimChunks {
             Some(core::mem::transmute_copy::<_, Vec<[Option<&mut SimChunk>; 8]>>(&ptrs))
         }
     }
+    */
 
     // #[inline]
     // pub fn push_neighbor_sim_updates(&mut self, point: IVec3) {
@@ -437,18 +472,15 @@ pub struct ChunkView<'a> {
 }
 
 impl<'a> ChunkView<'a> {
-    pub fn linearize_chunk(point: IVec3) -> usize {
-        assert!(
-            point.x >= 0
-                && point.y >= 0
-                && point.z >= 0
-                && (point.x as usize) < CHUNK_VIEW_SIZE
-                && (point.y as usize) < CHUNK_VIEW_SIZE
-                && (point.z as usize) < CHUNK_VIEW_SIZE
-        );
-        point.z as usize
-            + point.x as usize * CHUNK_VIEW_SIZE
-            + point.y as usize * CHUNK_VIEW_SIZE * CHUNK_VIEW_SIZE
+    pub fn linearize_chunk(chunk_point: IVec3) -> usize {
+        if chunk_point.min_element() < 0 || chunk_point.max_element() >= CHUNK_VIEW_SIZE as i32 {
+            panic!("chunk point out of bounds: {:?}", chunk_point);
+        }
+
+        let IVec3 { x, y, z} = chunk_point;
+        z as usize
+            + x as usize * CHUNK_VIEW_SIZE
+            + y as usize * CHUNK_VIEW_SIZE * CHUNK_VIEW_SIZE
     }
 
     pub fn delinearize_chunk(index: usize) -> IVec3 {
@@ -543,12 +575,12 @@ impl<'a> ChunkView<'a> {
             combined_point.z -= CHUNK_WIDTH as i32;
         }
 
-        let relative_chunk_index = Self::linearize_chunk(chunk_point);
-        if relative_chunk_index < CHUNK_VIEW_LENGTH {
+        if chunk_point.min_element() < 0 || chunk_point.max_element() >= CHUNK_VIEW_SIZE as i32 {
+            None
+        } else {
+            let relative_chunk_index = Self::linearize_chunk(chunk_point);
             let relative_voxel_index = linearize(combined_point);
             Some((relative_chunk_index, relative_voxel_index))
-        } else {
-            None
         }
     }
 
