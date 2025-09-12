@@ -31,6 +31,39 @@ pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
 }
 
+pub struct DirtyReader<'a> {
+    set: &'a DirtySet,
+    mask_index: u64,
+    current_mask: u64,
+}
+
+impl<'a> Iterator for DirtyReader<'a> {
+    type Item = u64; // voxel index
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.mask_index < CHUNK_LENGTH as u64 / 64 {
+            if self.current_mask != 0 {
+                // `bitset & -bitset` returns a bitset with only the lowest significant bit set
+                let t = self.current_mask & self.current_mask.wrapping_neg();
+                let trailing = self.current_mask.trailing_zeros() as u64;
+                let voxel_index = self.mask_index * 64 + trailing;
+                self.current_mask ^= t;
+                return Some(voxel_index);
+            } else {
+                self.mask_index += 1;
+
+                self.current_mask = if cfg!(feature = "safe-bounds") {
+                    self.set.set[self.mask_index as usize]
+                } else {
+                    unsafe { *self.set.set.get_unchecked(self.mask_index as usize) }
+                };
+            }
+        }
+
+        None
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct DirtySet {
     set: [u64; CHUNK_LENGTH / 64],
 }
@@ -42,6 +75,30 @@ impl DirtySet {
         }
     }
 
+    pub fn clear(&mut self) {
+        for mask in &mut self.set {
+            *mask = 0;
+        }
+    }
+
+    pub fn set(&mut self, voxel_index: usize) {
+        let mask = voxel_index / 64;
+        let bit = voxel_index % 64;
+        self.set[mask] |= 1 << bit;
+    }
+
+    // set neighbors of a voxel that is fully self-contained in this chunk
+    pub fn set_neighbors(&mut self, voxel_index: usize) {
+        for z in -1..1 {
+            for x in -1..1 {
+                for y in -1..1 {
+                    self.set(voxel_index + linearize(IVec3::new(x, y, z)));
+                }
+            }
+        }
+    }
+
+    // TODO: figure out how to spread in x, y, z directions to neighbors
     // pub fn spread(&mut self) {
     //     for mask_index in 0..CHUNK_LENGTH / 64{
     //         let z_adjacent = self.set[mask_index - 1];
@@ -68,7 +125,7 @@ impl DirtySet {
 pub struct SimChunk {
     // pub voxel_changeset: VoxelSet,
     /// Voxels that are considered dirty still.
-    pub dirty: [u64; CHUNK_LENGTH / 64],
+    pub dirty: DirtySet,
     // lets try just a 4x4x4 chunk
     pub voxels: [Voxel; CHUNK_LENGTH],
 }
@@ -86,7 +143,7 @@ impl SimChunk {
     
     pub fn fill(voxel: Voxel) -> Self {
         Self {
-            dirty: [0u64; CHUNK_LENGTH / 64],
+            dirty: DirtySet::empty(),
             voxels: [voxel; CHUNK_LENGTH],
         }
     }
@@ -94,6 +151,8 @@ impl SimChunk {
 
 slotmap::new_key_type! { pub struct ChunkKey; }
 
+// TODO: Double buffer this data so we can throw this on another thread,
+// and we can read the current chunks from the last sim
 #[derive(Component, Debug, Clone)]
 pub struct SimChunks {
     pub chunks: SlotMap<ChunkKey, SimChunk>, // active chunks
@@ -520,6 +579,13 @@ pub struct ChunkView<'a> {
     pub chunks: [Option<&'a mut SimChunk>; CHUNK_VIEW_LENGTH],
 }
 
+impl<'a> std::fmt::Debug for ChunkView<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ChunkView")
+            .field("start_chunk_point", &self.start_chunk_point).field("chunks", &self.chunks).finish()
+    }
+}
+
 impl<'a> ChunkView<'a> {
     pub fn linearize_chunk(chunk_point: IVec3) -> usize {
         if chunk_point.min_element() < 0 || chunk_point.max_element() >= CHUNK_VIEW_SIZE as i32 {
@@ -600,29 +666,8 @@ impl<'a> ChunkView<'a> {
         let mut combined_point = origin_point + relative;
 
         let mut chunk_point = Self::delinearize_chunk(origin_chunk_index);
-        if combined_point.x < 0 {
-            chunk_point.x -= 1;
-            combined_point.x += CHUNK_WIDTH as i32;
-        } else if combined_point.x > CHUNK_WIDTH as i32 {
-            chunk_point.x += 1;
-            combined_point.x -= CHUNK_WIDTH as i32;
-        }
-
-        if combined_point.y < 0 {
-            chunk_point.y -= 1;
-            combined_point.y += CHUNK_WIDTH as i32;
-        } else if combined_point.y > CHUNK_WIDTH as i32 {
-            chunk_point.y += 1;
-            combined_point.y -= CHUNK_WIDTH as i32;
-        }
-
-        if combined_point.z < 0 {
-            chunk_point.z -= 1;
-            combined_point.z += CHUNK_WIDTH as i32;
-        } else if combined_point.z > CHUNK_WIDTH as i32 {
-            chunk_point.z += 1;
-            combined_point.z -= CHUNK_WIDTH as i32;
-        }
+        chunk_point += combined_point.div_euclid(IVec3::splat(CHUNK_WIDTH as i32));
+        combined_point = combined_point.rem_euclid(IVec3::splat(CHUNK_WIDTH as i32));
 
         if chunk_point.min_element() < 0 || chunk_point.max_element() >= CHUNK_VIEW_SIZE as i32 {
             None
@@ -685,27 +730,19 @@ mod tests {
     // }
 
     #[test]
-    fn chunk_voxel_indices() {
-        let chunks = SimChunks::new();
-        // chunks.chunk_and_voxel_indices(ivec3(12, 12, 12));
-        // assert_eq!(chunks.chunk_and_voxel_indices(ivec3(0, 0, 0)), (0, 0));
-        // assert_eq!(chunks.chunk_and_voxel_indices(ivec3(16, 0, 0)), (1, 0));
-        // assert_eq!(chunks.chunk_and_voxel_indices(ivec3(16, 0, 5)), (1, 0));
+    fn chunk_view() {
+        let mut sim = SimChunks::new();
+        sim.add_chunk(ChunkPoint(ivec3(0, 0, 0)), SimChunk::new());
+        sim.add_chunk(ChunkPoint(ivec3(1, 0, 0)), SimChunk::new());
+        sim.add_chunk(ChunkPoint(ivec3(1, 0, 1)), SimChunk::new());
+        sim.add_chunk(ChunkPoint(ivec3(0, 0, 1)), SimChunk::new());
+        sim.add_chunk(ChunkPoint(ivec3(0, 1, 0)), SimChunk::new());
+        sim.add_chunk(ChunkPoint(ivec3(1, 1, 0)), SimChunk::new());
+        sim.add_chunk(ChunkPoint(ivec3(1, 1, 1)), SimChunk::new());
+        sim.add_chunk(ChunkPoint(ivec3(0, 1, 1)), SimChunk::new());
 
-        let sanity = |p: IVec3| -> IVec3 {
-            let (chunk_index, voxel_index) = SimChunks::chunk_and_voxel_indices(p);
-            SimChunks::point_from_chunk_and_voxel_indices(chunk_index, voxel_index)
-        };
-
-        assert_eq!(sanity(ivec3(0, 0, 0)), ivec3(0, 0, 0));
-        assert_eq!(sanity(ivec3(12, 12, 12)), ivec3(12, 12, 12));
-        assert_eq!(sanity(ivec3(63, 63, 63)), ivec3(63, 63, 63));
-        assert_eq!(sanity(ivec3(1, 0, 0)), ivec3(1, 0, 0));
-        assert_eq!(sanity(ivec3(0, 1, 0)), ivec3(0, 1, 0));
-        assert_eq!(sanity(ivec3(0, 0, 1)), ivec3(0, 0, 1));
-        assert_eq!(sanity(ivec3(63, 0, 0)), ivec3(63, 0, 0));
-        assert_eq!(sanity(ivec3(0, 63, 0)), ivec3(0, 63, 0));
-        assert_eq!(sanity(ivec3(0, 0, 63)), ivec3(0, 0, 63));
+        let views = sim.chunk_views();
+        println!("views: {:?}", views);
     }
 
     // #[test]
