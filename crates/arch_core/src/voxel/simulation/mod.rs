@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use tracing::*;
 
 use crate::voxel::mesh::ChangedChunk;
-use crate::voxel::simulation::data::{ChunkPoint, SimChunk, SimChunks, CHUNK_LENGTH};
+use crate::voxel::simulation::data::{ChunkPoint, DirtySet, SimChunk, SimChunks, CHUNK_LENGTH};
 use crate::voxel::tree::VoxelNode;
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 
@@ -26,7 +26,7 @@ pub fn plugin(app: &mut App) {
     app.insert_resource(FallingSandTick(0));
     app.insert_resource(SimSettings::default());
 
-    app.add_systems(FixedPostUpdate, (add_sand, pull_from_tree, falling_sands, propagate_to_tree).chain());
+    // app.add_systems(FixedPostUpdate, (add_sand, pull_from_tree, falling_sands, propagate_to_tree).chain());
     app.add_systems(PostUpdate, sim_settings);
 
     app.add_systems(Startup, || {
@@ -126,7 +126,7 @@ pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
                         }
                         VoxelNode::Leaf { leaf } => {
                             Some(SimChunk {
-                                dirty: [0u64; 64],
+                                dirty: DirtySet::filled(), // all are dirty when entered into simulation
                                 voxels: **leaf,
                             })
                         }

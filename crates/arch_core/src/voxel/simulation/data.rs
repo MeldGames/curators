@@ -69,6 +69,12 @@ pub struct DirtySet {
 }
 
 impl DirtySet {
+    pub fn filled() -> Self {
+        Self {
+            set: [u64::MAX; CHUNK_LENGTH / 64],
+        }
+    }
+
     pub fn empty() -> Self {
         Self {
             set: [0u64; CHUNK_LENGTH / 64],

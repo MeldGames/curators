@@ -1,0 +1,27 @@
+pub mod capsule;
+pub mod cone;
+pub mod cuboid;
+pub mod cylinder;
+pub mod ellipsoid;
+pub mod hexagonal_prism;
+pub mod octahedron;
+pub mod plane;
+pub mod pyramid;
+pub mod rounded_box;
+pub mod sphere;
+pub mod torus;
+pub mod triangle;
+
+pub use capsule::*;
+pub use cone::*;
+pub use cuboid::*;
+pub use cylinder::*;
+pub use ellipsoid::*;
+pub use hexagonal_prism::*;
+pub use octahedron::*;
+pub use plane::*;
+pub use pyramid::*;
+pub use rounded_box::*;
+pub use sphere::*;
+pub use torus::*;
+pub use triangle::*;
