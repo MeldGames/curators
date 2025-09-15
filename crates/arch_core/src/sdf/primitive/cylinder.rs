@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 
 /// A capped cylinder defined by two endpoints and a radius.
 /// The cylinder extends from `start` to `end` with the given `radius`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Cylinder {
     /// Start point of the cylinder
     pub start: Vec3,

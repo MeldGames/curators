@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 
 /// A cone defined by two endpoints and their respective radii.
 /// The cone extends from point a (radius_a) to point b (radius_b).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Cone {
     /// Start point of the cone
     pub a: Vec3,

@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 use crate::sdf::Sdf;
 
 /// An octahedron defined by size, centered at the origin.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Octahedron {
     /// Size of the octahedron
     pub size: f32,

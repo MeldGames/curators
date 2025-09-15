@@ -3,20 +3,20 @@ use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
 /// XOR operation - exclusive or of two SDFs.
-#[derive(Debug, Clone)]
-pub struct Xor<A: Sdf, B: Sdf> {
+#[derive(Debug, Clone, Reflect)]
+pub struct Xor<A: Sdf + Reflect, B: Sdf + Reflect> {
     pub a: A,
     pub b: B,
 }
 
-impl<A: Sdf, B: Sdf> Xor<A, B> {
+impl<A: Sdf + Reflect, B: Sdf + Reflect> Xor<A, B> {
     /// Create a new XOR operation
     pub fn new(a: A, b: B) -> Self {
         Self { a, b }
     }
 }
 
-impl<A: Sdf, B: Sdf> Sdf for Xor<A, B> {
+impl<A: Sdf + Reflect, B: Sdf + Reflect> Sdf for Xor<A, B> {
     fn sdf(&self, point: Vec3) -> f32 {
         let d1 = self.a.sdf(point);
         let d2 = self.b.sdf(point);

@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 use crate::sdf::Sdf;
 
 /// A hexagonal prism defined by size, centered at the origin.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct HexagonalPrism {
     /// Size of the prism (width, height, depth)
     pub size: Vec3,

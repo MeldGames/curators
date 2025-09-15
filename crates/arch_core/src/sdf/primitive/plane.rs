@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 
 /// A plane defined by a normal vector and distance from origin.
 /// The plane equation is: normal · point + distance = 0
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Plane {
     /// Normal vector of the plane (should be normalized)
     pub normal: Vec3,

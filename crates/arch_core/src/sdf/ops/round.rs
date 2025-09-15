@@ -1,6 +1,7 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+
+use crate::sdf::Sdf;
 
 /// Round operation - adds rounding to the underlying primitive.
 #[derive(Debug, Clone)]

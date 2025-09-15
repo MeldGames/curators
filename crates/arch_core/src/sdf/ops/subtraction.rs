@@ -1,6 +1,7 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+
+use crate::sdf::Sdf;
 
 /// Subtraction operation - subtracts the second SDF from the first.
 #[derive(Debug, Clone)]

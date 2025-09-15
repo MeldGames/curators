@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 use crate::sdf::Sdf;
 
 /// A pyramid defined by height and base size, centered at the origin.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Pyramid {
     /// Height of the pyramid
     pub height: f32,

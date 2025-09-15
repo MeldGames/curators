@@ -4,7 +4,7 @@ use crate::sdf::Sdf;
 
 /// A capsule defined by two endpoints and a radius.
 /// The capsule extends from `start` to `end` with the given `radius` and has spherical caps at both ends.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Capsule {
     /// Start point of the capsule
     pub start: Vec3,

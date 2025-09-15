@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 use crate::sdf::Sdf;
 
 /// An ellipsoid defined by radii along each axis, centered at the origin.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Ellipsoid {
     /// Radii along x, y, z axes
     pub radii: Vec3,

@@ -1,18 +1,38 @@
 //! SDF (Signed distance functions) for voxel rasterization.
 
 use std::f32::consts::PI;
+use std::fmt::Debug;
 
 pub use bevy::math::primitives::{Sphere, Torus};
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
+pub mod node;
 pub mod ops;
 pub mod primitive;
 pub mod voxel_rasterize;
 
+pub use node::SdfNode;
 pub use primitive::*;
 
-pub trait Sdf: Send + Sync {
+/// Register SDF reflection types for editor/inspector usage
+pub fn register_sdf_reflect_types(app: &mut App) {
+    app.register_type::<SdfNode>();
+    // Primitives
+    app.register_type::<Cuboid>();
+    app.register_type::<RoundedBox>();
+    app.register_type::<Ellipsoid>();
+    app.register_type::<Octahedron>();
+    app.register_type::<HexagonalPrism>();
+    app.register_type::<Pyramid>();
+    app.register_type::<Plane>();
+    app.register_type::<Cylinder>();
+    app.register_type::<Capsule>();
+    app.register_type::<Cone>();
+    app.register_type::<Triangle>();
+}
+
+pub trait Sdf: Send + Sync + Debug {
     fn sdf(&self, point: Vec3) -> f32;
     fn aabb(&self) -> Option<Aabb3d>;
 
@@ -137,7 +157,7 @@ impl Sdf for &(dyn Sdf + Send + Sync) {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Blob;
 
 impl Sdf for Blob {
@@ -164,7 +184,7 @@ impl Sdf for Blob {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Fractal;
 impl Sdf for Fractal {
     fn sdf(&self, point: Vec3) -> f32 {

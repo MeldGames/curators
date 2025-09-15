@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
 /// A triangle defined by three vertices.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Triangle {
     /// First vertex
     pub v0: Vec3,

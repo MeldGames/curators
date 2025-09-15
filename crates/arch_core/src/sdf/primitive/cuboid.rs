@@ -5,7 +5,7 @@ use crate::sdf::Sdf;
 
 /// A cuboid (AABB) defined by size, centered at the origin.
 /// The cuboid extends from -size/2 to +size/2.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct Cuboid {
     /// Size of the cuboid (width, height, depth)
     pub size: Vec3,

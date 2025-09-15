@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 use crate::sdf::Sdf;
 
 /// A rounded box defined by size and rounding radius, centered at the origin.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
 pub struct RoundedBox {
     /// Size of the box (width, height, depth)
     pub size: Vec3,
