@@ -1,13 +1,15 @@
-//! Create our character's mesh procedurally out of a couple of primitives as SDFs.
+//! Create our character's mesh procedurally out of a couple of primitives as
+//! SDFs.
 
-use crate::sdf::{self, *};
 use bevy::asset::RenderAssetUsages;
 use bevy::ecs::schedule::Stepping;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy_math::bounding::Aabb3d;
-use fast_surface_nets::{surface_nets, SurfaceNetsBuffer};
 use fast_surface_nets::ndshape::{RuntimeShape, Shape};
+use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
+
+use crate::sdf::{self, *};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<CharacterMeshSettings>();
@@ -27,21 +29,18 @@ pub struct CharacterMeshSettings {
 impl Default for CharacterMeshSettings {
     fn default() -> Self {
         let fatness = 1.0;
-        Self {
-            fatness: fatness,
-            head_fatness: 0.4,
-            head_height: 2.0,
-            neck_z_connection: fatness * -0.75,
-        }
+        Self { fatness, head_fatness: 0.4, head_height: 2.0, neck_z_connection: fatness * -0.75 }
     }
 }
 
-pub fn update_character_mesh(mut commands: Commands, characters: Query<(Entity, &CharacterMeshSettings), Changed<CharacterMeshSettings>>, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
+pub fn update_character_mesh(
+    mut commands: Commands,
+    characters: Query<(Entity, &CharacterMeshSettings), Changed<CharacterMeshSettings>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     for (entity, settings) in &characters {
-        let body = sdf::ops::Scale {
-            primitive: sdf::Sphere { radius: settings.fatness },
-            scale: Vec3::new(1.0, 0.6, 1.0),
-        };
+        let body = sdf::Sphere { radius: settings.fatness }.scale(Vec3::new(1.0, 0.6, 1.0));
 
         let neck = sdf::Capsule {
             start: Vec3::new(0.0, 0.0, settings.neck_z_connection),
@@ -49,33 +48,22 @@ pub fn update_character_mesh(mut commands: Commands, characters: Query<(Entity, 
             radius: 0.25,
         };
 
-        let head = sdf::ops::Isometry {
-            translation: Vec3::new(0.0, settings.head_height, settings.neck_z_connection - settings.head_fatness),
-            rotation: Quat::IDENTITY,
-            primitive: sdf::ops::Scale {
-                primitive: sdf::Sphere { radius: settings.head_fatness },
-                scale: Vec3::new(1.0, 0.5, 1.0),
-            },
-        };
+        let head =
+            sdf::Ellipsoid { radii: Vec3::splat(settings.head_fatness) * Vec3::new(1.0, 0.5, 1.0) }
+                .translate(Vec3::new(
+                    0.0,
+                    settings.head_height,
+                    settings.neck_z_connection - settings.head_fatness,
+                ));
 
-        let body_neck_join = sdf::ops::SmoothUnion {
-            a: body,
-            b: neck,
-            k: 0.3,
-        };
+        let body_neck_join = sdf::ops::SmoothUnion { a: body, b: neck, k: 0.3 };
 
-        let head_neck_join = sdf::ops::SmoothUnion {
-            a: body_neck_join,
-            b: head,
-            k: 0.3,
-        };
+        let head_neck_join = sdf::ops::SmoothUnion { a: body_neck_join, b: head, k: 0.3 };
 
         let sdf = head_neck_join;
 
-        let aabb = sdf.aabb().unwrap_or(Aabb3d {
-            min: Vec3A::splat(-10.0),
-            max: Vec3A::splat(10.0),
-        });
+        let aabb =
+            sdf.aabb().unwrap_or(Aabb3d { min: Vec3A::splat(-10.0), max: Vec3A::splat(10.0) });
         let step_amount = 0.01;
         let sample_epsilon = Vec3::splat(step_amount * 4.0);
         let min = Vec3::from(aabb.min) - sample_epsilon;
@@ -86,27 +74,28 @@ pub fn update_character_mesh(mut commands: Commands, characters: Query<(Entity, 
     }
 }
 
-pub fn spawn_character_mesh(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
-    commands.spawn(
-        (
-            Name::new("Character mesh"),
-            CharacterMeshSettings {
-                ..default()
-            },
-            Transform {
-                translation: Vec3::new(-3.0, 5.0, -3.0),
-                ..default()
-            },
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: Color::srgb(1.0, 0.0, 0.0),
-                perceptual_roughness: 0.9,
-                ..default()
-            }))
-        )
-    );
+pub fn spawn_character_mesh(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    commands.spawn((
+        Name::new("Character mesh"),
+        CharacterMeshSettings { ..default() },
+        Transform { translation: Vec3::new(-3.0, 5.0, -3.0), ..default() },
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(1.0, 0.0, 0.0),
+            perceptual_roughness: 0.9,
+            ..default()
+        })),
+    ));
 }
 
-pub fn samples(sdf: impl Sdf, sample_min: Vec3, sample_max: Vec3, step_amount: f32) -> (RuntimeShape<u32, 3>, Vec<f32>) {
+pub fn samples(
+    sdf: impl Sdf,
+    sample_min: Vec3,
+    sample_max: Vec3,
+    step_amount: f32,
+) -> (RuntimeShape<u32, 3>, Vec<f32>) {
     info!("sample_min: {sample_min}, sample_max: {sample_max}, step_amount: {step_amount}");
     let sample_width = sample_max - sample_min;
     let steps_f32 = sample_width / Vec3::splat(step_amount as f32);

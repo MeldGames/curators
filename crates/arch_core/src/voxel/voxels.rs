@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::ops::RangeInclusive;
-use std::os::unix::raw::gid_t;
 
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
@@ -23,12 +22,13 @@ pub fn plugin(app: &mut App) {
     app.add_systems(PreUpdate, changed_chunks_writer);
 }
 
-pub fn changed_chunks_writer(mut grids: Query<(Entity, &mut Voxels)>, mut writer: EventWriter<ChangedChunk>) {
+pub fn changed_chunks_writer(
+    mut grids: Query<(Entity, &mut Voxels)>,
+    mut writer: EventWriter<ChangedChunk>,
+) {
     for (grid_entity, mut voxels) in &mut grids {
         for chunk_point in voxels.tree.changed_chunks.drain() {
-            writer.write(ChangedChunk {
-                grid_entity, chunk_point: ChunkPoint(chunk_point),
-            });
+            writer.write(ChangedChunk { grid_entity, chunk_point: ChunkPoint(chunk_point) });
         }
     }
 }

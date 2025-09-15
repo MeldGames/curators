@@ -15,12 +15,83 @@ pub use primitive::*;
 pub trait Sdf: Send + Sync {
     fn sdf(&self, point: Vec3) -> f32;
     fn aabb(&self) -> Option<Aabb3d>;
+
+    // -- ops --
+
+    // isometry
+    fn translate(self, by: Vec3) -> ops::Translate<Self>
+    where
+        Self: Sized,
+    {
+        ops::Translate { translate: by, primitive: self }
+    }
+    fn rotate(self, by: Quat) -> ops::Rotate<Self>
+    where
+        Self: Sized,
+    {
+        ops::Rotate { rotate: by, primitive: self }
+    }
+    fn scale(self, by: Vec3) -> ops::Scale<Self>
+    where
+        Self: Sized,
+    {
+        ops::Scale { scale: by, primitive: self }
+    }
+
+    // combiners
+    fn union<O: Sdf>(self, other: O) -> ops::Union<Self, O>
+    where
+        Self: Sized,
+    {
+        ops::Union { a: self, b: other }
+    }
+    fn intersection<O: Sdf>(self, other: O) -> ops::Intersection<Self, O>
+    where
+        Self: Sized,
+    {
+        ops::Intersection { a: self, b: other }
+    }
+    fn subtraction<O: Sdf>(self, other: O) -> ops::Subtraction<Self, O>
+    where
+        Self: Sized,
+    {
+        ops::Subtraction { a: self, b: other }
+    }
+
+    // smooth combiners
+    fn smooth_union<O: Sdf>(self, other: O, smooth: f32) -> ops::SmoothUnion<Self, O>
+    where
+        Self: Sized,
+    {
+        ops::SmoothUnion { a: self, b: other, k: smooth }
+    }
+    fn smooth_intersection<O: Sdf>(self, other: O, smooth: f32) -> ops::SmoothIntersection<Self, O>
+    where
+        Self: Sized,
+    {
+        ops::SmoothIntersection { a: self, b: other, k: smooth }
+    }
+    fn smooth_subtraction<O: Sdf>(self, other: O, smooth: f32) -> ops::SmoothSubtraction<Self, O>
+    where
+        Self: Sized,
+    {
+        ops::SmoothSubtraction { a: self, b: other, k: smooth }
+    }
+
+    // misc
+    fn round(self, radius: f32) -> ops::Round<Self>
+    where
+        Self: Sized,
+    {
+        ops::Round { primitive: self, radius }
+    }
 }
 
 impl<S: Sdf> Sdf for Box<S> {
     fn sdf(&self, point: Vec3) -> f32 {
         S::sdf(&*self, point)
     }
+
     fn aabb(&self) -> Option<Aabb3d> {
         S::aabb(&*self)
     }
@@ -30,6 +101,7 @@ impl<'a, S: Sdf> Sdf for &'a S {
     fn sdf(&self, point: Vec3) -> f32 {
         S::sdf(self, point)
     }
+
     fn aabb(&self) -> Option<Aabb3d> {
         S::aabb(self)
     }
@@ -39,6 +111,7 @@ impl Sdf for &dyn Sdf {
     fn sdf(&self, point: Vec3) -> f32 {
         (*self).sdf(point)
     }
+
     fn aabb(&self) -> Option<Aabb3d> {
         (*self).aabb()
     }
@@ -48,6 +121,7 @@ impl Sdf for &(dyn Sdf + Send) {
     fn sdf(&self, point: Vec3) -> f32 {
         (*self).sdf(point)
     }
+
     fn aabb(&self) -> Option<Aabb3d> {
         (*self).aabb()
     }
@@ -57,11 +131,11 @@ impl Sdf for &(dyn Sdf + Send + Sync) {
     fn sdf(&self, point: Vec3) -> f32 {
         (*self).sdf(point)
     }
+
     fn aabb(&self) -> Option<Aabb3d> {
         (*self).aabb()
     }
 }
-
 
 #[derive(Clone, Copy, Debug)]
 pub struct Blob;
@@ -84,6 +158,7 @@ impl Sdf for Blob {
         let l = p.length();
         l - 1.5 - 0.2 * (1.5 / 2.0) * ((1.01 - b / l).sqrt() * (PI / 0.25)).min(PI).cos()
     }
+
     fn aabb(&self) -> Option<Aabb3d> {
         Some(Aabb3d { min: Vec3A::splat(-1.5), max: Vec3A::splat(1.5) })
     }
@@ -106,6 +181,7 @@ impl Sdf for Fractal {
         let xz = Vec2::new(p.x, p.z);
         (xz / p.w).length() * 0.25
     }
+
     fn aabb(&self) -> Option<Aabb3d> {
         None
     }
