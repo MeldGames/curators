@@ -1,9 +1,10 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
+use crate::sdf::Sdf;
+
 /// Twist the underlying primitive around the Y axis.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Twist<P: Sdf> {
     pub strength: f32,
     pub primitive: P,

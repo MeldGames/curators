@@ -1,215 +1,236 @@
 use std::sync::Arc;
 
-use bevy::prelude::*;
+use bevy::reflect::Reflect;
+// use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
 
 use super::{Sdf, ops};
-use crate::sdf::primitive;
+use crate::sdf::{self, primitive};
 
 #[derive(Debug, Clone, Reflect)]
 // #[reflect(from_reflect = false)]
 pub enum SdfNode {
     // Primitives
-    Sphere { radius: f32 },
-    Torus { major_radius: f32, minor_radius: f32 },
-    Cuboid { size: Vec3 },
-    RoundedBox { size: Vec3, radius: f32 },
-    Ellipsoid { radii: Vec3 },
-    Octahedron { size: f32 },
-    HexagonalPrism { size: Vec3 },
-    Pyramid { height: f32, base_size: Vec2 },
-    Plane { normal: Vec3, distance: f32 },
-    Cylinder { start: Vec3, end: Vec3, radius: f32 },
-    Capsule { start: Vec3, end: Vec3, radius: f32 },
-    Cone { a: Vec3, b: Vec3, radius_a: f32, radius_b: f32 },
-    Triangle { v0: Vec3, v1: Vec3, v2: Vec3 },
+    Sphere(sdf::Sphere),
+    Torus(sdf::Torus),
+    Cuboid(sdf::Cuboid),
+    RoundedBox(sdf::RoundedBox),
+    Ellipsoid(sdf::Ellipsoid),
+    Octahedron(sdf::Octahedron),
+    HexagonalPrism(sdf::HexagonalPrism),
+    Pyramid(sdf::Pyramid),
+    Plane(sdf::Plane),
+    Cylinder(sdf::Cylinder),
+    Capsule(sdf::Capsule),
+    Cone(sdf::Cone),
+    Triangle(sdf::Triangle),
 
     // Unary ops
-    Translate { by: Vec3, child: Arc<SdfNode> },
-    Rotate { by: Quat, child: Arc<SdfNode> },
-    Scale { by: Vec3, child: Arc<SdfNode> },
-    Round { radius: f32, child: Arc<SdfNode> },
+    Translate(ops::Translate<Arc<SdfNode>>),
+    Rotate(ops::Rotate<Arc<SdfNode>>),
+    Scale(ops::Scale<Arc<SdfNode>>),
+    Round(ops::Round<Arc<SdfNode>>),
 
     // Binary ops
-    Union { a: Arc<SdfNode>, b: Arc<SdfNode> },
-    Intersection { a: Arc<SdfNode>, b: Arc<SdfNode> },
-    Subtraction { a: Arc<SdfNode>, b: Arc<SdfNode> },
-    SmoothUnion { a: Arc<SdfNode>, b: Arc<SdfNode>, k: f32 },
-    SmoothIntersection { a: Arc<SdfNode>, b: Arc<SdfNode>, k: f32 },
-    SmoothSubtraction { a: Arc<SdfNode>, b: Arc<SdfNode>, k: f32 },
-    Xor { a: Arc<SdfNode>, b: Arc<SdfNode> },
+    Union(ops::Union<Arc<SdfNode>, Arc<SdfNode>>),
+    Intersection(ops::Intersection<Arc<SdfNode>, Arc<SdfNode>>),
+    Subtraction(ops::Subtraction<Arc<SdfNode>, Arc<SdfNode>>),
+    SmoothUnion(ops::SmoothUnion<Arc<SdfNode>, Arc<SdfNode>>),
+    SmoothIntersection(ops::SmoothIntersection<Arc<SdfNode>, Arc<SdfNode>>),
+    SmoothSubtraction(ops::SmoothSubtraction<Arc<SdfNode>, Arc<SdfNode>>),
+    Xor(ops::Xor<Arc<SdfNode>, Arc<SdfNode>>),
 }
 
 impl Default for SdfNode {
     fn default() -> Self {
-        Self::Sphere { radius: 1.0 }
+        Self::Sphere(sdf::Sphere { radius: 0.5 })
+    }
+}
+
+impl Sdf for Arc<SdfNode> {
+    fn sdf(&self, point: Vec3) -> f32 {
+        SdfNode::sdf(self, point)
+    }
+
+    fn aabb(&self) -> Option<Aabb3d> {
+        SdfNode::aabb(self)
     }
 }
 
 impl Sdf for SdfNode {
     fn sdf(&self, point: Vec3) -> f32 {
         match self {
-            // Primitives
-            SdfNode::Sphere { radius } => primitive::Sphere { radius: *radius }.sdf(point),
-            SdfNode::Torus { major_radius, minor_radius } => {
-                primitive::Torus { major_radius: *major_radius, minor_radius: *minor_radius }
-                    .sdf(point)
-            },
-            SdfNode::Cuboid { size } => primitive::Cuboid { size: *size }.sdf(point),
-            SdfNode::RoundedBox { size, radius } => {
-                primitive::RoundedBox { size: *size, radius: *radius }.sdf(point)
-            },
-            SdfNode::Ellipsoid { radii } => primitive::Ellipsoid { radii: *radii }.sdf(point),
-            SdfNode::Octahedron { size } => primitive::Octahedron { size: *size }.sdf(point),
-            SdfNode::HexagonalPrism { size } => {
-                primitive::HexagonalPrism { size: *size }.sdf(point)
-            },
-            SdfNode::Pyramid { height, base_size } => {
-                primitive::Pyramid { height: *height, base_size: *base_size }.sdf(point)
-            },
-            SdfNode::Plane { normal, distance } => {
-                primitive::Plane { normal: *normal, distance: *distance }.sdf(point)
-            },
-            SdfNode::Cylinder { start, end, radius } => {
-                primitive::Cylinder { start: *start, end: *end, radius: *radius }.sdf(point)
-            },
-            SdfNode::Capsule { start, end, radius } => {
-                primitive::Capsule { start: *start, end: *end, radius: *radius }.sdf(point)
-            },
-            SdfNode::Cone { a, b, radius_a, radius_b } => {
-                primitive::Cone { a: *a, b: *b, radius_a: *radius_a, radius_b: *radius_b }
-                    .sdf(point)
-            },
-            SdfNode::Triangle { v0, v1, v2 } => {
-                primitive::Triangle { v0: *v0, v1: *v1, v2: *v2 }.sdf(point)
-            },
-
-            // Unary ops (evaluate inline to avoid Reflect on generic ops)
-            SdfNode::Translate { by, child } => child.sdf(point - *by),
-            SdfNode::Rotate { by, child } => child.sdf(by.inverse() * point),
-            SdfNode::Scale { by, child } => {
-                let inv = Vec3::new(1.0 / by.x, 1.0 / by.y, 1.0 / by.z);
-                child.sdf(point * inv) * by.x.min(by.y.min(by.z))
-            },
-            SdfNode::Round { radius, child } => child.sdf(point) - *radius,
-
-            // Binary ops
-            SdfNode::Union { a, b } => a.sdf(point).min(b.sdf(point)),
-            SdfNode::Intersection { a, b } => a.sdf(point).max(b.sdf(point)),
-            SdfNode::Subtraction { a, b } => (-a.sdf(point)).max(b.sdf(point)),
-            SdfNode::SmoothUnion { a, b, k } => {
-                let d1 = a.sdf(point);
-                let d2 = b.sdf(point);
-                let h = (0.5 + 0.5 * (d2 - d1) / *k).clamp(0.0, 1.0);
-                d2 * (1.0 - h) + d1 * h - *k * h * (1.0 - h)
-            },
-            SdfNode::SmoothIntersection { a, b, k } => {
-                let d1 = a.sdf(point);
-                let d2 = b.sdf(point);
-                let h = (0.5 - 0.5 * (d2 - d1) / *k).clamp(0.0, 1.0);
-                d2 * (1.0 - h) + d1 * h + *k * h * (1.0 - h)
-            },
-            SdfNode::SmoothSubtraction { a, b, k } => {
-                let d1 = a.sdf(point);
-                let d2 = b.sdf(point);
-                let h = (0.5 - 0.5 * (d2 + d1) / *k).clamp(0.0, 1.0);
-                d2 * (1.0 - h) + (-d1) * h + *k * h * (1.0 - h)
-            },
-            SdfNode::Xor { a, b } => {
-                let d1 = a.sdf(point);
-                let d2 = b.sdf(point);
-                d1.min(d2).max(-d1.max(d2))
-            },
+            SdfNode::Sphere(sphere) => sphere.sdf(point),
+            SdfNode::Torus(torus) => torus.sdf(point),
+            SdfNode::Cuboid(cuboid) => cuboid.sdf(point),
+            SdfNode::RoundedBox(rounded_box) => rounded_box.sdf(point),
+            SdfNode::Ellipsoid(ellipsoid) => ellipsoid.sdf(point),
+            SdfNode::Octahedron(octahedron) => octahedron.sdf(point),
+            SdfNode::HexagonalPrism(hexagonal_prism) => hexagonal_prism.sdf(point),
+            SdfNode::Pyramid(pyramid) => pyramid.sdf(point),
+            SdfNode::Plane(plane) => plane.sdf(point),
+            SdfNode::Cylinder(cylinder) => cylinder.sdf(point),
+            SdfNode::Capsule(capsule) => capsule.sdf(point),
+            SdfNode::Cone(cone) => cone.sdf(point),
+            SdfNode::Triangle(triangle) => triangle.sdf(point),
+            SdfNode::Translate(translate) => translate.sdf(point),
+            SdfNode::Rotate(rotate) => rotate.sdf(point),
+            SdfNode::Scale(scale) => scale.sdf(point),
+            SdfNode::Round(round) => round.sdf(point),
+            SdfNode::Union(union) => union.sdf(point),
+            SdfNode::Intersection(intersection) => intersection.sdf(point),
+            SdfNode::Subtraction(subtraction) => subtraction.sdf(point),
+            SdfNode::SmoothUnion(smooth_union) => smooth_union.sdf(point),
+            SdfNode::SmoothIntersection(smooth_intersection) => smooth_intersection.sdf(point),
+            SdfNode::SmoothSubtraction(smooth_subtraction) => smooth_subtraction.sdf(point),
+            SdfNode::Xor(xor) => xor.sdf(point),
         }
     }
 
     fn aabb(&self) -> Option<Aabb3d> {
         match self {
-            // Primitives
-            SdfNode::Sphere { radius } => primitive::Sphere { radius: *radius }.aabb(),
-            SdfNode::Torus { major_radius, minor_radius } => {
-                primitive::Torus { major_radius: *major_radius, minor_radius: *minor_radius }.aabb()
-            },
-            SdfNode::Cuboid { size } => primitive::Cuboid { size: *size }.aabb(),
-            SdfNode::RoundedBox { size, radius } => {
-                primitive::RoundedBox { size: *size, radius: *radius }.aabb()
-            },
-            SdfNode::Ellipsoid { radii } => primitive::Ellipsoid { radii: *radii }.aabb(),
-            SdfNode::Octahedron { size } => primitive::Octahedron { size: *size }.aabb(),
-            SdfNode::HexagonalPrism { size } => primitive::HexagonalPrism { size: *size }.aabb(),
-            SdfNode::Pyramid { height, base_size } => {
-                primitive::Pyramid { height: *height, base_size: *base_size }.aabb()
-            },
-            SdfNode::Plane { .. } => None,
-            SdfNode::Cylinder { start, end, radius } => {
-                primitive::Cylinder { start: *start, end: *end, radius: *radius }.aabb()
-            },
-            SdfNode::Capsule { start, end, radius } => {
-                primitive::Capsule { start: *start, end: *end, radius: *radius }.aabb()
-            },
-            SdfNode::Cone { a, b, radius_a, radius_b } => {
-                primitive::Cone { a: *a, b: *b, radius_a: *radius_a, radius_b: *radius_b }.aabb()
-            },
-            SdfNode::Triangle { v0, v1, v2 } => {
-                primitive::Triangle { v0: *v0, v1: *v1, v2: *v2 }.aabb()
-            },
-
-            // Unary ops (inline AABB)
-            SdfNode::Translate { by, child } => child.aabb().map(|aabb| aabb.translated_by(*by)),
-            SdfNode::Rotate { by, child } => child.aabb().map(|aabb| aabb.rotated_by(*by)),
-            SdfNode::Scale { by, child } => child.aabb().map(|aabb| aabb.scale_around_center(*by)),
-            SdfNode::Round { radius, child } => child.aabb().map(|aabb| {
-                let expansion = Vec3A::splat(*radius);
-                Aabb3d { min: aabb.min - expansion, max: aabb.max + expansion }
-            }),
-
-            // Binary ops
-            SdfNode::Union { a, b } | SdfNode::Xor { a, b } => match (a.aabb(), b.aabb()) {
-                (Some(a), Some(b)) => Some(Aabb3d { min: a.min.min(b.min), max: a.max.max(b.max) }),
-                (Some(a), None) | (None, Some(a)) => Some(a),
-                (None, None) => None,
-            },
-            SdfNode::Intersection { a, b } => match (a.aabb(), b.aabb()) {
-                (Some(a), Some(b)) => {
-                    let min = a.min.max(b.min);
-                    let max = a.max.min(b.max);
-                    if min.x <= max.x && min.y <= max.y && min.z <= max.z {
-                        Some(Aabb3d { min, max })
-                    } else {
-                        None
-                    }
-                },
-                _ => None,
-            },
-            SdfNode::Subtraction { a: _, b } => b.aabb(),
-            SdfNode::SmoothUnion { a, b, k } => match (a.aabb(), b.aabb()) {
-                (Some(a), Some(b)) => {
-                    let expansion = Vec3A::splat(*k);
-                    Some(Aabb3d {
-                        min: a.min.min(b.min) - expansion,
-                        max: a.max.max(b.max) + expansion,
-                    })
-                },
-                (Some(a), None) | (None, Some(a)) => Some(a),
-                (None, None) => None,
-            },
-            SdfNode::SmoothIntersection { a, b, k } => match (a.aabb(), b.aabb()) {
-                (Some(a), Some(b)) => {
-                    let min = a.min.max(b.min);
-                    let max = a.max.min(b.max);
-                    if min.x <= max.x && min.y <= max.y && min.z <= max.z {
-                        let expansion = Vec3A::splat(*k);
-                        Some(Aabb3d { min: min - expansion, max: max + expansion })
-                    } else {
-                        None
-                    }
-                },
-                _ => None,
-            },
-            SdfNode::SmoothSubtraction { a: _, b, k } => b.aabb().map(|aabb| {
-                let expansion = Vec3A::splat(*k);
-                Aabb3d { min: aabb.min - expansion, max: aabb.max + expansion }
-            }),
+            SdfNode::Sphere(sphere) => sphere.aabb(),
+            SdfNode::Torus(torus) => torus.aabb(),
+            SdfNode::Cuboid(cuboid) => cuboid.aabb(),
+            SdfNode::RoundedBox(rounded_box) => rounded_box.aabb(),
+            SdfNode::Ellipsoid(ellipsoid) => ellipsoid.aabb(),
+            SdfNode::Octahedron(octahedron) => octahedron.aabb(),
+            SdfNode::HexagonalPrism(hexagonal_prism) => hexagonal_prism.aabb(),
+            SdfNode::Pyramid(pyramid) => pyramid.aabb(),
+            SdfNode::Plane(plane) => plane.aabb(),
+            SdfNode::Cylinder(cylinder) => cylinder.aabb(),
+            SdfNode::Capsule(capsule) => capsule.aabb(),
+            SdfNode::Cone(cone) => cone.aabb(),
+            SdfNode::Triangle(triangle) => triangle.aabb(),
+            SdfNode::Translate(translate) => translate.aabb(),
+            SdfNode::Rotate(rotate) => rotate.aabb(),
+            SdfNode::Scale(scale) => scale.aabb(),
+            SdfNode::Round(round) => round.aabb(),
+            SdfNode::Union(union) => union.aabb(),
+            SdfNode::Intersection(intersection) => intersection.aabb(),
+            SdfNode::Subtraction(subtraction) => subtraction.aabb(),
+            SdfNode::SmoothUnion(smooth_union) => smooth_union.aabb(),
+            SdfNode::SmoothIntersection(smooth_intersection) => smooth_intersection.aabb(),
+            SdfNode::SmoothSubtraction(smooth_subtraction) => smooth_subtraction.aabb(),
+            SdfNode::Xor(xor) => xor.aabb(),
         }
     }
 }
+
+// Prints out a string of Rust code that reconstructs this SdfNode as Rust code
+// using the primitives directly. The output is written to the provided `f`
+// (e.g., &mut String or std::fmt::Write).
+// pub fn print_as_rust_code(&self, f: &mut dyn std::fmt::Write) ->
+// std::fmt::Result { match self {
+// SdfNode::Cuboid { size } => {
+// write!(f, "Cuboid::new(Vec3::new({}, {}, {}))", size.x, size.y, size.z)
+// },
+// SdfNode::RoundedBox { size, radius } => {
+// write!(f, "RoundedBox::new(Vec3::new({}, {}, {}), {})", size.x, size.y,
+// size.z, radius) },
+// SdfNode::Ellipsoid { radii } => {
+// write!(f, "Ellipsoid::new(Vec3::new({}, {}, {}))", radii.x, radii.y, radii.z)
+// },
+// SdfNode::Octahedron { size } => {
+// write!(f, "Octahedron::new({})", size)
+// },
+// SdfNode::HexagonalPrism { size } => {
+// write!(f, "HexagonalPrism::new(Vec3::new({}, {}, {}))", size.x, size.y,
+// size.z) },
+// SdfNode::Pyramid { size } => {
+// write!(f, "Pyramid::new(Vec3::new({}, {}, {}))", size.x, size.y, size.z)
+// },
+// SdfNode::Plane { normal, d } => {
+// write!(f, "Plane::new(Vec3::new({}, {}, {}), {})", normal.x, normal.y,
+// normal.z, d) },
+// SdfNode::Cylinder { radius, height } => {
+// write!(f, "Cylinder::new({}, {})", radius, height)
+// },
+// SdfNode::Capsule { start, end, radius } => {
+// write!(
+// f,
+// "Capsule::new(Vec3::new({}, {}, {}), Vec3::new({}, {}, {}), {})",
+// start.x, start.y, start.z, end.x, end.y, end.z, radius
+// )
+// },
+// SdfNode::Cone { height, radius1, radius2 } => {
+// write!(f, "Cone::new({}, {}, {})", height, radius1, radius2)
+// },
+// SdfNode::Triangle { a, b, c } => {
+// write!(
+// f,
+// "Triangle::new(Vec3::new({}, {}, {}), Vec3::new({}, {}, {}), Vec3::new({},
+// {}, \ {}))",
+// a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z
+// )
+// },
+// SdfNode::Blob => {
+// write!(f, "Blob")
+// },
+// SdfNode::Fractal => {
+// write!(f, "Fractal")
+// },
+// SdfNode::Translate { by, primitive } => {
+// write!(f, "(")?;
+// primitive.print_as_rust_code(f)?;
+// write!(f, ").translate(Vec3::new({}, {}, {}))", by.x, by.y, by.z)
+// },
+// SdfNode::Rotate { by, primitive } => {
+// write!(f, "(")?;
+// primitive.print_as_rust_code(f)?;
+// write!(f, ").rotate(Quat::from_xyzw({}, {}, {}, {}))", by.x, by.y, by.z,
+// by.w) },
+// SdfNode::Scale { by, primitive } => {
+// write!(f, "(")?;
+// primitive.print_as_rust_code(f)?;
+// write!(f, ").scale(Vec3::new({}, {}, {}))", by.x, by.y, by.z)
+// },
+// SdfNode::Union { a, b } => {
+// write!(f, "(")?;
+// a.print_as_rust_code(f)?;
+// write!(f, ").union(")?;
+// b.print_as_rust_code(f)?;
+// write!(f, ")")
+// },
+// SdfNode::Intersection { a, b } => {
+// write!(f, "(")?;
+// a.print_as_rust_code(f)?;
+// write!(f, ").intersection(")?;
+// b.print_as_rust_code(f)?;
+// write!(f, ")")
+// },
+// SdfNode::Subtraction { a, b } => {
+// write!(f, "(")?;
+// a.print_as_rust_code(f)?;
+// write!(f, ").subtraction(")?;
+// b.print_as_rust_code(f)?;
+// write!(f, ")")
+// },
+// SdfNode::SmoothUnion { a, b, k } => {
+// write!(f, "(")?;
+// a.print_as_rust_code(f)?;
+// write!(f, ").smooth_union(")?;
+// b.print_as_rust_code(f)?;
+// write!(f, ", {})", k)
+// },
+// SdfNode::SmoothIntersection { a, b, k } => {
+// write!(f, "(")?;
+// a.print_as_rust_code(f)?;
+// write!(f, ").smooth_intersection(")?;
+// b.print_as_rust_code(f)?;
+// write!(f, ", {})", k)
+// },
+// SdfNode::SmoothSubtraction { a, b, k } => {
+// write!(f, "(")?;
+// a.print_as_rust_code(f)?;
+// write!(f, ").smooth_subtraction(")?;
+// b.print_as_rust_code(f)?;
+// write!(f, ", {})", k)
+// },
+// SdfNode::Round { primitive, radius } => {
+// write!(f, "(")?;
+// primitive.print_as_rust_code(f)?;
+// write!(f, ").round({})", radius)
+// },
+// }
+// }

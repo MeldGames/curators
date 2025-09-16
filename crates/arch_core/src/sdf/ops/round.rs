@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 use crate::sdf::Sdf;
 
 /// Round operation - adds rounding to the underlying primitive.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Round<P: Sdf> {
     pub primitive: P,
     pub radius: f32,

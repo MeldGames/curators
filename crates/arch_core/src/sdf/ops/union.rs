@@ -1,9 +1,10 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
+use crate::sdf::Sdf;
+
 /// Union operation - combines two SDFs with a minimum operation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Union<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,

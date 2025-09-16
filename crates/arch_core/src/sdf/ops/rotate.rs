@@ -4,7 +4,7 @@ use bevy_math::bounding::{Aabb3d, BoundingVolume};
 use crate::sdf::Sdf;
 
 /// Rotate the underlying primitive.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Rotate<P: Sdf> {
     pub rotate: Quat,
     pub primitive: P,

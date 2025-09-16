@@ -1,6 +1,7 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+
+use crate::sdf::Sdf;
 
 // Helper functions
 fn clamp(value: f32, min: f32, max: f32) -> f32 {
@@ -11,8 +12,9 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
     a * (1.0 - t) + b * t
 }
 
-/// Smooth Subtraction operation - smoothly subtracts the second SDF from the first.
-#[derive(Debug, Clone)]
+/// Smooth Subtraction operation - smoothly subtracts the second SDF from the
+/// first.
+#[derive(Debug, Clone, Reflect)]
 pub struct SmoothSubtraction<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,

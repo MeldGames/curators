@@ -4,7 +4,7 @@ use bevy_math::bounding::{Aabb3d, BoundingVolume};
 use crate::sdf::Sdf;
 
 /// Translate the underlying primitive.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Translate<P: Sdf> {
     pub translate: Vec3,
     pub primitive: P,

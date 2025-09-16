@@ -4,7 +4,7 @@ use bevy_math::bounding::Aabb3d;
 use crate::sdf::Sdf;
 
 /// Subtraction operation - subtracts the second SDF from the first.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Subtraction<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,

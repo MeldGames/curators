@@ -6,7 +6,7 @@ use crate::sdf::Sdf;
 /// Scale the underlying primitive.
 ///
 /// Non uniform scaling is supported, but may cause some issues.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Reflect)]
 pub struct Scale<P: Sdf> {
     pub primitive: P,
     pub scale: Vec3,

@@ -1,6 +1,7 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+
+use crate::sdf::Sdf;
 
 // Helper functions
 fn clamp(value: f32, min: f32, max: f32) -> f32 {
@@ -12,7 +13,7 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
 }
 
 /// Smooth Intersection operation - smoothly intersects two SDFs.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub struct SmoothIntersection<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,
