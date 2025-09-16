@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use bevy::reflect::Reflect;
-// use bevy::prelude::*;
+// use bevy::reflect::Reflect;
+use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
 
 use super::{Sdf, ops};
@@ -20,9 +20,9 @@ pub enum SdfNode {
     HexagonalPrism(sdf::HexagonalPrism),
     Pyramid(sdf::Pyramid),
     Plane(sdf::Plane),
-    Cylinder(sdf::Cylinder),
+    Cylinder(sdf::primitive::Cylinder),
     Capsule(sdf::Capsule),
-    Cone(sdf::Cone),
+    Cone(sdf::primitive::Cone),
     Triangle(sdf::Triangle),
 
     // Unary ops
@@ -116,121 +116,3 @@ impl Sdf for SdfNode {
         }
     }
 }
-
-// Prints out a string of Rust code that reconstructs this SdfNode as Rust code
-// using the primitives directly. The output is written to the provided `f`
-// (e.g., &mut String or std::fmt::Write).
-// pub fn print_as_rust_code(&self, f: &mut dyn std::fmt::Write) ->
-// std::fmt::Result { match self {
-// SdfNode::Cuboid { size } => {
-// write!(f, "Cuboid::new(Vec3::new({}, {}, {}))", size.x, size.y, size.z)
-// },
-// SdfNode::RoundedBox { size, radius } => {
-// write!(f, "RoundedBox::new(Vec3::new({}, {}, {}), {})", size.x, size.y,
-// size.z, radius) },
-// SdfNode::Ellipsoid { radii } => {
-// write!(f, "Ellipsoid::new(Vec3::new({}, {}, {}))", radii.x, radii.y, radii.z)
-// },
-// SdfNode::Octahedron { size } => {
-// write!(f, "Octahedron::new({})", size)
-// },
-// SdfNode::HexagonalPrism { size } => {
-// write!(f, "HexagonalPrism::new(Vec3::new({}, {}, {}))", size.x, size.y,
-// size.z) },
-// SdfNode::Pyramid { size } => {
-// write!(f, "Pyramid::new(Vec3::new({}, {}, {}))", size.x, size.y, size.z)
-// },
-// SdfNode::Plane { normal, d } => {
-// write!(f, "Plane::new(Vec3::new({}, {}, {}), {})", normal.x, normal.y,
-// normal.z, d) },
-// SdfNode::Cylinder { radius, height } => {
-// write!(f, "Cylinder::new({}, {})", radius, height)
-// },
-// SdfNode::Capsule { start, end, radius } => {
-// write!(
-// f,
-// "Capsule::new(Vec3::new({}, {}, {}), Vec3::new({}, {}, {}), {})",
-// start.x, start.y, start.z, end.x, end.y, end.z, radius
-// )
-// },
-// SdfNode::Cone { height, radius1, radius2 } => {
-// write!(f, "Cone::new({}, {}, {})", height, radius1, radius2)
-// },
-// SdfNode::Triangle { a, b, c } => {
-// write!(
-// f,
-// "Triangle::new(Vec3::new({}, {}, {}), Vec3::new({}, {}, {}), Vec3::new({},
-// {}, \ {}))",
-// a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z
-// )
-// },
-// SdfNode::Blob => {
-// write!(f, "Blob")
-// },
-// SdfNode::Fractal => {
-// write!(f, "Fractal")
-// },
-// SdfNode::Translate { by, primitive } => {
-// write!(f, "(")?;
-// primitive.print_as_rust_code(f)?;
-// write!(f, ").translate(Vec3::new({}, {}, {}))", by.x, by.y, by.z)
-// },
-// SdfNode::Rotate { by, primitive } => {
-// write!(f, "(")?;
-// primitive.print_as_rust_code(f)?;
-// write!(f, ").rotate(Quat::from_xyzw({}, {}, {}, {}))", by.x, by.y, by.z,
-// by.w) },
-// SdfNode::Scale { by, primitive } => {
-// write!(f, "(")?;
-// primitive.print_as_rust_code(f)?;
-// write!(f, ").scale(Vec3::new({}, {}, {}))", by.x, by.y, by.z)
-// },
-// SdfNode::Union { a, b } => {
-// write!(f, "(")?;
-// a.print_as_rust_code(f)?;
-// write!(f, ").union(")?;
-// b.print_as_rust_code(f)?;
-// write!(f, ")")
-// },
-// SdfNode::Intersection { a, b } => {
-// write!(f, "(")?;
-// a.print_as_rust_code(f)?;
-// write!(f, ").intersection(")?;
-// b.print_as_rust_code(f)?;
-// write!(f, ")")
-// },
-// SdfNode::Subtraction { a, b } => {
-// write!(f, "(")?;
-// a.print_as_rust_code(f)?;
-// write!(f, ").subtraction(")?;
-// b.print_as_rust_code(f)?;
-// write!(f, ")")
-// },
-// SdfNode::SmoothUnion { a, b, k } => {
-// write!(f, "(")?;
-// a.print_as_rust_code(f)?;
-// write!(f, ").smooth_union(")?;
-// b.print_as_rust_code(f)?;
-// write!(f, ", {})", k)
-// },
-// SdfNode::SmoothIntersection { a, b, k } => {
-// write!(f, "(")?;
-// a.print_as_rust_code(f)?;
-// write!(f, ").smooth_intersection(")?;
-// b.print_as_rust_code(f)?;
-// write!(f, ", {})", k)
-// },
-// SdfNode::SmoothSubtraction { a, b, k } => {
-// write!(f, "(")?;
-// a.print_as_rust_code(f)?;
-// write!(f, ").smooth_subtraction(")?;
-// b.print_as_rust_code(f)?;
-// write!(f, ", {})", k)
-// },
-// SdfNode::Round { primitive, radius } => {
-// write!(f, "(")?;
-// primitive.print_as_rust_code(f)?;
-// write!(f, ").round({})", radius)
-// },
-// }
-// }
