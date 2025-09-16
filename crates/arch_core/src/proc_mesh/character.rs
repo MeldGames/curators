@@ -68,9 +68,9 @@ pub fn update_character_mesh(
         let sample_epsilon = Vec3::splat(step_amount * 4.0);
         let min = Vec3::from(aabb.min) - sample_epsilon;
         let max = Vec3::from(aabb.max) + sample_epsilon;
-        let mesh = sdf_to_mesh(sdf, min, max, step_amount);
-
-        commands.entity(entity).insert(Mesh3d(meshes.add(mesh)));
+        if let Some(mesh) = sdf_to_mesh(sdf, min, max, step_amount) {
+            commands.entity(entity).insert(Mesh3d(meshes.add(mesh)));
+        }
     }
 }
 
@@ -125,7 +125,17 @@ pub fn samples(
     (shape, samples)
 }
 
-pub fn sdf_to_mesh(sdf: impl Sdf, sample_min: Vec3, sample_max: Vec3, step_amount: f32) -> Mesh {
+pub fn sdf_to_mesh(
+    sdf: impl Sdf,
+    sample_min: Vec3,
+    sample_max: Vec3,
+    step_amount: f32,
+) -> Option<Mesh> {
+    let size = sample_max - sample_min;
+    if size.x <= step_amount || size.y <= step_amount || size.z <= step_amount {
+        return None;
+    }
+
     // Sample the SDF into a grid
     let (shape, samples) = samples(sdf, sample_min, sample_max, step_amount);
 
@@ -136,7 +146,12 @@ pub fn sdf_to_mesh(sdf: impl Sdf, sample_min: Vec3, sample_max: Vec3, step_amoun
     surface_nets(&samples.as_slice(), &shape, [0; 3], shape.as_array().map(|n| n - 2), &mut buffer);
 
     for position in &mut buffer.positions {
+        // This is not quite correct. To adjust the vertex positions to match the AABB
+        // defined by sample_min and sample_max, you should first scale the
+        // grid-space position by step_amount, then add sample_min to shift into world
+        // space.
         *position = position.map(|n| n * step_amount);
+        *position = (Vec3::from(*position) + sample_min).into();
     }
 
     for normal in &mut buffer.normals {
@@ -148,5 +163,5 @@ pub fn sdf_to_mesh(sdf: impl Sdf, sample_min: Vec3, sample_max: Vec3, step_amoun
 
     mesh.insert_indices(Indices::U32(buffer.indices));
 
-    mesh
+    Some(mesh)
 }

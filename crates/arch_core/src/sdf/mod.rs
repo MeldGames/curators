@@ -2,6 +2,7 @@
 
 use std::f32::consts::PI;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 pub use bevy::math::primitives::{Sphere, Torus};
 use bevy::prelude::*;
@@ -26,10 +27,23 @@ pub fn register_sdf_reflect_types(app: &mut App) {
     app.register_type::<HexagonalPrism>();
     app.register_type::<Pyramid>();
     app.register_type::<Plane>();
-    app.register_type::<Cylinder>();
+    app.register_type::<primitive::Cylinder>();
     app.register_type::<Capsule>();
-    app.register_type::<Cone>();
+    app.register_type::<primitive::Cone>();
     app.register_type::<Triangle>();
+
+    // Ops
+    app.register_type::<ops::Translate<Arc<SdfNode>>>()
+        .register_type::<ops::Rotate<Arc<SdfNode>>>()
+        .register_type::<ops::Scale<Arc<SdfNode>>>()
+        .register_type::<ops::Round<Arc<SdfNode>>>()
+        .register_type::<ops::Union<Arc<SdfNode>, Arc<SdfNode>>>()
+        .register_type::<ops::Intersection<Arc<SdfNode>, Arc<SdfNode>>>()
+        .register_type::<ops::Subtraction<Arc<SdfNode>, Arc<SdfNode>>>()
+        .register_type::<ops::SmoothUnion<Arc<SdfNode>, Arc<SdfNode>>>()
+        .register_type::<ops::SmoothIntersection<Arc<SdfNode>, Arc<SdfNode>>>()
+        .register_type::<ops::SmoothSubtraction<Arc<SdfNode>, Arc<SdfNode>>>()
+        .register_type::<ops::Xor<Arc<SdfNode>, Arc<SdfNode>>>();
 }
 
 pub trait Sdf: Send + Sync + Debug {

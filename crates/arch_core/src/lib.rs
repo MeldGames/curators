@@ -96,13 +96,16 @@ pub fn viewer(app: &mut App) {
 pub fn spawn_flying_camera(mut commands: Commands) {
     commands.spawn((
         Name::new("Flying camera"),
+        FlyingCamera,
         FlyingSettings::default(),
         FlyingState::default(),
         camera_components(),
+        IsDefaultUiCamera,
         Transform::from_translation(Vec3::new(8., 3.0, 8.0))
             .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
         //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        ContextPriority::<FlyingCamera>::new(10),
         actions!(FlyingCamera[
                 (
                     Action::<CameraMove>::new(),

@@ -1,13 +1,21 @@
+use std::sync::Arc;
+
 use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// Translate the underlying primitive.
 #[derive(Debug, Clone, Reflect)]
 pub struct Translate<P: Sdf> {
     pub translate: Vec3,
     pub primitive: P,
+}
+
+impl Default for Translate<Arc<SdfNode>> {
+    fn default() -> Self {
+        Self { translate: Vec3::ZERO, primitive: default() }
+    }
 }
 
 impl<P: Sdf> Translate<P> {

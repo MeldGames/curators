@@ -5,10 +5,9 @@ use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
 
 use super::{Sdf, ops};
-use crate::sdf::{self, primitive};
+use crate::sdf;
 
 #[derive(Debug, Clone, Reflect)]
-// #[reflect(from_reflect = false)]
 pub enum SdfNode {
     // Primitives
     Sphere(sdf::Sphere),
