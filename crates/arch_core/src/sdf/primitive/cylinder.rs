@@ -1,10 +1,12 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+
+use crate::sdf::Sdf;
 
 /// A capped cylinder defined by two endpoints and a radius.
 /// The cylinder extends from `start` to `end` with the given `radius`.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Cylinder {
     /// Start point of the cylinder
     pub start: Vec3,
@@ -12,6 +14,12 @@ pub struct Cylinder {
     pub end: Vec3,
     /// Radius of the cylinder
     pub radius: f32,
+}
+
+impl Default for Cylinder {
+    fn default() -> Self {
+        Self::new(Vec3::new(0.0, -0.5, 0.0), Vec3::new(0.0, 0.5, 0.0), 0.5)
+    }
 }
 
 impl Cylinder {

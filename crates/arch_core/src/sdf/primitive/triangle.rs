@@ -1,9 +1,11 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
+use crate::sdf::Sdf;
+
 /// A triangle defined by three vertices.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Triangle {
     /// First vertex
     pub v0: Vec3,
@@ -17,6 +19,16 @@ impl Triangle {
     /// Create a new triangle
     pub fn new(v0: Vec3, v1: Vec3, v2: Vec3) -> Self {
         Self { v0, v1, v2 }
+    }
+}
+
+impl Default for Triangle {
+    fn default() -> Self {
+        Self {
+            v0: Vec3::new(-0.5, 0.0, 0.0),
+            v1: Vec3::new(0.5, 0.0, 0.0),
+            v2: Vec3::new(0.0, 0.5, 0.0),
+        }
     }
 }
 

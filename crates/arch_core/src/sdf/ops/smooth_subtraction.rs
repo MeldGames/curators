@@ -15,6 +15,7 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
 /// Smooth Subtraction operation - smoothly subtracts the second SDF from the
 /// first.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct SmoothSubtraction<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,
@@ -42,5 +43,11 @@ impl<A: Sdf, B: Sdf> Sdf for SmoothSubtraction<A, B> {
             let expansion = Vec3A::splat(self.k);
             Aabb3d { min: aabb.min - expansion, max: aabb.max + expansion }
         })
+    }
+}
+
+impl<A: Sdf, B: Sdf> Default for SmoothSubtraction<A, B> {
+    fn default() -> Self {
+        Self { a: A::default(), b: B::default(), k: 0.0 }
     }
 }

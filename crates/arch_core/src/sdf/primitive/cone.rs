@@ -1,10 +1,12 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+
+use crate::sdf::Sdf;
 
 /// A cone defined by two endpoints and their respective radii.
 /// The cone extends from point a (radius_a) to point b (radius_b).
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Cone {
     /// Start point of the cone
     pub a: Vec3,
@@ -20,6 +22,17 @@ impl Cone {
     /// Create a new cone
     pub fn new(a: Vec3, b: Vec3, radius_a: f32, radius_b: f32) -> Self {
         Self { a, b, radius_a, radius_b }
+    }
+}
+
+impl Default for Cone {
+    fn default() -> Self {
+        Self {
+            a: Vec3::new(0.0, -0.5, 0.0),
+            b: Vec3::new(0.0, 0.5, 0.0),
+            radius_a: 0.5,
+            radius_b: 0.25,
+        }
     }
 }
 

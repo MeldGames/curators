@@ -14,6 +14,7 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
 
 /// Smooth Union operation - combines two SDFs with smooth blending.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct SmoothUnion<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,
@@ -48,5 +49,11 @@ impl<A: Sdf, B: Sdf> Sdf for SmoothUnion<A, B> {
             (Some(a), None) | (None, Some(a)) => Some(a),
             (None, None) => None,
         }
+    }
+}
+
+impl<A: Sdf, B: Sdf> Default for SmoothUnion<A, B> {
+    fn default() -> Self {
+        Self { a: A::default(), b: B::default(), k: 0.0 }
     }
 }

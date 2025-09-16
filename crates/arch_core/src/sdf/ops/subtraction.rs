@@ -5,6 +5,7 @@ use crate::sdf::Sdf;
 
 /// Subtraction operation - subtracts the second SDF from the first.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Subtraction<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,
@@ -14,6 +15,12 @@ impl<A: Sdf, B: Sdf> Subtraction<A, B> {
     /// Create a new subtraction operation
     pub fn new(a: A, b: B) -> Self {
         Self { a, b }
+    }
+}
+
+impl<A: Sdf + Default, B: Sdf + Default> Default for Subtraction<A, B> {
+    fn default() -> Self {
+        Self { a: A::default(), b: B::default() }
     }
 }
 

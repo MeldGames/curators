@@ -14,6 +14,7 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
 
 /// Smooth Intersection operation - smoothly intersects two SDFs.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct SmoothIntersection<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,
@@ -50,5 +51,11 @@ impl<A: Sdf, B: Sdf> Sdf for SmoothIntersection<A, B> {
             },
             _ => None,
         }
+    }
+}
+
+impl<A: Sdf, B: Sdf> Default for SmoothIntersection<A, B> {
+    fn default() -> Self {
+        Self { a: A::default(), b: B::default(), k: 0.0 }
     }
 }

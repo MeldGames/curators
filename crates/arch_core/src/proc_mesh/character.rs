@@ -64,7 +64,7 @@ pub fn update_character_mesh(
 
         let aabb =
             sdf.aabb().unwrap_or(Aabb3d { min: Vec3A::splat(-10.0), max: Vec3A::splat(10.0) });
-        let step_amount = 0.01;
+        let step_amount = 0.1;
         let sample_epsilon = Vec3::splat(step_amount * 4.0);
         let min = Vec3::from(aabb.min) - sample_epsilon;
         let max = Vec3::from(aabb.max) + sample_epsilon;

@@ -5,6 +5,7 @@ use crate::sdf::Sdf;
 
 /// An octahedron defined by size, centered at the origin.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Octahedron {
     /// Size of the octahedron
     pub size: f32,
@@ -14,6 +15,12 @@ impl Octahedron {
     /// Create a new octahedron centered at the origin
     pub fn new(size: f32) -> Self {
         Self { size }
+    }
+}
+
+impl Default for Octahedron {
+    fn default() -> Self {
+        Self { size: 1.0 }
     }
 }
 

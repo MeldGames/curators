@@ -5,6 +5,7 @@ use crate::sdf::Sdf;
 
 /// A hexagonal prism defined by size, centered at the origin.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct HexagonalPrism {
     /// Size of the prism (width, height, depth)
     pub size: Vec3,
@@ -14,6 +15,12 @@ impl HexagonalPrism {
     /// Create a new hexagonal prism centered at the origin
     pub fn new(size: Vec3) -> Self {
         Self { size }
+    }
+}
+
+impl Default for HexagonalPrism {
+    fn default() -> Self {
+        Self { size: Vec3::ONE }
     }
 }
 

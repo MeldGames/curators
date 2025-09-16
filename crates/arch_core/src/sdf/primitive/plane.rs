@@ -1,10 +1,12 @@
-use crate::sdf::Sdf;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+
+use crate::sdf::Sdf;
 
 /// A plane defined by a normal vector and distance from origin.
 /// The plane equation is: normal · point + distance = 0
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Plane {
     /// Normal vector of the plane (should be normalized)
     pub normal: Vec3,
@@ -22,6 +24,12 @@ impl Plane {
     pub fn from_point_normal(point: Vec3, normal: Vec3) -> Self {
         let distance = -point.dot(normal);
         Self { normal, distance }
+    }
+}
+
+impl Default for Plane {
+    fn default() -> Self {
+        Self { normal: Vec3::Y, distance: 0.0 }
     }
 }
 

@@ -5,6 +5,7 @@ use crate::sdf::Sdf;
 
 /// A pyramid defined by height and base size, centered at the origin.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Pyramid {
     /// Height of the pyramid
     pub height: f32,
@@ -16,6 +17,12 @@ impl Pyramid {
     /// Create a new pyramid centered at the origin
     pub fn new(height: f32, base_size: Vec2) -> Self {
         Self { height, base_size }
+    }
+}
+
+impl Default for Pyramid {
+    fn default() -> Self {
+        Self { height: 1.0, base_size: Vec2::ONE }
     }
 }
 

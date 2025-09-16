@@ -5,6 +5,7 @@ use crate::sdf::Sdf;
 
 /// An ellipsoid defined by radii along each axis, centered at the origin.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Ellipsoid {
     /// Radii along x, y, z axes
     pub radii: Vec3,
@@ -14,6 +15,12 @@ impl Ellipsoid {
     /// Create a new ellipsoid centered at the origin
     pub fn new(radii: Vec3) -> Self {
         Self { radii }
+    }
+}
+
+impl Default for Ellipsoid {
+    fn default() -> Self {
+        Self { radii: Vec3::ONE }
     }
 }
 

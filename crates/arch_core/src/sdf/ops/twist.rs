@@ -5,6 +5,7 @@ use crate::sdf::Sdf;
 
 /// Twist the underlying primitive around the Y axis.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Twist<P: Sdf> {
     pub strength: f32,
     pub primitive: P,
@@ -14,6 +15,12 @@ impl<P: Sdf> Twist<P> {
     /// Create a new twist operation
     pub fn new(primitive: P, strength: f32) -> Self {
         Self { primitive, strength }
+    }
+}
+
+impl<S: Sdf> Default for Twist<S> {
+    fn default() -> Self {
+        Self { primitive: S::default(), strength: 0.0 }
     }
 }
 

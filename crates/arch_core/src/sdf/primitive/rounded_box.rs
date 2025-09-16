@@ -5,6 +5,7 @@ use crate::sdf::Sdf;
 
 /// A rounded box defined by size and rounding radius, centered at the origin.
 #[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct RoundedBox {
     /// Size of the box (width, height, depth)
     pub size: Vec3,
@@ -16,6 +17,12 @@ impl RoundedBox {
     /// Create a new rounded box centered at the origin
     pub fn new(size: Vec3, radius: f32) -> Self {
         Self { size, radius }
+    }
+}
+
+impl Default for RoundedBox {
+    fn default() -> Self {
+        Self { size: Vec3::ONE, radius: 0.0 }
     }
 }
 

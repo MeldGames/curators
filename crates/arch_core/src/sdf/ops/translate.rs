@@ -7,12 +7,13 @@ use crate::sdf::{Sdf, SdfNode};
 
 /// Translate the underlying primitive.
 #[derive(Debug, Clone, Reflect)]
+#[reflect(Default, Clone, Debug)]
 pub struct Translate<P: Sdf> {
     pub translate: Vec3,
     pub primitive: P,
 }
 
-impl Default for Translate<Arc<SdfNode>> {
+impl<S: Sdf + Default> Default for Translate<S> {
     fn default() -> Self {
         Self { translate: Vec3::ZERO, primitive: default() }
     }
