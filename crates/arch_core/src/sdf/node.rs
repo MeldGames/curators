@@ -46,15 +46,15 @@ impl Default for SdfNode {
     }
 }
 
-impl Sdf for Arc<SdfNode> {
-    fn sdf(&self, point: Vec3) -> f32 {
-        SdfNode::sdf(self, point)
-    }
+// impl Sdf for Arc<SdfNode> {
+//     fn sdf(&self, point: Vec3) -> f32 {
+//         SdfNode::sdf(self, point)
+//     }
 
-    fn aabb(&self) -> Option<Aabb3d> {
-        SdfNode::aabb(self)
-    }
-}
+//     fn aabb(&self) -> Option<Aabb3d> {
+//         SdfNode::aabb(self)
+//     }
+// }
 
 impl Sdf for SdfNode {
     fn sdf(&self, point: Vec3) -> f32 {

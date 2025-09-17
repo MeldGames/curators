@@ -8,6 +8,7 @@ use crate::sdf::{Sdf, SdfNode};
 /// Translate the underlying primitive.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Default, Clone, Debug)]
+#[reflect(where P: Clone + Default)]
 pub struct Translate<P: Sdf> {
     pub translate: Vec3,
     pub primitive: P,

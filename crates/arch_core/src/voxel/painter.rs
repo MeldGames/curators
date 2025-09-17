@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 use bevy_math::bounding::Aabb3d;

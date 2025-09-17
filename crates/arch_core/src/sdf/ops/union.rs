@@ -6,6 +6,7 @@ use crate::sdf::Sdf;
 /// Union operation - combines two SDFs with a minimum operation.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Default, Clone, Debug)]
+#[reflect(where A: Clone + Default, B: Clone + Default)]
 pub struct Union<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,

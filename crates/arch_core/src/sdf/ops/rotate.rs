@@ -8,6 +8,7 @@ use crate::sdf::{Sdf, SdfNode};
 /// Rotate the underlying primitive.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Default, Clone, Debug)]
+#[reflect(where P: Clone + Default)]
 pub struct Rotate<P: Sdf> {
     pub rotate: Quat,
     pub primitive: P,
@@ -31,7 +32,7 @@ impl<P: Sdf> Sdf for Rotate<P> {
     }
 }
 
-impl<S: Sdf> Default for Rotate<S> {
+impl<S: Sdf + Default> Default for Rotate<S> {
     fn default() -> Self {
         Self { rotate: Quat::IDENTITY, primitive: default() }
     }

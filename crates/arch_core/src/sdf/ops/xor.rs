@@ -6,6 +6,7 @@ use crate::sdf::Sdf;
 /// XOR operation - exclusive or of two SDFs.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Default, Clone, Debug)]
+#[reflect(where A: Clone + Default, B: Clone + Default)]
 pub struct Xor<A: Sdf, B: Sdf> {
     pub a: A,
     pub b: B,
@@ -35,7 +36,7 @@ impl<A: Sdf, B: Sdf> Sdf for Xor<A, B> {
     }
 }
 
-impl<A: Sdf, B: Sdf> Default for Xor<A, B> {
+impl<A: Sdf + Default, B: Sdf + Default> Default for Xor<A, B> {
     fn default() -> Self {
         Self { a: A::default(), b: B::default() }
     }

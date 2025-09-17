@@ -8,8 +8,9 @@ use crate::sdf::Sdf;
 /// Non uniform scaling is supported, but may cause some issues.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Default, Clone, Debug)]
-pub struct Scale<P: Sdf> {
-    pub primitive: P,
+#[reflect(where S: Clone + Default)]
+pub struct Scale<S: Sdf> {
+    pub primitive: S,
     pub scale: Vec3,
 }
 
@@ -22,7 +23,7 @@ impl<P: Sdf> Scale<P> {
 
 impl<S: Sdf + Default> Default for Scale<S> {
     fn default() -> Self {
-        Self { primitive: S::default(), scale: Vec3::ONE }
+        Self { primitive: default(), scale: Vec3::ONE }
     }
 }
 

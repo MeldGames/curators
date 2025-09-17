@@ -8,6 +8,7 @@ use crate::sdf::{Sdf, SdfNode};
 /// Round operation - adds rounding to the underlying primitive.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Default, Clone, Debug)]
+#[reflect(where P: Clone + Default)]
 pub struct Round<P: Sdf> {
     pub primitive: P,
     pub radius: f32,
@@ -20,7 +21,7 @@ impl<P: Sdf> Round<P> {
     }
 }
 
-impl<S: Sdf> Default for Round<S> {
+impl<S: Sdf + Default> Default for Round<S> {
     fn default() -> Self {
         Self { primitive: S::default(), radius: 0.0 }
     }

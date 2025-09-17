@@ -115,7 +115,7 @@ impl StackUpdates {
 
 // Pull relevant chunks from the 64tree into our linear array.
 pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
-    for (grid_entity, voxels, mut sim_chunks) in &mut grids {
+    for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
         for z in 0..2{
             for x in 0..2 {
                 for y in 0..2 {
@@ -143,7 +143,7 @@ pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
 }
 
 pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
-    for (grid_entity, mut voxels, sim_chunks) in &mut grids {
+    for (_grid_entity, mut voxels, sim_chunks) in &mut grids {
         for (chunk_point, chunk_key) in &sim_chunks.from_chunk_point {
             // info!("propagating to tree: {:?}", chunk_point);
             let sim_chunk = sim_chunks.chunks.get(*chunk_key).unwrap();
@@ -153,7 +153,7 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
 }
 
 pub fn add_sand(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
-    for (grid_entity, mut voxels, sim_chunks) in &mut grids {
+    for (_grid_entity, mut voxels, sim_chunks) in &mut grids {
         voxels.set_voxel(IVec3::new(10, 20, 10), Voxel::Sand);
     }
 }
@@ -175,7 +175,7 @@ pub fn falling_sands(
 
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
-    for (grid_entity, mut sim_chunks) in &mut grids {
+    for (_grid_entity, mut sim_chunks) in &mut grids {
         // sim_swap_buffer.0.clear();
 
         use rayon::prelude::*;

@@ -52,7 +52,7 @@ pub fn rasterize_sdf(mut voxels: Query<&mut Voxels>, input: Res<ButtonInput<KeyC
         strength: 0.3,
     };
 
-    // let sdf = ops::Union { a: sdf, b: sdf::Sphere { radius: 2.0 } };
+    // let sdf = ops::Union { A: Sdf + Clone + Default, B: Sdf + Clone + Default::Sphere { radius: 2.0 } };
     let translated_sphere = ops::Isometry {
         translation: Vec3::new(12.0, 12.0, 3.0),
         rotation: Quat::IDENTITY,
