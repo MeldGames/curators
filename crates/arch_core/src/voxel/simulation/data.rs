@@ -166,6 +166,10 @@ pub struct SimChunks {
 
     pub from_chunk_point: HashMap<ChunkPoint, ChunkKey>,
 
+    // 0 => 0, 0, 0
+    // 1 => 1, 1, 1
+    // pub blocks: [Vec<ChunkKeys>; 2],
+
     /// 0..8 offsets
     pub margolus_offset: usize,
 }
@@ -241,50 +245,6 @@ pub fn chunk_point(point: IVec3) -> ChunkPoint {
     ChunkPoint(point.div_euclid(IVec3::splat(CHUNK_WIDTH as i32)))
 }
 
-// impl<'a> Iterator for UpdateIterator<'a> {
-// type Item = (ChunkPoint, usize);
-//
-// (chunk_index, voxel_index)
-//
-// fn next(&mut self) -> Option<Self::Item> {
-// #[cfg(feature = "trace")]
-// let span = info_span!("UpdateIterator.next").entered();
-//
-// const MASK_LENGTH: usize = CHUNK_LENGTH / 64;
-// println!("UPDATE ITERATOR NEXT");
-// while self.mask_index < MASK_LENGTH && self.current_mask.is_some() {
-// let chunk_point = self.chunk_points[self.chunk_index];
-// let mut chunk_updates = self.chunk_updates.get_mut(&chunk_point).unwrap();
-// let (chunk_point, chunk_bitsets) = self.current_mask.as_mut().unwrap();
-//
-// let bitset = if cfg!(feature = "safe-bounds") {
-// &mut chunk_bitsets[self.mask_index]
-// } else {
-// unsafe { chunk_bitsets.get_unchecked_mut(self.mask_index) }
-// };
-//
-// if *bitset != 0 {
-// `bitset & -bitset` returns a bitset with only the lowest significant bit set
-// let t = *bitset & bitset.wrapping_neg();
-// let trailing = bitset.trailing_zeros() as usize;
-// let voxel_index = self.mask_index * 64 + trailing;
-// bitset ^= t;
-// return Some((**chunk_point, voxel_index));
-// } else {
-// self.mask_index += 1;
-// if self.mask_index == MASK_LENGTH {
-// #[cfg(feature = "trace")]
-// let span = info_span!("UpdateIterator.next_internal").entered();
-// self.mask_index = 0;
-// self.current_mask = self.iter.next();
-// }
-// }
-// }
-//
-// None
-// }
-// }
-
 impl SimChunks {
     pub fn new() -> Self {
         Self { chunks: SlotMap::with_key(), from_chunk_point: HashMap::new(), margolus_offset: 0 }
@@ -326,7 +286,6 @@ impl SimChunks {
         if let Some(existing_chunk) = existing_chunk {
             *existing_chunk = sim_chunk;
         } else {
-            // drop(existing_chunk);
             let chunk_key = self.chunks.insert(sim_chunk);
             self.from_chunk_point.insert(chunk_point, chunk_key);
         }
@@ -415,16 +374,17 @@ impl SimChunks {
 
         let offset = MARGOLUS_OFFSETS[self.margolus_offset];
         for (&chunk_point, &chunk_key) in self.from_chunk_point.iter() {
-            let anchor = (*chunk_point + offset) / 2;
+            let corner = ((*chunk_point + offset) / 2) * 2 - offset;
 
             // Linearize the chunk position into a 2x2x2 block (x, y, z in {0,1})
-            let rel = *chunk_point - anchor * 2;
+            let rel = *chunk_point - corner;
+            // info!("anchor: {corner}, chunk_point: {chunk_point:?}, offset: {offset}");
             let chunk_index = ChunkView::linearize_chunk(rel);
 
-            let block_index = match to_index.entry(ChunkPoint(anchor)) {
+            let block_index = match to_index.entry(ChunkPoint(corner)) {
                 Entry::Occupied(entry) => *entry.get(),
                 Entry::Vacant(entry) => {
-                    blocks.push(ChunkKeys { start_chunk_point: anchor, keys: [None; 8] });
+                    blocks.push(ChunkKeys { start_chunk_point: corner, keys: [None; 8] });
 
                     let block_index = blocks.len() - 1;
                     entry.insert(block_index);
@@ -616,7 +576,8 @@ impl<'a> ChunkView<'a> {
 
     pub fn get_voxel(&self, voxel_position: VoxelPosition) -> Option<Voxel> {
         if let Some(chunk) = &self.chunks[voxel_position.chunk_index] {
-            Some(chunk.voxels[voxel_position.voxel_index])
+            // Some(chunk.voxels[voxel_position.voxel_index])
+            Some(unsafe { *chunk.voxels.get_unchecked(voxel_position.voxel_index) })
         } else {
             None
         }

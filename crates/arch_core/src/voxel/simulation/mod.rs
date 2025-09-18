@@ -116,9 +116,9 @@ impl StackUpdates {
 // Pull relevant chunks from the 64tree into our linear array.
 pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        for z in 0..2{
-            for x in 0..2 {
-                for y in 0..2 {
+        for z in 0..8{
+            for x in 0..8 {
+                for y in 0..8 {
                     let chunk_point = IVec3::new(x, y, z);
                     let sim_chunk = match voxels.tree.root.get_chunk(chunk_point) {
                         VoxelNode::Solid { voxel, .. } => {
@@ -178,18 +178,21 @@ pub fn falling_sands(
     for (_grid_entity, mut sim_chunks) in &mut grids {
         // sim_swap_buffer.0.clear();
 
+        sim_chunks.margolus_offset += 1;
+        sim_chunks.margolus_offset %= 8;
+
         use rayon::prelude::*;
         let views = sim_chunks.chunk_views();
 
         // Parallel version
-        // views.into_par_iter().for_each(|mut chunk_view| {
-        //     chunk_view.simulate(*sim_tick);
-        // });
-
-        // Single threaded version
-        views.into_iter().for_each(|mut chunk_view| {
+        views.into_par_iter().for_each(|mut chunk_view| {
             chunk_view.simulate(*sim_tick);
         });
+
+        // Single threaded version
+        // views.into_iter().for_each(|mut chunk_view| {
+        //     chunk_view.simulate(*sim_tick);
+        // });
 
         // for (chunk_point, voxel_index) in sim_chunks.sim_updates(&mut
         // sim_swap_buffer.0) {     #[cfg(feature = "trace")]

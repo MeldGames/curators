@@ -75,7 +75,7 @@ pub struct SampleBuffers {
 impl Default for SampleBuffers {
     fn default() -> Self { 
         Self {
-            buffers: vec![[0.4; 18 * 18 * 18]; VOXEL_TYPE_COUNT],
+            buffers: vec![[1.0; 18 * 18 * 18]; VOXEL_TYPE_COUNT],
             voxel_set: VoxelSet::default(),
         }
     }
@@ -84,7 +84,7 @@ impl Default for SampleBuffers {
 impl SampleBuffers {
     pub fn clear(&mut self) {
         for voxel in self.voxel_set {
-            self.buffers[voxel.id() as usize] = [0.4; 18 * 18 * 18];
+            self.buffers[voxel.id() as usize] = [1.0; 18 * 18 * 18];
         }
 
         self.voxel_set.clear();
@@ -137,10 +137,15 @@ pub fn update_surface_net_mesh(
             for y in -1..1 {
                 for z in -1..1 {
                     let offset = IVec3::new(x, y, z);
+                    let neighboring_chunk_point = *changed_chunk.chunk_point + offset;
+                    if neighboring_chunk_point.min_element() < 0 {
+                        continue;
+                    }
+
                     // add all neighboring chunks to be updated as well
                     let neighbor_changed = ChangedChunk {
                         grid_entity: changed_chunk.grid_entity,
-                        chunk_point: ChunkPoint(*changed_chunk.chunk_point + offset),
+                        chunk_point: ChunkPoint(neighboring_chunk_point),
                     };
 
                     if !dedup.contains(&neighbor_changed) {
@@ -170,7 +175,7 @@ pub fn update_surface_net_mesh(
 
     let mut pop_count = 0;
     while pop_count < remesh.surface_net {
-        pop_count += 1;
+        let mut processed = false;
         let Some(changed_chunk) = queue.pop() else {
             break;
         };
@@ -194,11 +199,11 @@ pub fn update_surface_net_mesh(
         // }
 
         let chunk_size = IVec3::splat(16);
-        let chunk_min = (*chunk_point * 16);
+        let chunk_min = *chunk_point * 16;
         let chunk_max = chunk_min + chunk_size;
         let min = chunk_min - IVec3::ONE;
         let max = chunk_max + IVec3::ONE;
-        info!("chunk_min: {chunk_min}, chunk_max: {chunk_max:?}");
+        // info!("chunk_min: {chunk_min}, chunk_max: {chunk_max:?}");
 
         VoxelSampler::sample(&voxels, &mut sample_buffers, min, max);
 
@@ -214,10 +219,12 @@ pub fn update_surface_net_mesh(
                 continue;
             }
 
+            processed = true;
+
             let voxel_id = voxel.id();
             let sample_buffer = sample_buffers.buffers[voxel_id as usize];
             let shape = SurfaceNetShape {};
-            info!("creating surface net mesh");
+            // info!("creating surface net mesh");
             surface_nets(&sample_buffer, &shape, [0; 3], [17; 3], &mut surface_net_buffer);
 
             let SurfaceNetsBuffer { ref mut normals, ref mut positions, .. } = *surface_net_buffer;
@@ -265,25 +272,25 @@ pub fn update_surface_net_mesh(
             }
 
             mesh.duplicate_vertices();
-            // mesh.compute_flat_normals();
+            mesh.compute_flat_normals();
 
             // remeshed.0.insert(chunk_point);
 
             // 몰리
 
             if let Some(entity) = chunk_meshes.get(&voxel.id()) {
-                info!("existing chunk mesh");
+                // info!("existing chunk mesh");
                 // let mut entity_commands = commands.entity(*entity);
                 let aabb = mesh.compute_aabb();
                 let mesh_handle = meshes.add(mesh);
 
-                apply_later.push((*entity, mesh_handle, aabb, 1)); // flickering if we try to add the mesh immediately
+                apply_later.push((*entity, mesh_handle, aabb, 3)); // flickering if we try to add the mesh immediately
             // entity_commands.insert(Mesh3d(mesh_handle));
             // if let Some(aabb) = aabb {
             //     entity_commands.insert(aabb);
             // }
             } else {
-                info!("missing chunk mesh");
+                // info!("missing chunk mesh");
                 // if let Some(mesh) = render_mesh {
                 let mesh_handle = meshes.add(mesh);
                 let material = materials.add(voxel.material());
@@ -313,6 +320,10 @@ pub fn update_surface_net_mesh(
                 chunk_meshes.insert(voxel.id(), id);
                 // }
             }
+        }
+
+        if processed {
+            pop_count += 1;
         }
     }
 }
@@ -387,7 +398,7 @@ impl VoxelSampler {
 
                     let voxel_index = shape.linearize([relative_point.x as u32, relative_point.y as u32, relative_point.z as u32]);
                     let buffer = &mut buffers.buffers[buffer_index];
-                    buffer[voxel_index as usize] = -0.4;
+                    buffer[voxel_index as usize] = -1.0;
                 }
             }
         }
