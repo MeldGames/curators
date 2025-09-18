@@ -10,6 +10,7 @@ use slotmap::SlotMap;
 use tracing::*;
 
 use crate::sdf::Sdf;
+use crate::voxel::simulation::kinds::VoxelPosition;
 use crate::voxel::simulation::FallingSandTick;
 use crate::voxel::simulation::rle::RLEChunk;
 use crate::voxel::voxel::VoxelSet;
@@ -613,54 +614,38 @@ impl<'a> ChunkView<'a> {
         ivec3(x as i32, y as i32, z as i32)
     }
 
-    pub fn get_voxel(&self, chunk_index: usize, voxel_index: usize) -> Option<Voxel> {
-        if let Some(chunk) = &self.chunks[chunk_index] {
-            Some(chunk.voxels[voxel_index])
+    pub fn get_voxel(&self, voxel_position: VoxelPosition) -> Option<Voxel> {
+        if let Some(chunk) = &self.chunks[voxel_position.chunk_index] {
+            Some(chunk.voxels[voxel_position.voxel_index])
         } else {
             None
         }
     }
 
-    pub fn set_voxel(&mut self, chunk_index: usize, voxel_index: usize, voxel: Voxel) {
-        if let Some(chunk) = &mut self.chunks[chunk_index] {
-            chunk.voxels[voxel_index] = voxel;
+    pub fn set_voxel(&mut self, voxel_position: VoxelPosition, voxel: Voxel) {
+        if let Some(chunk) = &mut self.chunks[voxel_position.chunk_index] {
+            chunk.voxels[voxel_position.voxel_index] = voxel;
         }
     }
 
     pub fn get_relative_voxel(
         &self,
-        origin_chunk_index: usize,
-        origin_voxel_index: usize,
+        voxel_position: VoxelPosition,
         relative: IVec3,
-    ) -> Option<(usize, usize, Voxel)> {
-        let (chunk_index, voxel_index) =
-            self.get_relative_voxel_indices(origin_chunk_index, origin_voxel_index, relative)?;
-        let voxel = self.get_voxel(chunk_index, voxel_index)?;
-        Some((chunk_index, voxel_index, voxel))
+    ) -> Option<(VoxelPosition, Voxel)> {
+        let relative_position =
+            self.get_relative_voxel_position(voxel_position, relative)?;
+        let voxel = self.get_voxel(relative_position)?;
+        Some((relative_position, voxel))
     }
 
     // Note: this will not work on relative positions larger than 16 movements
     // outside of a chunk
-    pub fn get_relative_voxel_indices(
+    pub fn get_relative_voxel_position(
         &self,
-        origin_chunk_index: usize,
-        origin_voxel_index: usize,
+        position: VoxelPosition,
         relative: IVec3,
-    ) -> Option<(usize, usize)> {
-        // happy path, we just add the stride
-        let z_stride = relative.z as usize;
-        let x_stride = (relative.x as usize) * CHUNK_WIDTH;
-        let y_stride = (relative.y as usize) * CHUNK_WIDTH * CHUNK_WIDTH;
-        let relative_stride = z_stride + x_stride + y_stride;
-
-        let new_index = origin_voxel_index + relative_stride;
-        // use underflowing to our advantage, if the stride goes under 0 it'll wrap to
-        // usize::MAX and fail this.
-        if new_index < CHUNK_LENGTH {
-            // happy path
-            return Some((origin_chunk_index, new_index));
-        }
-
+    ) -> Option<VoxelPosition> {
         // handle edge case
         assert!(
             relative.x.abs() < CHUNK_WIDTH as i32
@@ -668,19 +653,15 @@ impl<'a> ChunkView<'a> {
                 && relative.z.abs() < CHUNK_WIDTH as i32
         );
 
-        let origin_point = delinearize(origin_voxel_index);
-        let mut combined_point = origin_point + relative;
+        let mut combined_point = position.voxel_point + relative;
 
-        let mut chunk_point = Self::delinearize_chunk(origin_chunk_index);
-        chunk_point += combined_point.div_euclid(IVec3::splat(CHUNK_WIDTH as i32));
+        let chunk_point = position.chunk_point + combined_point.div_euclid(IVec3::splat(CHUNK_WIDTH as i32));
         combined_point = combined_point.rem_euclid(IVec3::splat(CHUNK_WIDTH as i32));
 
         if chunk_point.min_element() < 0 || chunk_point.max_element() >= CHUNK_VIEW_SIZE as i32 {
             None
         } else {
-            let relative_chunk_index = Self::linearize_chunk(chunk_point);
-            let relative_voxel_index = linearize(combined_point);
-            Some((relative_chunk_index, relative_voxel_index))
+            Some(VoxelPosition::from_points(chunk_point, combined_point))
         }
     }
 
@@ -711,7 +692,8 @@ impl<'a> ChunkView<'a> {
                     continue;
                 }
 
-                voxel.simulate(self, chunk_index, voxel_index, tick);
+                let position = VoxelPosition::from_indices(chunk_index, voxel_index);
+                voxel.simulate(self, position, tick);
             }
         }
     }

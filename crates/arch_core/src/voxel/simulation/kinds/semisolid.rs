@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::voxel::simulation::kinds::VoxelPosition;
 use crate::voxel::Voxel;
 use crate::voxel::simulation::data::ChunkView;
 // use crate::voxel::simulation::kinds::liquid::LiquidState;
@@ -8,8 +9,7 @@ use crate::voxel::simulation::{FallingSandTick, SimChunks};
 #[inline]
 pub fn simulate_semisolid(
     view: &mut ChunkView<'_>,
-    chunk_index: usize,
-    voxel_index: usize,
+    voxel_position: VoxelPosition,
     sim_voxel: Voxel,
     sim_tick: FallingSandTick,
 ) {
@@ -25,12 +25,12 @@ pub fn simulate_semisolid(
     ];
 
     for &check in SEMISOLID_CHECKS.iter() {
-        if let Some((relative_chunk_index, relative_voxel_index, relative_voxel)) =
-            view.get_relative_voxel(chunk_index, voxel_index, check)
+        if let Some((relative_voxel_position, relative_voxel)) =
+            view.get_relative_voxel(voxel_position, check)
         {
             if relative_voxel.is_gas() || (check == IVec3::NEG_Y && relative_voxel.is_liquid()) {
-                view.set_voxel(relative_chunk_index, relative_voxel_index, sim_voxel);
-                view.set_voxel(chunk_index, voxel_index, relative_voxel);
+                view.set_voxel(relative_voxel_position, sim_voxel);
+                view.set_voxel(voxel_position, relative_voxel);
                 return;
             }
         }
