@@ -4,7 +4,8 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::ecs::schedule::Stepping;
 use bevy::prelude::*;
-use bevy::render::mesh::{Indices, PrimitiveTopology};
+use bevy::render::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
+use bevy::render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues, VertexFormat};
 use bevy_math::bounding::Aabb3d;
 use fast_surface_nets::ndshape::{RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
@@ -47,14 +48,17 @@ pub fn update_character_mesh(
     characters: Query<(Entity, &CharacterMeshSettings), Changed<CharacterMeshSettings>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut inverse_bindposes: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
     for (entity, settings) in &characters {
         let body = sdf::Ellipsoid { radii: settings.body_fatness };
 
+        let neck_start = Vec3::new(0.0, 0.0, settings.neck_z_connection);
+        let neck_end = Vec3::new(0.0, settings.head_height, settings.neck_z_connection);
         let neck = sdf::Capsule {
-            start: Vec3::new(0.0, 0.0, settings.neck_z_connection),
-            end: Vec3::new(0.0, settings.head_height, settings.neck_z_connection),
-            radius: 0.25,
+            start: neck_start,
+            end: neck_end,
+            radius: settings.neck_fatness,
         };
 
         let head =
@@ -70,8 +74,8 @@ pub fn update_character_mesh(
 
         let head = head.smooth_subtraction(socket, 0.1);
 
-        let body_neck_join = body.smooth_union(neck, 0.3);
-        let head_neck_join = body_neck_join.smooth_union(head, 0.3);
+        let body_neck_join = body.smooth_union(neck.clone(), 0.3);
+        let head_neck_join = body_neck_join.smooth_union(head.clone(), 0.3);
 
         let sdf = head_neck_join;
 
@@ -81,10 +85,171 @@ pub fn update_character_mesh(
         let sample_epsilon = Vec3::splat(step_amount * 4.0);
         let min = Vec3::from(aabb.min) - sample_epsilon;
         let max = Vec3::from(aabb.max) + sample_epsilon;
-        if let Some(mut mesh) = sdf_to_mesh(sdf, min, max, step_amount) {
+        if let Some((mut mesh, buffer)) = sdf_to_mesh(sdf, min, max, step_amount) {
+            // neck joints
+            let neck_midpoint = neck_start.midpoint(neck_end);
+
+            let anchor_joint = commands.spawn((
+                Name::new("Anchor joint"),
+                Transform {
+                    translation: Vec3::ZERO,
+                    ..default()
+                },
+                GlobalTransform::default(),
+                ChildOf(entity),
+            )).id();
+
+            // neck start joint
+            let neck_start_joint = commands.spawn((
+                Name::new("Neck start joint"),
+                Transform {
+                    translation: neck_start,
+                    ..default()
+                },
+                GlobalTransform::default(),
+                ChildOf(anchor_joint),
+            )).id();
+
+
+            let neck_offset = Vec3::new(0.0, (neck_end.y - neck_start.y / 2.0), 0.0);
+            let neck_midpoint_joint = commands.spawn((
+                Name::new("Neck midpoint joint"),
+                Transform {
+                    translation: neck_offset,
+                    ..default()
+                },
+                GlobalTransform::default(),
+                ChildOf(neck_start_joint),
+            )).id();
+
+            let neck_end_joint = commands.spawn((
+                Name::new("Neck end joint"),
+                Transform {
+                    translation: neck_offset,
+                    ..default()
+                },
+                GlobalTransform::default(),
+                ChildOf(neck_midpoint_joint),
+            )).id();
+
+            let joints = vec![anchor_joint, neck_start_joint, neck_midpoint_joint, neck_end_joint];
+
+            let mut joint_indices = vec![[0u16; 4]; buffer.positions.len()] ;
+            let mut joint_weights = vec![[0.0; 4]; buffer.positions.len()] ;
+
+            let body_index = 0;
+            for (index, position) in buffer.positions.iter().enumerate() {
+                // in neck?
+                let position = Vec3::from(*position);
+                if body.sdf(position) < 0.05 { // we are inside the neck
+                    // find empty index
+                    let internal_index = joint_weights[index].iter().enumerate().find(|(_, weight)| {
+                        **weight == 0.0
+                        // **index == 0
+                    }).map(|(index, _)| index);
+
+                    if let Some(internal_index) = internal_index {
+                        joint_indices[index][internal_index] = body_index;
+                        joint_weights[index][internal_index] = 1.0; // TODO: transition based on how close to the neck start it is
+                    }
+                }
+            }
+
+            // weight neck_start
+            let neck_start_index = 1;
+            for (index, position) in buffer.positions.iter().enumerate() {
+                // in neck?
+                let position = Vec3::from(*position);
+                let neckbase = sdf::primitive::Cylinder { // middle 2/3rd
+                    start: neck.start,
+                    end: neck_midpoint,
+                    radius: 0.25,
+                };
+                if neckbase.sdf(position) < 0.05 { 
+                    // find empty index
+                    let internal_index = joint_indices[index].iter().enumerate().find(|(_, index)| {
+                        // **weight == 0.0
+                        **index == 0
+                    }).map(|(index, _)| index);
+
+                    if let Some(internal_index) = internal_index {
+                        joint_indices[index][internal_index] = neck_start_index;
+                        joint_weights[index][internal_index] = 1.0; // TODO: transition based on how close to the neck start it is
+                    }
+                }
+            }
+
+            // weight neck_midpoint
+            let neck_midpoint_index = 2;
+            for (index, position) in buffer.positions.iter().enumerate() {
+                // in neck?
+                let position = Vec3::from(*position);
+                let midneck = sdf::primitive::Cylinder { // middle 2/3rd
+                    start: neck_midpoint.midpoint(neck.end),
+                    end: neck.start.midpoint(neck_midpoint),
+                    radius: 0.25,
+                };
+
+                if midneck.sdf(position) < 0.05 { // we are inside the neck
+                    // find empty index
+                    let internal_index = joint_indices[index].iter().enumerate().find(|(_, index)| {
+                        // **weight == 0.0
+                        **index == 0
+                    }).map(|(index, _)| index);
+
+                    if let Some(internal_index) = internal_index {
+                        joint_indices[index][internal_index] = neck_midpoint_index;
+                        joint_weights[index][internal_index] = 1.0; // TODO: transition based on how close to the neck start it is
+                    }
+                }
+            }
+
+            let neck_end_index = 3;
+            for (index, position) in buffer.positions.iter().enumerate() {
+                // in neck?
+                let position = Vec3::from(*position);
+                let upper_neck = Capsule {
+                    end: neck.end,
+                    start: neck.end.midpoint(neck.start),
+                    radius: 0.25,
+                };
+
+                if upper_neck.sdf(position) < 0.05 || head.sdf(position) < 0.1 { // we are inside the neck
+                    // find empty index
+                    let internal_index = joint_indices[index].iter().enumerate().find(|(_, index)| {
+                        // **weight == 0.0
+                        **index == 0
+                    }).map(|(index, _)| index);
+
+                    if let Some(internal_index) = internal_index {
+                        joint_indices[index][internal_index] = neck_end_index;
+                        joint_weights[index][internal_index] = 1.0; // TODO: transition based on how close to the neck start it is
+                    }
+                }
+            }
+
+            mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, VertexAttributeValues::Uint16x4(joint_indices));
+            mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
+            mesh.normalize_joint_weights();
+
+            // assign 
+            let joint_inverses = inverse_bindposes.add(
+            SkinnedMeshInverseBindposes::from(vec![
+                    Mat4::IDENTITY,
+                    Mat4::from_translation(-neck_start),
+                    Mat4::from_translation(-neck_start + -neck_offset),
+                    Mat4::from_translation(-neck_start + -neck_offset + -neck_offset),
+                ])
+            );
+
+            let skinned_mesh = SkinnedMesh {
+                inverse_bindposes: joint_inverses,
+                joints,
+            };
+
             // mesh.duplicate_vertices();
             // mesh.compute_flat_normals();
-            commands.entity(entity).insert(Mesh3d(meshes.add(mesh)));
+            commands.entity(entity).insert((Mesh3d(meshes.add(mesh)), skinned_mesh));
         }
     }
 }
@@ -145,7 +310,7 @@ pub fn sdf_to_mesh(
     sample_min: Vec3,
     sample_max: Vec3,
     step_amount: f32,
-) -> Option<Mesh> {
+) -> Option<(Mesh, SurfaceNetsBuffer)> {
     let size = sample_max - sample_min;
     if size.x <= step_amount || size.y <= step_amount || size.z <= step_amount {
         return None;
@@ -173,10 +338,10 @@ pub fn sdf_to_mesh(
         *normal = Vec3::from(*normal).normalize_or_zero().into();
     }
 
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffer.positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, buffer.normals);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffer.positions.clone());
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, buffer.normals.clone());
 
-    mesh.insert_indices(Indices::U32(buffer.indices));
+    mesh.insert_indices(Indices::U32(buffer.indices.clone()));
 
-    Some(mesh)
+    Some((mesh, buffer))
 }
