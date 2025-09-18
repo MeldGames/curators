@@ -26,7 +26,7 @@ pub fn plugin(app: &mut App) {
     app.insert_resource(FallingSandTick(0));
     app.insert_resource(SimSettings::default());
 
-    // app.add_systems(FixedPostUpdate, (add_sand, pull_from_tree, falling_sands, propagate_to_tree).chain());
+    app.add_systems(FixedPostUpdate, (add_sand, pull_from_tree, falling_sands, propagate_to_tree).chain());
     app.add_systems(PostUpdate, sim_settings);
 
     app.add_systems(Startup, || {

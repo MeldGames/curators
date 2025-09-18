@@ -163,9 +163,9 @@ pub fn update_character_mesh(
                 let neckbase = sdf::primitive::Cylinder { // middle 2/3rd
                     start: neck.start,
                     end: neck_midpoint,
-                    radius: 0.25,
+                    radius: 0.25 + 0.05,
                 };
-                if neckbase.sdf(position) < 0.05 { 
+                if neckbase.sdf(position) < 0.0 { 
                     // find empty index
                     let internal_index = joint_indices[index].iter().enumerate().find(|(_, index)| {
                         // **weight == 0.0
@@ -176,6 +176,8 @@ pub fn update_character_mesh(
                         joint_indices[index][internal_index] = neck_start_index;
                         joint_weights[index][internal_index] = 1.0; // TODO: transition based on how close to the neck start it is
                     }
+
+                    //joint_weights[index] = [0.0; 4];
                 }
             }
 
@@ -185,12 +187,12 @@ pub fn update_character_mesh(
                 // in neck?
                 let position = Vec3::from(*position);
                 let midneck = sdf::primitive::Cylinder { // middle 2/3rd
-                    start: neck_midpoint.midpoint(neck.end),
-                    end: neck.start.midpoint(neck_midpoint),
-                    radius: 0.25,
+                    start: neck_midpoint.midpoint(neck.start),
+                    end: neck_midpoint.midpoint(neck.end),
+                    radius: 0.25 + 0.05,
                 };
 
-                if midneck.sdf(position) < 0.05 { // we are inside the neck
+                if midneck.sdf(position) < 0.0 { // we are inside the neck
                     // find empty index
                     let internal_index = joint_indices[index].iter().enumerate().find(|(_, index)| {
                         // **weight == 0.0
@@ -208,13 +210,13 @@ pub fn update_character_mesh(
             for (index, position) in buffer.positions.iter().enumerate() {
                 // in neck?
                 let position = Vec3::from(*position);
-                let upper_neck = Capsule {
+                let upper_neck = sdf::primitive::Cylinder {
+                    start: neck.end.midpoint(neck_midpoint),
                     end: neck.end,
-                    start: neck.end.midpoint(neck.start),
-                    radius: 0.25,
+                    radius: 0.25 + 0.05,
                 };
 
-                if upper_neck.sdf(position) < 0.05 || head.sdf(position) < 0.1 { // we are inside the neck
+                if upper_neck.sdf(position) < 0.0 || head.sdf(position) < 0.1 { // we are inside the neck
                     // find empty index
                     let internal_index = joint_indices[index].iter().enumerate().find(|(_, index)| {
                         // **weight == 0.0
@@ -225,11 +227,23 @@ pub fn update_character_mesh(
                         joint_indices[index][internal_index] = neck_end_index;
                         joint_weights[index][internal_index] = 1.0; // TODO: transition based on how close to the neck start it is
                     }
+
+                    joint_weights[index] = [0.0; 4];
+                }
+            }
+
+            let mut colors = vec![[0.0, 0.0, 0.0, 1.0]; buffer.positions.len()];
+            for (index, joint_indices) in joint_indices.iter().enumerate() {
+                for joint_index in joint_indices {
+                    if *joint_index > 0 {
+                        colors[index][(*joint_index - 1) as usize] = 1.0;
+                    }
                 }
             }
 
             mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, VertexAttributeValues::Uint16x4(joint_indices));
             mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
+            mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
             mesh.normalize_joint_weights();
 
             // assign 
@@ -238,7 +252,7 @@ pub fn update_character_mesh(
                     Mat4::IDENTITY,
                     Mat4::from_translation(-neck_start),
                     Mat4::from_translation(-neck_start + -neck_offset),
-                    Mat4::from_translation(-neck_start + -neck_offset + -neck_offset),
+                    Mat4::from_translation(-neck_start + -neck_offset),
                 ])
             );
 
@@ -263,7 +277,7 @@ pub fn spawn_character_mesh(
         CharacterMeshSettings { ..default() },
         Transform { translation: Vec3::new(-3.0, 5.0, -3.0), ..default() },
         MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(1.0, 0.0, 0.0),
+            base_color: Color::srgb(1.0, 1.0, 1.0),
             perceptual_roughness: 0.9,
             ..default()
         })),
