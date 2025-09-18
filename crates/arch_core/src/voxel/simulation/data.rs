@@ -1,6 +1,7 @@
 use std::hash::{Hash, Hasher};
 
 use bevy::platform::collections::hash_map::IterMut;
+use bevy::platform::collections::hash_map::Entry;
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
@@ -150,17 +151,18 @@ impl SimChunk {
     
     pub fn fill(voxel: Voxel) -> Self {
         Self {
-            dirty: DirtySet::empty(),
+            dirty: DirtySet::filled(),
             voxels: [voxel; CHUNK_LENGTH],
         }
     }
 }
 
 slotmap::new_key_type! { pub struct ChunkKey; }
+slotmap::new_key_type! { pub struct BlockKey; }
 
 // TODO: Double buffer this data so we can throw this on another thread,
 // and we can read the current chunks from the last sim
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Clone)]
 pub struct SimChunks {
     pub chunks: SlotMap<ChunkKey, SimChunk>, // active chunks
 
@@ -168,7 +170,8 @@ pub struct SimChunks {
 
     // 0 => 0, 0, 0
     // 1 => 1, 1, 1
-    // pub blocks: [Vec<ChunkKeys>; 2],
+    pub to_block_index: HashMap<ChunkPoint, BlockKey>,
+    pub blocks: [SlotMap<BlockKey, ChunkKeys>; 8],
 
     /// 0..8 offsets
     pub margolus_offset: usize,
@@ -247,7 +250,13 @@ pub fn chunk_point(point: IVec3) -> ChunkPoint {
 
 impl SimChunks {
     pub fn new() -> Self {
-        Self { chunks: SlotMap::with_key(), from_chunk_point: HashMap::new(), margolus_offset: 0 }
+        Self {
+            chunks: SlotMap::with_key(),
+            from_chunk_point: HashMap::new(),
+            to_block_index: HashMap::new(),
+            blocks: std::array::from_fn(|_| SlotMap::with_key()),
+            margolus_offset: 0,
+        }
     }
 
     #[inline]
@@ -288,7 +297,35 @@ impl SimChunks {
         } else {
             let chunk_key = self.chunks.insert(sim_chunk);
             self.from_chunk_point.insert(chunk_point, chunk_key);
+
+            // set up blocks
+            for offset_index in 0..8 {
+                let offset = MARGOLUS_OFFSETS[offset_index];
+
+                let corner = ((*chunk_point + offset) / 2) * 2 - offset;
+
+                // Linearize the chunk position into a 2x2x2 block (x, y, z in {0,1})
+                let rel = *chunk_point - corner;
+                // info!("anchor: {corner}, chunk_point: {chunk_point:?}, offset: {offset}");
+                let chunk_index = ChunkView::linearize_chunk(rel);
+
+                let block_key = match self.to_block_index.entry(ChunkPoint(corner)) {
+                    Entry::Occupied(entry) => *entry.get(),
+                    Entry::Vacant(entry) => {
+                        let block_key = self.blocks[offset_index].insert(ChunkKeys { start_chunk_point: corner, keys: [None; 8] });
+                        entry.insert(block_key);
+                        block_key
+                    },
+                };
+
+                let block = self.blocks[offset_index].get_mut(block_key).unwrap();
+                block.keys[chunk_index] = Some(chunk_key);
+            }
         }
+    }
+
+    pub fn remove_chunk(&mut self, chunk_point: ChunkPoint) {
+
     }
 
     #[inline]
@@ -365,54 +402,20 @@ impl SimChunks {
         }
     }
 
-    /// Create a 2x2x2 area of chunks based on the current margolus offset.
-    pub fn construct_blocks(&self) -> Vec<ChunkKeys> {
-        use bevy::platform::collections::hash_map::Entry;
-
-        let mut to_index: HashMap<ChunkPoint, usize> = HashMap::new();
-        let mut blocks: Vec<ChunkKeys> = Vec::new();
-
-        let offset = MARGOLUS_OFFSETS[self.margolus_offset];
-        for (&chunk_point, &chunk_key) in self.from_chunk_point.iter() {
-            let corner = ((*chunk_point + offset) / 2) * 2 - offset;
-
-            // Linearize the chunk position into a 2x2x2 block (x, y, z in {0,1})
-            let rel = *chunk_point - corner;
-            // info!("anchor: {corner}, chunk_point: {chunk_point:?}, offset: {offset}");
-            let chunk_index = ChunkView::linearize_chunk(rel);
-
-            let block_index = match to_index.entry(ChunkPoint(corner)) {
-                Entry::Occupied(entry) => *entry.get(),
-                Entry::Vacant(entry) => {
-                    blocks.push(ChunkKeys { start_chunk_point: corner, keys: [None; 8] });
-
-                    let block_index = blocks.len() - 1;
-                    entry.insert(block_index);
-                    block_index
-                },
-            };
-
-            let block = blocks.get_mut(block_index).unwrap();
-            block.keys[chunk_index] = Some(chunk_key);
-        }
-
-        blocks
-    }
-
     /// Split the [`SimChunks`] into a list of [`ChunkView`]s that can be
     /// processed in parallel.
     pub fn chunk_views<'a>(&'a mut self) -> Vec<ChunkView<'a>> {
-        let blocks = self.construct_blocks();
-        let mut views = blocks.iter().map(|keys| ChunkView {
+        let current_blocks = &self.blocks[self.margolus_offset];
+        let mut views = current_blocks.iter().map(|(_, keys)| ChunkView {
             start_chunk_point: keys.start_chunk_point,
             chunks: std::array::from_fn(|_| None),
         }).collect::<Vec<_>>();
 
         // block_index, key_index, key
-        let flattened = blocks.iter()
+        let flattened = current_blocks.iter()
             .enumerate()
-            .flat_map(|(block_index, block)| {
-                block.keys.iter()
+            .flat_map(|(block_index, (block_key, chunk_key))| {
+                chunk_key.keys.iter()
                     .enumerate()
                     .filter_map(move |(key_index, key)| {
                         key.map(|key| (block_index, key_index, key))
@@ -536,6 +539,7 @@ impl SimChunks {
     // }
 }
 
+#[derive(Debug, Clone)]
 pub struct ChunkKeys {
     pub start_chunk_point: IVec3,
     pub keys: [Option<ChunkKey>; CHUNK_VIEW_LENGTH],

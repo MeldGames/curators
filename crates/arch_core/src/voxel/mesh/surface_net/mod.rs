@@ -87,7 +87,7 @@ impl SampleBuffers {
             self.buffers[voxel.id() as usize] = [1.0; 18 * 18 * 18];
         }
 
-        self.voxel_set.clear();
+        // self.voxel_set.clear();
     }
 }
 
@@ -284,7 +284,7 @@ pub fn update_surface_net_mesh(
                 let aabb = mesh.compute_aabb();
                 let mesh_handle = meshes.add(mesh);
 
-                apply_later.push((*entity, mesh_handle, aabb, 3)); // flickering if we try to add the mesh immediately
+                apply_later.push((*entity, mesh_handle, aabb, 1)); // flickering if we try to add the mesh immediately
             // entity_commands.insert(Mesh3d(mesh_handle));
             // if let Some(aabb) = aabb {
             //     entity_commands.insert(aabb);
@@ -331,6 +331,30 @@ pub fn update_surface_net_mesh(
 pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
     let num_vertices = buffer.positions.len();
 
+    fn pseudo_random(index: usize) -> f32 {
+        // Use a larger prime multiplier and better mixing
+        let mut x = index as u64;
+        
+        // Multiply by large prime to spread out small indices
+        x = x.wrapping_mul(0x9E3779B97F4A7C15);
+        
+        // XorShift-style mixing with better constants
+        x ^= x >> 30;
+        x = x.wrapping_mul(0xBF58476D1CE4E5B9);
+        x ^= x >> 27;
+        x = x.wrapping_mul(0x94D049BB133111EB);
+        x ^= x >> 31;
+        
+        // Convert to 0..1 range using only the upper bits for better distribution
+        ((x >> 11) as f64 / (1u64 << 53) as f64) as f32
+    }
+
+    let mut colors = Vec::with_capacity(buffer.positions.len());
+    for (index, _) in buffer.positions.iter().enumerate() {
+        let darkness = 0.85 + pseudo_random(index) * 0.15;
+        colors.push([darkness, darkness, darkness, 1.0]);
+    }
+
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all());
     mesh.insert_attribute(
         Mesh::ATTRIBUTE_POSITION,
@@ -345,6 +369,7 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
         VertexAttributeValues::Float32x2(vec![[0.0; 2]; num_vertices]),
     );
     mesh.insert_indices(Indices::U32(buffer.indices.clone()));
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
 
     mesh
 }
