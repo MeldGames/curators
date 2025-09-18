@@ -82,8 +82,8 @@ pub fn update_character_mesh(
         let min = Vec3::from(aabb.min) - sample_epsilon;
         let max = Vec3::from(aabb.max) + sample_epsilon;
         if let Some(mut mesh) = sdf_to_mesh(sdf, min, max, step_amount) {
-            mesh.duplicate_vertices();
-            mesh.compute_flat_normals();
+            // mesh.duplicate_vertices();
+            // mesh.compute_flat_normals();
             commands.entity(entity).insert(Mesh3d(meshes.add(mesh)));
         }
     }
