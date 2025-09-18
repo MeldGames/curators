@@ -20,6 +20,7 @@ pub use primitive::*;
 pub fn register_sdf_reflect_types(app: &mut App) {
     app.register_type::<SdfNode>();
     app.register_type::<Arc<SdfNode>>();
+
     // Primitives
     app.register_type::<Cuboid>();
     app.register_type::<RoundedBox>();

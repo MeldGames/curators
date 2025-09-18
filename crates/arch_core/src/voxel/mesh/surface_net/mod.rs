@@ -265,7 +265,7 @@ pub fn update_surface_net_mesh(
             }
 
             mesh.duplicate_vertices();
-            mesh.compute_flat_normals();
+            // mesh.compute_flat_normals();
 
             // remeshed.0.insert(chunk_point);
 

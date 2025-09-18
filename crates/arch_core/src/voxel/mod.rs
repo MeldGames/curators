@@ -20,7 +20,7 @@ pub mod painter;
 pub mod voxels;
 
 // pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);
-pub const GRID_SCALE: Vec3 = Vec3::splat(0.4);
+pub const GRID_SCALE: Vec3 = Vec3::splat(0.2);
 // pub const GRID_SCALE: Vec3 = Vec3::splat(1.0);
 // pub const GRID_SCALE: Vec3 = Vec3::new(0.2, 0.2, 0.2);
 

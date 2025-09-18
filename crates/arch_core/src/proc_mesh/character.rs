@@ -20,16 +20,25 @@ pub fn plugin(app: &mut App) {
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
 pub struct CharacterMeshSettings {
-    pub fatness: f32,
-    pub head_fatness: f32,
+    pub body_fatness: Vec3,
+
+    pub head_fatness: Vec3,
     pub head_height: f32,
+
     pub neck_z_connection: f32,
+    pub neck_fatness: f32,
+
+    pub eye_radius: f32,
+    // eye_radius + eye_padding = subtraction from head
+    pub eye_padding: f32,
+    pub eye_offset: Vec3,
 }
 
 impl Default for CharacterMeshSettings {
     fn default() -> Self {
-        let fatness = 1.0;
-        Self { fatness, head_fatness: 0.4, head_height: 2.0, neck_z_connection: fatness * -0.75 }
+        let body_fatness = Vec3::new(1.0, 0.8, 1.0);
+        let head_fatness = Vec3::new(0.2, 0.2, 0.15);
+        Self { body_fatness, head_fatness, head_height: 2.0, neck_z_connection: body_fatness.z * -0.75, neck_fatness: 0.25, eye_radius: 0.15, eye_padding: 0.05, eye_offset: Vec3::new(0.0, 0.1, -0.1) }
     }
 }
 
@@ -40,7 +49,7 @@ pub fn update_character_mesh(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (entity, settings) in &characters {
-        let body = sdf::Sphere { radius: settings.fatness }.scale(Vec3::new(1.0, 0.6, 1.0));
+        let body = sdf::Ellipsoid { radii: settings.body_fatness };
 
         let neck = sdf::Capsule {
             start: Vec3::new(0.0, 0.0, settings.neck_z_connection),
@@ -49,16 +58,20 @@ pub fn update_character_mesh(
         };
 
         let head =
-            sdf::Ellipsoid { radii: Vec3::splat(settings.head_fatness) * Vec3::new(1.0, 0.5, 1.0) }
+            sdf::Ellipsoid { radii: settings.head_fatness }
                 .translate(Vec3::new(
                     0.0,
                     settings.head_height,
-                    settings.neck_z_connection - settings.head_fatness,
+                    settings.neck_z_connection - settings.head_fatness.z,
                 ));
 
-        let body_neck_join = sdf::ops::SmoothUnion { a: body, b: neck, k: 0.3 };
+        // eyes
+        let socket = sdf::Sphere { radius: settings.eye_radius + settings.eye_padding }.translate(settings.eye_offset);
 
-        let head_neck_join = sdf::ops::SmoothUnion { a: body_neck_join, b: head, k: 0.3 };
+        let head = head.smooth_subtraction(socket, 0.1);
+
+        let body_neck_join = body.smooth_union(neck, 0.3);
+        let head_neck_join = body_neck_join.smooth_union(head, 0.3);
 
         let sdf = head_neck_join;
 
@@ -68,7 +81,9 @@ pub fn update_character_mesh(
         let sample_epsilon = Vec3::splat(step_amount * 4.0);
         let min = Vec3::from(aabb.min) - sample_epsilon;
         let max = Vec3::from(aabb.max) + sample_epsilon;
-        if let Some(mesh) = sdf_to_mesh(sdf, min, max, step_amount) {
+        if let Some(mut mesh) = sdf_to_mesh(sdf, min, max, step_amount) {
+            mesh.duplicate_vertices();
+            mesh.compute_flat_normals();
             commands.entity(entity).insert(Mesh3d(meshes.add(mesh)));
         }
     }

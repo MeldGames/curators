@@ -34,13 +34,13 @@ impl<A: Sdf, B: Sdf> Sdf for SmoothSubtraction<A, B> {
     fn sdf(&self, point: Vec3) -> f32 {
         let d1 = self.a.sdf(point);
         let d2 = self.b.sdf(point);
-        let h = clamp(0.5 - 0.5 * (d2 + d1) / self.k, 0.0, 1.0);
-        mix(d2, -d1, h) + self.k * h * (1.0 - h)
+        let h = clamp(0.5 - 0.5 * (d1 + d2) / self.k, 0.0, 1.0);
+        mix(d1, -d2, h) + self.k * h * (1.0 - h)
     }
 
     fn aabb(&self) -> Option<Aabb3d> {
         // Smooth subtraction can extend the result slightly
-        self.b.aabb().map(|aabb| {
+        self.a.aabb().map(|aabb| {
             let expansion = Vec3A::splat(self.k);
             Aabb3d { min: aabb.min - expansion, max: aabb.max + expansion }
         })
@@ -49,6 +49,6 @@ impl<A: Sdf, B: Sdf> Sdf for SmoothSubtraction<A, B> {
 
 impl<A: Sdf + Default, B: Sdf + Default> Default for SmoothSubtraction<A, B> {
     fn default() -> Self {
-        Self { a: A::default(), b: B::default(), k: 0.0 }
+        Self { a: default(), b: default(), k: 0.0 }
     }
 }
