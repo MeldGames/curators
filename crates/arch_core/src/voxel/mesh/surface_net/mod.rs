@@ -1,8 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::VecDeque;
 
-use fast_surface_nets::ndshape::{ConstShape3u32, RuntimeShape, Shape};
-use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 use avian3d::collision::collider::TrimeshFlags;
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
@@ -12,6 +10,9 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
 use bevy::render::primitives::Aabb;
 use bevy::render::render_resource::PrimitiveTopology;
+use fast_surface_nets::ndshape::{ConstShape3u32, RuntimeShape, Shape};
+use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
+use priority_queue::PriorityQueue;
 
 use crate::voxel::mesh::binary_greedy::Chunks;
 use crate::voxel::mesh::chunk::VoxelChunk;
@@ -73,7 +74,7 @@ pub struct SampleBuffers {
 }
 
 impl Default for SampleBuffers {
-    fn default() -> Self { 
+    fn default() -> Self {
         Self {
             buffers: vec![[1.0; 18 * 18 * 18]; VOXEL_TYPE_COUNT],
             voxel_set: VoxelSet::default(),
@@ -108,14 +109,12 @@ pub fn update_surface_net_mesh(
 
     named: Query<NameOrEntity>,
 
-    mut queue: Local<Vec<ChangedChunk>>,
-    mut dedup: Local<HashSet<ChangedChunk>>,
+    mut queue: Local<PriorityQueue<ChangedChunk, usize>>,
 
     remesh: Res<Remesh>,
     frustum_chunks: Res<FrustumChunks>,
 
     mut apply_later: Local<Vec<(Entity, Handle<Mesh>, Option<Aabb>, usize)>>,
-
 ) {
     apply_later.retain(|(_, _, _, count)| *count != 0);
 
@@ -130,6 +129,11 @@ pub fn update_surface_net_mesh(
                 entity_commands.insert(*aabb);
             }
         }
+    }
+
+    // increase priority of all in the queue currently
+    for (_, priority) in queue.iter_mut() {
+        *priority += 1;
     }
 
     for &changed_chunk in changed_chunks.read() {
@@ -148,39 +152,21 @@ pub fn update_surface_net_mesh(
                         chunk_point: ChunkPoint(neighboring_chunk_point),
                     };
 
-                    if !dedup.contains(&neighbor_changed) {
-                        queue.push(neighbor_changed);
-                        dedup.insert(neighbor_changed);
+                    if !queue.change_priority_by(&neighbor_changed, |priority| *priority += 1) {
+                        queue.push(neighbor_changed, 1);
                     }
                 }
             }
         }
     }
 
-    // TODO: re-add meshing priority
-    // queue.sort_by(|changed_a, changed_b| {
-    //     let ChangedChunk { grid_entity: entity_a, chunk_point: point_a } = changed_a;
-    //     let ChangedChunk { grid_entity: entity_b, chunk_point: point_b } = changed_b;
-    //     let a_frustum = frustum_chunks.get(&(*entity_a, *point_a));
-    //     let b_frustum = frustum_chunks.get(&(*entity_b, *point_b));
-    //     match (a_frustum, b_frustum) {
-    //         (Some(_), None) => Ordering::Greater, // the one in the frustum should be placed last
-    //         (None, Some(_)) => Ordering::Less,
-    //         (None, None) => Ordering::Equal,
-    //         (Some(&a_frustum), Some(&b_frustum)) => {
-    //             a_frustum.partial_cmp(&b_frustum).unwrap_or(Ordering::Equal)
-    //         },
-    //     }
-    // });
-
     let mut pop_count = 0;
     while pop_count < remesh.surface_net {
         let mut processed = false;
-        let Some(changed_chunk) = queue.pop() else {
+        let Some((changed_chunk, _popped_priority)) = queue.pop() else {
             break;
         };
 
-        dedup.remove(&changed_chunk);
         let ChangedChunk { grid_entity, chunk_point } = changed_chunk;
 
         let Ok((_, voxels, voxel_chunks)) = grids.get(grid_entity) else {
@@ -334,17 +320,17 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
     fn pseudo_random(index: usize) -> f32 {
         // Use a larger prime multiplier and better mixing
         let mut x = index as u64;
-        
+
         // Multiply by large prime to spread out small indices
         x = x.wrapping_mul(0x9E3779B97F4A7C15);
-        
+
         // XorShift-style mixing with better constants
         x ^= x >> 30;
         x = x.wrapping_mul(0xBF58476D1CE4E5B9);
         x ^= x >> 27;
         x = x.wrapping_mul(0x94D049BB133111EB);
         x ^= x >> 31;
-        
+
         // Convert to 0..1 range using only the upper bits for better distribution
         ((x >> 11) as f64 / (1u64 << 53) as f64) as f32
     }
@@ -421,7 +407,11 @@ impl VoxelSampler {
                     let buffer_index = voxel.id() as usize;
                     buffers.voxel_set.set(voxel);
 
-                    let voxel_index = shape.linearize([relative_point.x as u32, relative_point.y as u32, relative_point.z as u32]);
+                    let voxel_index = shape.linearize([
+                        relative_point.x as u32,
+                        relative_point.y as u32,
+                        relative_point.z as u32,
+                    ]);
                     let buffer = &mut buffers.buffers[buffer_index];
                     buffer[voxel_index as usize] = -1.0;
                 }
