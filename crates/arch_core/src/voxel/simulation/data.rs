@@ -1,21 +1,19 @@
 use std::hash::{Hash, Hasher};
 
-use bevy::platform::collections::hash_map::IterMut;
 use bevy::platform::collections::hash_map::Entry;
-use bevy::platform::collections::{HashMap, HashSet};
+use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use fxhash::FxHashMap;
 use slotmap::SlotMap;
 #[cfg(feature = "trace")]
 use tracing::*;
 
 use crate::sdf::Sdf;
 use crate::voxel::simulation::kinds::VoxelPosition;
+use crate::voxel::simulation::set::ChunkSet;
 use crate::voxel::simulation::FallingSandTick;
-use crate::voxel::simulation::rle::RLEChunk;
 use crate::voxel::voxel::VoxelSet;
-use crate::voxel::{Voxel, Voxels};
+use crate::voxel::Voxel;
 
 pub const CHUNK_WIDTH_BITSHIFT: usize = 4;
 pub const CHUNK_WIDTH_BITSHIFT_Y: usize = CHUNK_WIDTH_BITSHIFT * 2;
@@ -33,108 +31,13 @@ pub fn plugin(app: &mut App) {
     app.register_type::<SimChunk>();
 }
 
-pub struct DirtyReader<'a> {
-    set: &'a DirtySet,
-    mask_index: u64,
-    current_mask: u64,
-}
-
-impl<'a> Iterator for DirtyReader<'a> {
-    type Item = u64; // voxel index
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.mask_index < CHUNK_LENGTH as u64 / 64 {
-            if self.current_mask != 0 {
-                // `bitset & -bitset` returns a bitset with only the lowest significant bit set
-                let t = self.current_mask & self.current_mask.wrapping_neg();
-                let trailing = self.current_mask.trailing_zeros() as u64;
-                let voxel_index = self.mask_index * 64 + trailing;
-                self.current_mask ^= t;
-                return Some(voxel_index);
-            } else {
-                self.mask_index += 1;
-
-                self.current_mask = if cfg!(feature = "safe-bounds") {
-                    self.set.set[self.mask_index as usize]
-                } else {
-                    unsafe { *self.set.set.get_unchecked(self.mask_index as usize) }
-                };
-            }
-        }
-
-        None
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
-pub struct DirtySet {
-    set: [u64; CHUNK_LENGTH / 64],
-}
-
-impl DirtySet {
-    pub fn filled() -> Self {
-        Self {
-            set: [u64::MAX; CHUNK_LENGTH / 64],
-        }
-    }
-
-    pub fn empty() -> Self {
-        Self {
-            set: [0u64; CHUNK_LENGTH / 64],
-        }
-    }
-
-    pub fn clear(&mut self) {
-        for mask in &mut self.set {
-            *mask = 0;
-        }
-    }
-
-    pub fn set(&mut self, voxel_index: usize) {
-        let mask = voxel_index / 64;
-        let bit = voxel_index % 64;
-        self.set[mask] |= 1 << bit;
-    }
-
-    // set neighbors of a voxel that is fully self-contained in this chunk
-    pub fn set_neighbors(&mut self, voxel_index: usize) {
-        for z in -1..1 {
-            for x in -1..1 {
-                for y in -1..1 {
-                    self.set(voxel_index + linearize(IVec3::new(x, y, z)));
-                }
-            }
-        }
-    }
-
-    // TODO: figure out how to spread in x, y, z directions to neighbors
-    // pub fn spread(&mut self) {
-    //     for mask_index in 0..CHUNK_LENGTH / 64{
-    //         let z_adjacent = self.set[mask_index - 1];
-    //         let z_adjacent_2 = self.set[mask_index + 1];
-    //         // spread z
-    //         self.set[mask_index] |= (*mask << 1) | (*mask >> 1);
-    //         // spread x
-    //         // spread on lower layer
-    //         *mask |= (*mask << 16) | (*mask >> 16);
-    //         // spread on surrounding
-    //     }
-    // }
-
-    pub fn display(&self) -> String {
-        let mut layers = String::new();
-        for mask in self.set {
-            layers += &format!("\n{:0b}", mask);
-        }
-        layers
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct SimChunk {
-    // pub voxel_changeset: VoxelSet,
-    /// Voxels that are considered dirty still.
-    pub dirty: DirtySet,
-    // lets try just a 4x4x4 chunk
+    /// Voxels that we need to update.
+    pub dirty: ChunkSet,
+    /// Voxels we have modified this iteration.
+    pub modified: ChunkSet,
+
     pub voxels: [Voxel; CHUNK_LENGTH],
 }
 
@@ -151,7 +54,8 @@ impl SimChunk {
     
     pub fn fill(voxel: Voxel) -> Self {
         Self {
-            dirty: DirtySet::filled(),
+            dirty: ChunkSet::filled(),
+            modified: ChunkSet::empty(),
             voxels: [voxel; CHUNK_LENGTH],
         }
     }
@@ -177,8 +81,9 @@ pub struct SimChunks {
     pub margolus_offset: usize,
 }
 
-// TODO: Figure out better looking offsets.
-// Probably keep alternating the y positions each offset.
+// TODO: Figure out best looking offsets.
+// Probably keep alternating the y positions each offset, this should reduce artifacts
+// from cells dropping between chunks.
 pub const MARGOLUS_OFFSETS: [IVec3; 8] = [
     IVec3::new(0, 0, 0),
     IVec3::new(1, 1, 0),
@@ -667,6 +572,23 @@ impl<'a> ChunkView<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn linearize_delinearize_sanity() {
+        let tests = [
+            ivec3(0, 0, 0),
+            IVec3::splat(CHUNK_WIDTH as i32 - 1),
+            ivec3(1, 1, 1),
+            ivec3(1, 2, 1),
+            ivec3(0, 0, 1),
+            ivec3(0, 1, 0),
+            ivec3(1, 0, 0),
+        ];
+
+        for test in tests {
+            assert_eq!(test, delinearize(linearize(test)));
+        }
+    }
 
     // #[test]
     // fn chunk_linearize() {

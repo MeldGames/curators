@@ -7,8 +7,8 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::mesh::ChangedChunk;
-use crate::voxel::simulation::data::{ChunkPoint, DirtySet, SimChunk, SimChunks, CHUNK_LENGTH};
+use crate::voxel::simulation::data::{ChunkPoint, SimChunk, SimChunks};
+use crate::voxel::simulation::set::ChunkSet;
 use crate::voxel::tree::VoxelNode;
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 
@@ -16,9 +16,9 @@ pub mod data;
 pub mod gpu;
 pub mod kinds;
 pub mod morton;
-// pub mod octree;
 pub mod rle;
 pub mod view;
+pub mod set;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>().register_type::<SimSettings>();
@@ -126,7 +126,8 @@ pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
                         }
                         VoxelNode::Leaf { leaf } => {
                             Some(SimChunk {
-                                dirty: DirtySet::filled(), // all are dirty when entered into simulation
+                                dirty: ChunkSet::filled(), // all are dirty when entered into simulation
+                                modified: ChunkSet::empty(), // none are modified by the simulation yet.
                                 voxels: **leaf,
                             })
                         }
