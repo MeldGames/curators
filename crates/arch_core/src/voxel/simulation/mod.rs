@@ -7,7 +7,7 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::data::{ChunkPoint, SimChunk, SimChunks};
+use crate::voxel::simulation::data::{delinearize, ChunkPoint, SimChunk, SimChunks};
 use crate::voxel::simulation::set::ChunkSet;
 use crate::voxel::tree::VoxelNode;
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
@@ -187,13 +187,16 @@ pub fn falling_sands(
 
         // Parallel version
         views.into_par_iter().for_each(|mut chunk_view| {
-            chunk_view.simulate(*sim_tick);
+            let mut dirty_swap = ChunkSet::empty();
+            chunk_view.simulate(*sim_tick, &mut dirty_swap);
         });
 
         // Single threaded version
         // views.into_iter().for_each(|mut chunk_view| {
         //     chunk_view.simulate(*sim_tick);
         // });
+
+        sim_chunks.spread_updates();
 
         // for (chunk_point, voxel_index) in sim_chunks.sim_updates(&mut
         // sim_swap_buffer.0) {     #[cfg(feature = "trace")]

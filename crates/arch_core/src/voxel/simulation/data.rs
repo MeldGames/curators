@@ -442,6 +442,16 @@ impl SimChunks {
     //         }
     //     }
     // }
+
+    /// Spread modified updates into the dirty set for the next iteration
+    pub fn spread_updates(&mut self) {
+        for (chunk_point, chunk_key) in self.from_chunk_point.iter() {
+            let chunk = self.chunks.get_mut(*chunk_key).unwrap();
+            for voxel_index in chunk.modified.iter() {
+                let voxel_point = delinearize(voxel_index);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -494,7 +504,11 @@ impl<'a> ChunkView<'a> {
 
     pub fn set_voxel(&mut self, voxel_position: VoxelPosition, voxel: Voxel) {
         if let Some(chunk) = &mut self.chunks[voxel_position.chunk_index] {
-            chunk.voxels[voxel_position.voxel_index] = voxel;
+            let current_voxel = chunk.voxels[voxel_position.voxel_index];
+            if current_voxel != voxel {
+                chunk.modified.set(voxel_position.voxel_index);
+                chunk.voxels[voxel_position.voxel_index] = voxel;
+            }
         }
     }
 
@@ -535,7 +549,7 @@ impl<'a> ChunkView<'a> {
         }
     }
 
-    pub fn simulate(&mut self, tick: FallingSandTick) {
+    pub fn simulate(&mut self, tick: FallingSandTick, dirty_swap: &mut ChunkSet) {
         // TODO: Iterate through internal voxels first to avoid accessing other chunks,
         // then iterate through each 'face', then iterate through each 'corner'.
         // This should minimize cache misses, but may cause some visible seams.
@@ -551,7 +565,9 @@ impl<'a> ChunkView<'a> {
                 continue;
             }
 
-            for voxel_index in 0..CHUNK_LENGTH {
+            std::mem::swap(dirty_swap, &mut self.chunks[chunk_index].as_mut().unwrap().dirty);
+
+            for voxel_index in dirty_swap.iter() {
                 let voxel = {
                     let chunk = self.chunks[chunk_index].as_ref().unwrap();
                     let voxel_data = chunk.voxels[voxel_index];
