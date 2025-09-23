@@ -3,6 +3,9 @@
 use bevy::prelude::*;
 
 use crate::voxel::simulation::data::{CHUNK_LENGTH, linearize};
+
+pub const SET_LEN: usize = CHUNK_LENGTH / 64;
+
 pub struct SetReader<'a> {
     set: &'a ChunkSet,
     mask_index: usize,
@@ -48,16 +51,16 @@ pub struct ChunkSet {
     /// Bitset overarching the underlying sets, a 1 bit represents that the lower level bitset
     /// has at least 1 bit set in it, while a 0 means it is empty.
     occupancy: u64,
-    set: [u64; CHUNK_LENGTH / 64],
+    set: [u64; SET_LEN],
 }
 
 impl ChunkSet {
     pub fn filled() -> Self {
-        Self { occupancy: u64::MAX, set: [u64::MAX; CHUNK_LENGTH / 64] }
+        Self { occupancy: u64::MAX, set: [u64::MAX; SET_LEN] }
     }
 
     pub fn empty() -> Self {
-        Self { occupancy: 0u64, set: [0u64; CHUNK_LENGTH / 64] }
+        Self { occupancy: 0u64, set: [0u64; SET_LEN] }
     }
 
     #[inline]
@@ -87,37 +90,49 @@ impl ChunkSet {
         (self.set[mask] & (1 << bit)) != 0
     }
 
+    // this is self contained, doesn't need to know about surrounding Z because the boundaries
+    // of the Z are contained within 16 bits.
+    #[inline]
+    pub fn spread_z_individual(set: u64) -> u64 {
+        const LEFT_EDGE_MASK: u64 =
+            0b0111111111111111_0111111111111111_0111111111111111_0111111111111111;
+        const RIGHT_EDGE_MASK: u64 =
+            0b1111111111111110_1111111111111110_1111111111111110_1111111111111110;
+        set | ((set & LEFT_EDGE_MASK) << 1) | ((set & RIGHT_EDGE_MASK) >> 1)
+    }
+
     #[inline]
     pub fn spread_z(&mut self) {
-        for set in &mut self.set {
-            const LEFT_EDGE_MASK: u64 =
-                0b0111111111111111_0111111111111111_0111111111111111_0111111111111111;
-            const RIGHT_EDGE_MASK: u64 =
-                0b1111111111111110_1111111111111110_1111111111111110_1111111111111110;
-            *set = *set | ((*set & LEFT_EDGE_MASK) << 1) | ((*set & RIGHT_EDGE_MASK) >> 1);
+        for i in 0..SET_LEN {
+            self.set[i] = Self::spread_z_individual(self.set[i]);
         }
+    }
+
+    #[inline]
+    pub fn spread_x_individual(&self, i: usize) -> u64 {
+        let before = if i > 0 {
+            (self.set[i - 1]
+                & 0b0000000000000000_0000000000000000_0000000000000000_1111111111111111)
+                << (64 - 16)
+        } else {
+            0u64
+        };
+
+        let after = if i + 1 < self.set.len() {
+            self.set[i + 1]
+                & 0b1111111111111111_0000000000000000_0000000000000000_0000000000000000
+                    >> (64 - 16)
+        } else {
+            0u64
+        };
+
+        self.set[i] | self.set[i] << 16 | self.set[i] >> 16 | before | after
     }
 
     #[inline]
     pub fn spread_x(&mut self) {
         for i in 0..self.set.len() {
-            let before = if i > 0 {
-                (self.set[i - 1]
-                    & 0b0000000000000000_0000000000000000_0000000000000000_1111111111111111)
-                    << (64 - 16)
-            } else {
-                0u64
-            };
-
-            let after = if i + 1 < self.set.len() {
-                self.set[i + 1]
-                    & 0b1111111111111111_0000000000000000_0000000000000000_0000000000000000
-                        >> (64 - 16)
-            } else {
-                0u64
-            };
-
-            self.set[i] |= self.set[i] << 16 | self.set[i] >> 16 | before | after;
+            self.set[i] = self.spread_x_individual(i);
         }
     }
 
@@ -125,60 +140,109 @@ impl ChunkSet {
     pub fn spread_y(&mut self) {
         self.occupancy = self.occupancy | self.occupancy << 4 | self.occupancy >> 4;
 
+        // We have to be careful here, otherwise dirty updates will be pushed
+        // across all Y levels.
+        // This pushes the dirty flags to the *previous* index, so that we don't
+        // keep propagating upwards, only behind us.
         for i in (4..self.set.len()).rev() {
-            if self.set[i - 4] != 0 {
-                println!(
-                    "propagating {:?} -> {:?}, {:b} -> {:b}",
-                    i - 4,
-                    i,
-                    self.set[i - 4],
-                    self.set[i],
-                );
-            }
             self.set[i] = self.set[i] | self.set[i - 4];
         }
 
         for i in 0..(self.set.len() - 4) {
-            if self.set[i + 4] != 0 {
-                println!(
-                    "propagating {:?} -> {:?}, {:b} -> {:b}",
-                    i + 4,
-                    i,
-                    self.set[i + 4],
-                    self.set[i],
-                );
-            }
             self.set[i] = self.set[i] | self.set[i + 4];
         }
     }
 
-    // set neighbors of a voxel that is fully self-contained in this chunk
-    pub fn set_neighbors(&mut self, voxel_index: usize) {
-        for z in -1..1 {
-            for x in -1..1 {
-                for y in -1..1 {
-                    let neighbor_index = voxel_index + linearize(IVec3::new(x, y, z));
-                    if neighbor_index < CHUNK_LENGTH {
-                        self.set(neighbor_index);
-                    }
-                }
-            }
+    // Here begins hell, I have manually spread modified -> dirty from neighboring chunks
+
+    // +Y
+    pub fn pull_above_chunk(&mut self, above: &ChunkSet) {
+        let top_start = 0;
+        let bottom_start = SET_LEN - 4;
+
+        // 0 = (0..4, 0, 0..16)
+        // 1 = (4..8, 0, 0..16)
+        // 2 = (8..12, 0, 0..16)
+        // 3 = (12..16, 0, 0..16)
+
+        // 61 = (0..4, 16, 0..16)
+        // 62 = (4..8, 16, 0..16)
+        // 63 = (8..12, 16, 0..16)
+        // 64 = (12..16, 16, 0..16)
+
+        let top_layer = top_start..top_start + 4;
+        let bottom_layer = bottom_start..bottom_start + 4;
+
+        for (top_index, bottom_index) in top_layer.zip(bottom_layer) {
+            // spread xz plane bits of the above before pulling
+            let above_spread_x = above.spread_x_individual(bottom_index);
+            let above_spread_xz = Self::spread_z_individual(above_spread_x);
+            self.set[top_index] |= above_spread_xz;
         }
     }
 
-    // TODO: figure out how to spread in x, y, z directions to neighbors
-    // pub fn spread(&mut self) {
-    //     for mask_index in 0..CHUNK_LENGTH / 64{
-    //         let z_adjacent = self.set[mask_index - 1];
-    //         let z_adjacent_2 = self.set[mask_index + 1];
-    //         // spread z
-    //         self.set[mask_index] |= (*mask << 1) | (*mask >> 1);
-    //         // spread x
-    //         // spread on lower layer
-    //         *mask |= (*mask << 16) | (*mask >> 16);
-    //         // spread on surrounding
-    //     }
-    // }
+    // -Y
+    pub fn pull_below_chunk(&mut self, below: &ChunkSet) {
+        let top_start = 0;
+        let bottom_start = SET_LEN - 4;
+
+        let top_layer = top_start..top_start + 4;
+        let bottom_layer = bottom_start..bottom_start + 4;
+
+        for (top_index, bottom_index) in top_layer.zip(bottom_layer) {
+            // spread xz plane bits of the above before pulling
+            let below_spread_x = below.spread_x_individual(top_index);
+            let below_spread_xz = Self::spread_z_individual(below_spread_x);
+            self.set[bottom_index] |= below_spread_xz;
+        }
+    }
+
+    // TODO:
+    // Neighbors in total: 26
+    // 6 direct
+    // 8 horizontal diagonal
+    // 4 vertical diagonal
+    // 8 corners
+    // 6 + 8 + 4 + 8 = 26
+
+    // direct: 4 u64, (16x * 16z = 256xz / 64bits = 4 u64)
+    // 6
+    // +Y [`ChunkSet::pull_above_chunk`]
+    // -Y [`ChunkSet::pull_below_chunk`]
+    // +X
+    // -X
+    // +Z
+    // -Z
+
+    // Probably don't do these right now, lots of work for maybe not much benefit
+    // horizontal diagonals: single u64 masked to 16 bits
+    // 8 variations
+    // -Y -X
+    // -Y -Z
+    // -Y +X
+    // -Y +Z
+    // +Y -X
+    // +Y -Z
+    // +Y +X
+    // +Y +Z
+
+    // vertical diagonals: 16 u64s masked to 1 bit, probably not worthwhile
+    // 4 variations
+    // +X +Z
+    // +X -Z
+    // -X +Z
+    // -X -Z
+
+    // corners: single bit, probably not worth the reading of corner chunks
+    // 8
+    // +Y +X +Z
+    // +Y +X -Z
+    // +Y -X +Z
+    // +Y -X -Z
+    // -Y +X +Z
+    // -Y +X -Z
+    // -Y -X +Z
+    // -Y -X -Z
 
     pub fn iter(&self) -> SetReader<'_> {
         SetReader {
