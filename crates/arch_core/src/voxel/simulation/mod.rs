@@ -72,47 +72,6 @@ pub fn sim_settings(mut sim_settings: ResMut<SimSettings>, input: Res<ButtonInpu
     }
 }
 
-/// Hold new updates for this chunk on the stack instead of heap.
-///
-/// Only set the directly affected voxels in this mask, then later we will
-/// spread the bits to the adjacent axes.
-/// Z access can be spread via a simple << | and >> |:
-/// `mask | (mask << 1) | (mask >> 1)`
-///
-/// X access can be spread via:
-/// `mask | (mask << 16) | (mask >> 16)`
-///
-/// Y access can be spread via | to the masks +-4 ((16 * 16) / 64)
-/// `mask[i - 4] | mask[i] | mask[i + 4]`
-pub struct StackUpdates {
-    center: [u64; 64],
-
-    neg_z: [u64; 64],
-    pos_z: [u64; 64],
-
-    neg_x: [u64; 4],
-    pos_x: [u64; 4],
-
-    neg_y: [u64; 4],
-    pos_y: [u64; 4],
-}
-
-impl StackUpdates {
-    pub fn new() -> Self {
-        Self {
-            center: [0u64; 64],
-            neg_z: [0u64; 64],
-            pos_z: [0u64; 64],
-
-            neg_x: [0u64; 4],
-            pos_x: [0u64; 4],
-
-            neg_y: [0u64; 4],
-            pos_y: [0u64; 4],
-        }
-    }
-}
-
 // Pull relevant chunks from the 64tree into our linear array.
 pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
