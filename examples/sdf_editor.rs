@@ -46,7 +46,7 @@ pub fn remesh_sdf(
         let sample_epsilon = Vec3::splat(step_amount * 4.0);
         let min = Vec3::from(aabb.min) - sample_epsilon;
         let max = Vec3::from(aabb.max) + sample_epsilon;
-        if let Some(mesh) =
+        if let Some((mesh, buffer)) =
             arch_core::proc_mesh::character::sdf_to_mesh(&sdf.0, min, max, step_amount)
         {
             commands.entity(sdf_entity).insert(Mesh3d(meshes.add(mesh)));

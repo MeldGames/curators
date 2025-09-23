@@ -109,30 +109,32 @@ impl ChunkSet {
     }
 
     #[inline]
-    pub fn spread_x_individual(&self, i: usize) -> u64 {
-        let before = if i > 0 {
-            (self.set[i - 1]
+    pub fn spread_x_individual(&self, i: usize) -> (u64, u64) { // set, occupancy
+        let (before, occupancy_before) = if i > 0 {
+            ((self.set[i - 1]
                 & 0b0000000000000000_0000000000000000_0000000000000000_1111111111111111)
-                << (64 - 16)
+                << (64 - 16), self.occupancy & (1 << (i - 1)))
         } else {
-            0u64
+            (0u64, 0u64)
         };
 
-        let after = if i + 1 < self.set.len() {
-            self.set[i + 1]
+        let (after, occupancy_after) = if i + 1 < self.set.len() {
+            (self.set[i + 1]
                 & 0b1111111111111111_0000000000000000_0000000000000000_0000000000000000
-                    >> (64 - 16)
+                << (64 - 16), self.occupancy & (1 << (i + 1)))
         } else {
-            0u64
+            (0u64, 0u64)
         };
 
-        self.set[i] | self.set[i] << 16 | self.set[i] >> 16 | before | after
+        (self.set[i] | self.set[i] << 16 | self.set[i] >> 16 | before | after, occupancy_before | occupancy_after)
     }
 
     #[inline]
     pub fn spread_x(&mut self) {
         for i in 0..self.set.len() {
-            self.set[i] = self.spread_x_individual(i);
+            let (set, occupancy) = self.spread_x_individual(i);
+            self.occupancy |= occupancy;
+            self.set[i] = set;
         }
     }
 
@@ -157,8 +159,9 @@ impl ChunkSet {
 
     // +Y
     pub fn pull_above_chunk(&mut self, above: &ChunkSet) {
-        let top_start = 0;
-        let bottom_start = SET_LEN - 4;
+        // top is near the end of the array, we start at 0, 0, 0 and increase to 15, 15, 15.
+        let top_start= SET_LEN - 4;
+        let bottom_start = 0;
 
         // 0 = (0..4, 0, 0..16)
         // 1 = (4..8, 0, 0..16)
@@ -175,25 +178,39 @@ impl ChunkSet {
 
         for (top_index, bottom_index) in top_layer.zip(bottom_layer) {
             // spread xz plane bits of the above before pulling
-            let above_spread_x = above.spread_x_individual(bottom_index);
+            let (above_spread_x, _occupancy_above) = above.spread_x_individual(bottom_index);
             let above_spread_xz = Self::spread_z_individual(above_spread_x);
             self.set[top_index] |= above_spread_xz;
+
+            // TODO: Figure this part out better.
+            if self.set[top_index] != 0 {
+                self.occupancy |= 1 << top_index;
+            } else {
+                self.occupancy &= !(1 << top_index);
+            }
         }
     }
 
     // -Y
     pub fn pull_below_chunk(&mut self, below: &ChunkSet) {
-        let top_start = 0;
-        let bottom_start = SET_LEN - 4;
+        let top_start = SET_LEN - 4;
+        let bottom_start = 0;
 
         let top_layer = top_start..top_start + 4;
         let bottom_layer = bottom_start..bottom_start + 4;
 
         for (top_index, bottom_index) in top_layer.zip(bottom_layer) {
             // spread xz plane bits of the above before pulling
-            let below_spread_x = below.spread_x_individual(top_index);
+            let (below_spread_x, _occupancy_below) = below.spread_x_individual(top_index);
             let below_spread_xz = Self::spread_z_individual(below_spread_x);
             self.set[bottom_index] |= below_spread_xz;
+
+            // TODO: Figure this part out better.
+            if self.set[bottom_index] != 0 {
+                self.occupancy |= 1 << bottom_index;
+            } else {
+                self.occupancy &= !(1 << bottom_index);
+            }
         }
     }
 
@@ -341,5 +358,100 @@ mod test {
         }
 
         println!("spread count: {:?}", set.iter().count());
+    }
+
+    fn assert_expected(expected: &[IVec3], iter: impl Iterator<Item = usize>) {
+        let mut missing = Vec::new();
+        let mut extra = Vec::new();
+
+        let mut map = bevy::platform::collections::HashMap::new();
+        for item in expected {
+            map.insert(item, 0);
+        }
+
+        for item in iter {
+            let iter_point = delinearize(item);
+            if let Some(amount) = map.get_mut(&iter_point) {
+                *amount += 1;
+            } else {
+                extra.push(iter_point);
+            }
+        }
+
+        for (point, amount) in map.iter() {
+            if *amount == 0 {
+                missing.push(**point);
+            } else if *amount > 1 {
+                extra.push(**point);
+            }
+        }
+
+        let mut err = Vec::new();
+        if missing.len() > 0 {
+            err.push(format!("missing points: {:?}", missing));
+        }
+
+        if extra.len() > 0 {
+            err.push(format!("extra points: {:?}", extra));
+        }
+
+        if err.len() > 0 {
+            panic!("{:?}", err.join(", "));
+        }
+    }
+
+    #[test]
+    pub fn spread_above_below() {
+        let mut set = ChunkSet::empty();
+        let mut above = ChunkSet::empty();
+        let mut below = ChunkSet::empty();
+
+        above.set(linearize(ivec3(1, 0, 1)));
+        below.set(linearize(ivec3(1, 15, 1)));
+
+        set.pull_above_chunk(&above);
+        set.pull_below_chunk(&below);
+
+        let expected = [
+            // from above
+            ivec3(0, 15, 0),
+            ivec3(0, 15, 1),
+            ivec3(0, 15, 2),
+            ivec3(1, 15, 0),
+            ivec3(1, 15, 1),
+            ivec3(1, 15, 2),
+            ivec3(2, 15, 0),
+            ivec3(2, 15, 1),
+            ivec3(2, 15, 2),
+
+            // from below
+            ivec3(0, 0, 0),
+            ivec3(0, 0, 1),
+            ivec3(0, 0, 2),
+            ivec3(1, 0, 0),
+            ivec3(1, 0, 1),
+            ivec3(1, 0, 2),
+            ivec3(2, 0, 0),
+            ivec3(2, 0, 1),
+            ivec3(2, 0, 2),
+        ];
+
+        assert_expected(&expected, set.iter());
+
+        println!("items:");
+        for item in set.iter() {
+            println!("item: {:?}", delinearize(item));
+        }
+
+        set.clear();
+        above.clear();
+        below.clear();
+        assert_eq!(set.iter().next(), None);
+        assert_eq!(above.iter().next(), None);
+        assert_eq!(below.iter().next(), None);
+
+        set.pull_above_chunk(&above);
+        set.pull_below_chunk(&below);
+        assert_eq!(set.iter().next(), None);
     }
 }

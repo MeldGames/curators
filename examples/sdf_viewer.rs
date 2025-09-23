@@ -44,20 +44,12 @@ pub fn rasterize_sdf(mut voxels: Query<&mut Voxels>, input: Res<ButtonInput<KeyC
     // let sdf = sdf::Sphere { radius: 5.0 };
     let sdf = sdf::Torus { minor_radius: 5.0, major_radius: 10.0 };
     let sdf = ops::Twist {
-        primitive: ops::Isometry {
-            primitive: sdf,
-            rotation: Quat::from_axis_angle(Vec3::Z, 90.0f32.to_radians()),
-            translation: Vec3::ZERO,
-        },
+        primitive: sdf.rotate(Quat::from_axis_angle(Vec3::Z, 90.0f32.to_radians())),
         strength: 0.3,
     };
 
     // let sdf = ops::Union { A: Sdf + Clone + Default, B: Sdf + Clone + Default::Sphere { radius: 2.0 } };
-    let translated_sphere = ops::Isometry {
-        translation: Vec3::new(12.0, 12.0, 3.0),
-        rotation: Quat::IDENTITY,
-        primitive: sdf::Sphere { radius: 8.0 },
-    };
+    let translated_sphere = sdf::Sphere { radius: 8.0 }.translate(Vec3::new(12.0, 12.0, 3.0));
 
     let sdf = ops::SmoothUnion { a: sdf, b: translated_sphere, k: 5.0 };
     // let sdf = ops::Intersection { a: sdf, b: translated_sphere };
