@@ -75,8 +75,8 @@ pub fn sim_settings(mut sim_settings: ResMut<SimSettings>, input: Res<ButtonInpu
 // Pull relevant chunks from the 64tree into our linear array.
 pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        for z in 0..8{
-            for x in 0..8 {
+        for z in 0..16{
+            for x in 0..16 {
                 for y in 0..4 {
                     let chunk_point = IVec3::new(x, y, z);
                     let voxels = match voxels.tree.root.get_chunk(chunk_point) {
