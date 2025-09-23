@@ -458,6 +458,7 @@ impl SimChunks {
             let (chunk_key, dirty_key) = self.from_chunk_point.get(&chunk_point).unwrap();
             let chunk = self.chunks.get_mut(*chunk_key).unwrap();
             let dirty = self.dirty.get_mut(*dirty_key).unwrap();
+            //
             *dirty = chunk.modified.clone();
 
             // spread internally
@@ -467,12 +468,12 @@ impl SimChunks {
 
             // spread in between surrounding chunks
             if let Some((above, _)) = self.from_chunk_point.get(&ChunkPoint(chunk_point.0 + IVec3::new(0, 1, 0))) {
-                let above_chunk = self.chunks.get(*chunk_key).unwrap();
+                let above_chunk = self.chunks.get(*above).unwrap();
                 dirty.pull_above_chunk(&above_chunk.modified);
             }
 
             if let Some((below, _)) = self.from_chunk_point.get(&ChunkPoint(chunk_point.0 - IVec3::new(0, 1, 0))) {
-                let below_chunk = self.chunks.get(*chunk_key).unwrap();
+                let below_chunk = self.chunks.get(*below).unwrap();
                 dirty.pull_below_chunk(&below_chunk.modified);
             }
         }

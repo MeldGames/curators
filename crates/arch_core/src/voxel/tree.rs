@@ -525,7 +525,16 @@ impl VoxelTree {
     pub fn set_chunk_data(&mut self, chunk_point: IVec3, chunk_data: [Voxel; 4096]) {
         assert!(self.chunk_point_in_bounds(chunk_point));
         self.root.set_chunk_data(chunk_point, chunk_data);
-        self.changed_chunks.insert(chunk_point);
+
+        // all neighbors should re-mesh
+        for x in -1..1 {
+            for y in -1..1 {
+                for z in -1..1 {
+                    let offset = IVec3::new(x, y, z);
+                    self.changed_chunks.insert(chunk_point + offset);
+                }
+            }
+        }
     }
 
     pub fn get_chunk_mut(&mut self, chunk_point: IVec3) -> &mut VoxelNode {
