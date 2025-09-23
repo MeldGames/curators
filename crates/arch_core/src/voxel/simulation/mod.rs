@@ -103,7 +103,22 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
         for (chunk_point, (chunk_key, _dirty_key)) in &sim_chunks.from_chunk_point {
             // info!("propagating to tree: {:?}", chunk_point);
             let sim_chunk = sim_chunks.chunks.get(*chunk_key).unwrap();
-            voxels.tree.set_chunk_data(**chunk_point, sim_chunk.voxels);
+
+            if !sim_chunk.modified.any_set() {
+                continue;
+            }
+
+            match voxels.tree.get_chunk_mut(**chunk_point) {
+                VoxelNode::Solid { .. } => {
+                    voxels.tree.set_chunk_data(**chunk_point, sim_chunk.voxels);
+                }
+                VoxelNode::Leaf { leaf } => {
+                    for voxel_index in sim_chunk.modified.iter() {
+                        leaf[voxel_index] = sim_chunk.voxels[voxel_index];
+                    }
+                }
+                _ => {},
+            }
         }
     }
 }
@@ -192,15 +207,5 @@ pub fn falling_sands(
         //     // }
         //     // }
         // }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::voxel::simulation::StackUpdates;
-
-    #[test]
-    pub fn create_stack_updates() {
-        let updates = StackUpdates::new();
     }
 }

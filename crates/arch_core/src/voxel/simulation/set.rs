@@ -90,6 +90,12 @@ impl ChunkSet {
         (self.set[mask] & (1 << bit)) != 0
     }
 
+    /// Are any bits in this bitset, set?
+    #[inline]
+    pub fn any_set(&self) -> bool {
+        self.occupancy != 0
+    }
+
     // this is self contained, doesn't need to know about surrounding Z because the boundaries
     // of the Z are contained within 16 bits.
     #[inline]

@@ -384,6 +384,24 @@ impl VoxelNode {
         }
     }
 
+    pub fn get_chunk_mut<'a>(
+        &'a mut self,
+        chunk_point: IVec3, // voxel point divided by chunk/leaf size
+    ) -> &'a mut VoxelNode {
+        match self {
+            VoxelNode::Children { layer, children } => {
+                assert!(*layer > 0);
+
+                let sublayer_index = get_sublayer_index_from_chunk(*layer, chunk_point);
+                // println!("sublayer_index: {:?}", sublayer_index);
+                let next_node = &mut children[sublayer_index];
+                next_node.get_chunk_mut(chunk_point)
+            },
+            leaf @ VoxelNode::Leaf { .. } => leaf,
+            solid @ VoxelNode::Solid { .. } => solid,
+        }
+    }
+
     pub fn set_chunk_data<'a>(
         &'a mut self,
         chunk_point: IVec3, // voxel point divided by chunk/leaf size
@@ -508,6 +526,12 @@ impl VoxelTree {
         assert!(self.chunk_point_in_bounds(chunk_point));
         self.root.set_chunk_data(chunk_point, chunk_data);
         self.changed_chunks.insert(chunk_point);
+    }
+
+    pub fn get_chunk_mut(&mut self, chunk_point: IVec3) -> &mut VoxelNode {
+        assert!(self.chunk_point_in_bounds(chunk_point));
+        self.changed_chunks.insert(chunk_point);
+        self.root.get_chunk_mut(chunk_point)
     }
 
     pub fn voxel_point_in_bounds(&self, voxel_point: IVec3) -> bool {
