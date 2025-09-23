@@ -7,7 +7,7 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::data::{delinearize, ChunkPoint, SimChunk, SimChunks};
+use crate::voxel::simulation::data::{delinearize, ChunkPoint, SimChunk, SimChunks, CHUNK_LENGTH};
 use crate::voxel::simulation::set::ChunkSet;
 use crate::voxel::tree::VoxelNode;
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
@@ -120,22 +120,18 @@ pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
             for x in 0..8 {
                 for y in 0..4 {
                     let chunk_point = IVec3::new(x, y, z);
-                    let sim_chunk = match voxels.tree.root.get_chunk(chunk_point) {
+                    let voxels = match voxels.tree.root.get_chunk(chunk_point) {
                         VoxelNode::Solid { voxel, .. } => {
-                            Some(SimChunk::fill(*voxel))
+                            Some([*voxel; CHUNK_LENGTH])
                         }
                         VoxelNode::Leaf { leaf } => {
-                            Some(SimChunk {
-                                dirty: ChunkSet::filled(), // all are dirty when entered into simulation
-                                modified: ChunkSet::empty(), // none are modified by the simulation yet.
-                                voxels: **leaf,
-                            })
+                            Some(**leaf)
                         }
                         _ => None
                     };
 
-                    if let Some(sim_chunk) = sim_chunk {
-                        sim_chunks.add_chunk(ChunkPoint(chunk_point), sim_chunk);
+                    if let Some(voxels) = voxels {
+                        sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
                     }
                 }
             }
@@ -145,7 +141,7 @@ pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>) {
 
 pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
     for (_grid_entity, mut voxels, sim_chunks) in &mut grids {
-        for (chunk_point, chunk_key) in &sim_chunks.from_chunk_point {
+        for (chunk_point, (chunk_key, _dirty_key)) in &sim_chunks.from_chunk_point {
             // info!("propagating to tree: {:?}", chunk_point);
             let sim_chunk = sim_chunks.chunks.get(*chunk_key).unwrap();
             voxels.tree.set_chunk_data(**chunk_point, sim_chunk.voxels);
@@ -182,21 +178,20 @@ pub fn falling_sands(
         sim_chunks.margolus_offset += 1;
         sim_chunks.margolus_offset %= 8;
 
+        sim_chunks.spread_updates();
+
         use rayon::prelude::*;
         let views = sim_chunks.chunk_views();
 
         // Parallel version
-        views.into_par_iter().for_each(|mut chunk_view| {
-            let mut dirty_swap = ChunkSet::empty();
-            chunk_view.simulate(*sim_tick, &mut dirty_swap);
+        views.into_par_iter().for_each(|mut block_view| {
+            block_view.simulate(*sim_tick);
         });
 
         // Single threaded version
         // views.into_iter().for_each(|mut chunk_view| {
         //     chunk_view.simulate(*sim_tick);
         // });
-
-        sim_chunks.spread_updates();
 
         // for (chunk_point, voxel_index) in sim_chunks.sim_updates(&mut
         // sim_swap_buffer.0) {     #[cfg(feature = "trace")]

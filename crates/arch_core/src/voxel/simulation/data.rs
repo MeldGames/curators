@@ -33,8 +33,6 @@ pub fn plugin(app: &mut App) {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct SimChunk {
-    /// Voxels that we need to update.
-    pub dirty: ChunkSet,
     /// Voxels we have modified this iteration.
     pub modified: ChunkSet,
 
@@ -54,14 +52,37 @@ impl SimChunk {
     
     pub fn fill(voxel: Voxel) -> Self {
         Self {
-            dirty: ChunkSet::filled(),
             modified: ChunkSet::empty(),
             voxels: [voxel; CHUNK_LENGTH],
+        }
+    }
+
+    pub fn set(&mut self, voxel_index: usize, voxel: Voxel) {
+        let current_voxel = if cfg!(feature = "safe-bounds") {
+            self.voxels[voxel_index]
+        } else {
+            unsafe {
+                *self.voxels.get_unchecked(voxel_index)
+            }
+        };
+
+        let current_voxel = self.voxels[voxel_index];
+        if current_voxel != voxel {
+            self.modified.set(voxel_index);
+
+            if cfg!(feature = "safe-bounds") {
+                self.voxels[voxel_index] = voxel;
+            } else {
+                unsafe {
+                    *self.voxels.get_unchecked_mut(voxel_index) = voxel;
+                }
+            }
         }
     }
 }
 
 slotmap::new_key_type! { pub struct ChunkKey; }
+slotmap::new_key_type! { pub struct DirtyKey; }
 slotmap::new_key_type! { pub struct BlockKey; }
 
 // TODO: Double buffer this data so we can throw this on another thread,
@@ -69,8 +90,9 @@ slotmap::new_key_type! { pub struct BlockKey; }
 #[derive(Component, Clone)]
 pub struct SimChunks {
     pub chunks: SlotMap<ChunkKey, SimChunk>, // active chunks
+    pub dirty: SlotMap<DirtyKey, ChunkSet>,
 
-    pub from_chunk_point: HashMap<ChunkPoint, ChunkKey>,
+    pub from_chunk_point: HashMap<ChunkPoint, (ChunkKey, DirtyKey)>,
 
     // 0 => 0, 0, 0
     // 1 => 1, 1, 1
@@ -157,6 +179,7 @@ impl SimChunks {
     pub fn new() -> Self {
         Self {
             chunks: SlotMap::with_key(),
+            dirty: SlotMap::with_key(),
             from_chunk_point: HashMap::new(),
             to_block_index: HashMap::new(),
             blocks: std::array::from_fn(|_| SlotMap::with_key()),
@@ -188,20 +211,26 @@ impl SimChunks {
         (chunk_point.0 << (CHUNK_WIDTH_BITSHIFT as i32)) + relative_voxel_point
     }
 
-    pub fn add_chunk(&mut self, chunk_point: ChunkPoint, sim_chunk: SimChunk) {
+    pub fn add_chunk(&mut self, chunk_point: ChunkPoint, voxels: [Voxel; CHUNK_LENGTH]) {
         let mut existing_chunk = None;
 
-        if let Some(chunk_key) = self.from_chunk_point.get(&chunk_point) {
+        if let Some((chunk_key, dirty_key)) = self.from_chunk_point.get(&chunk_point) {
             if let Some(chunk) = self.chunks.get_mut(*chunk_key) {
                 existing_chunk = Some(chunk);
             }
         }
 
         if let Some(existing_chunk) = existing_chunk {
-            *existing_chunk = sim_chunk;
+            for (index, voxel) in voxels.into_iter().enumerate() {
+                existing_chunk.set(index, voxel);
+            }
         } else {
-            let chunk_key = self.chunks.insert(sim_chunk);
-            self.from_chunk_point.insert(chunk_point, chunk_key);
+            let chunk_key = self.chunks.insert(SimChunk {
+                modified: ChunkSet::filled(),
+                voxels: voxels,
+            });
+            let dirty_key = self.dirty.insert(ChunkSet::filled()); // this doesn't really matter, it'll get overwritten later
+            self.from_chunk_point.insert(chunk_point, (chunk_key, dirty_key));
 
             // set up blocks
             for offset_index in 0..8 {
@@ -224,7 +253,7 @@ impl SimChunks {
                 };
 
                 let block = self.blocks[offset_index].get_mut(block_key).unwrap();
-                block.keys[chunk_index] = Some(chunk_key);
+                block.keys[chunk_index] = Some((chunk_key, dirty_key));
             }
         }
     }
@@ -234,7 +263,7 @@ impl SimChunks {
     }
 
     #[inline]
-    pub fn chunk_key_from_point(&self, chunk_point: ChunkPoint) -> Option<ChunkKey> {
+    pub fn chunk_key_from_point(&self, chunk_point: ChunkPoint) -> Option<(ChunkKey, DirtyKey)> {
         self.from_chunk_point.get(&chunk_point).copied()
     }
 
@@ -259,7 +288,7 @@ impl SimChunks {
     #[inline]
     pub fn get_voxel(&self, point: IVec3) -> Option<Voxel> {
         let (chunk_point, voxel_index) = Self::chunk_and_voxel_indices(point);
-        if let Some(chunk_key) = self.chunk_key_from_point(chunk_point) {
+        if let Some((chunk_key, _dirty_key)) = self.chunk_key_from_point(chunk_point) {
             Some(self.get_voxel_from_indices(chunk_key, voxel_index))
         } else {
             None
@@ -269,18 +298,10 @@ impl SimChunks {
     #[inline]
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) -> bool {
         let (chunk_point, voxel_index) = Self::chunk_and_voxel_indices(point);
-        if let Some(chunk_key) = self.chunk_key_from_point(chunk_point) {
+        if let Some((chunk_key, _dirty_key)) = self.chunk_key_from_point(chunk_point) {
             let chunk = self.chunks.get_mut(chunk_key).unwrap();
 
-            if cfg!(feature = "safe-bounds") {
-                chunk.voxels[voxel_index] = voxel;
-            } else {
-                unsafe {
-                    *chunk.voxels.get_unchecked_mut(voxel_index) = voxel;
-                }
-            }
-
-            // chunk.voxel_changeset.set(voxel);
+            chunk.set(voxel_index, voxel);
 
             true
         } else {
@@ -309,11 +330,14 @@ impl SimChunks {
 
     /// Split the [`SimChunks`] into a list of [`ChunkView`]s that can be
     /// processed in parallel.
-    pub fn chunk_views<'a>(&'a mut self) -> Vec<ChunkView<'a>> {
+    pub fn chunk_views<'a>(&'a mut self) -> Vec<BlockView<'a>> {
         let current_blocks = &self.blocks[self.margolus_offset];
-        let mut views = current_blocks.iter().map(|(_, keys)| ChunkView {
+        let mut views = current_blocks.iter().map(|(_, keys)| BlockView {
             start_chunk_point: keys.start_chunk_point,
-            chunks: std::array::from_fn(|_| None),
+            chunks: ChunkView {
+                chunks: std::array::from_fn(|_| None)
+            },
+            dirty_sets: std::array::from_fn(|_| None),
         }).collect::<Vec<_>>();
 
         // block_index, key_index, key
@@ -328,41 +352,26 @@ impl SimChunks {
             })
             .collect::<Vec<_>>();
         
-        let keys = flattened.iter().map(|(_, _, key)| *key).collect::<Vec<_>>();
+        let keys = flattened.iter().map(|(_, _, (key, dirty_key))| (*key, *dirty_key)).collect::<Vec<_>>();
         let disjoint = unsafe { self.get_disjoint_mut_unchecked(&keys.as_slice()) };
-        for (chunk_ref, (block_index, key_index, key)) in disjoint.into_iter().zip(flattened) {
-            views[block_index].chunks[key_index] = Some(chunk_ref);
+        for ((chunk_ref, dirty_set), (block_index, key_index, chunk_key)) in disjoint.into_iter().zip(flattened) {
+            let block = &mut views[block_index];
+            block.chunks.chunks[key_index] = Some(chunk_ref);
+            block.dirty_sets[key_index] = Some(dirty_set);
         }
 
         views
-        /*
-        unsafe {
-            if let Some(disjoint_chunks) = self.get_disjoint_blocks_mut(blocks.as_slice()) {
-                disjoint_chunks
-                    .into_iter()
-                    .zip(blocks)
-                    .map(|(block, keys)| ChunkView {
-                        start_chunk_point: keys.start_chunk_point,
-                        chunks: block,
-                    })
-                    .collect::<Vec<_>>()
-            } else {
-                panic!("Some blocks were joint");
-            }
-        }
-        */
     }
 
     // TODO: Fix this, it currently leads to a double free issue.
-
-    /// # Safety
     /// - The caller must guarantee that all `keys` are valid and unique (disjoint).
-    pub unsafe fn get_disjoint_mut_unchecked<'a>(&'a mut self, keys: &[ChunkKey]) -> Vec<&'a mut SimChunk> {
+    pub unsafe fn get_disjoint_mut_unchecked<'a>(&'a mut self, keys: &[(ChunkKey, DirtyKey)]) -> Vec<(&'a mut SimChunk, &'a ChunkSet)> {
         let mut result = Vec::with_capacity(keys.len());
-        for &key in keys {
+        for &(key, dirty_key) in keys {
             // SAFETY: The caller must guarantee that all keys are valid and disjoint.
             let ptr = self.chunks.get_unchecked_mut(key) as *mut SimChunk;
-            result.push(&mut *ptr);
+            let set = self.dirty.get_unchecked(dirty_key);
+            result.push((&mut *ptr, set));
         }
         result
     }
@@ -445,10 +454,26 @@ impl SimChunks {
 
     /// Spread modified updates into the dirty set for the next iteration
     pub fn spread_updates(&mut self) {
-        for (chunk_point, chunk_key) in self.from_chunk_point.iter() {
+        for chunk_point in self.from_chunk_point.keys().copied() {
+            let (chunk_key, dirty_key) = self.from_chunk_point.get(&chunk_point).unwrap();
             let chunk = self.chunks.get_mut(*chunk_key).unwrap();
-            for voxel_index in chunk.modified.iter() {
-                let voxel_point = delinearize(voxel_index);
+            let dirty = self.dirty.get_mut(*dirty_key).unwrap();
+            *dirty = chunk.modified.clone();
+
+            // spread internally
+            dirty.spread_y();
+            dirty.spread_x();
+            dirty.spread_z();
+
+            // spread in between surrounding chunks
+            if let Some((above, _)) = self.from_chunk_point.get(&ChunkPoint(chunk_point.0 + IVec3::new(0, 1, 0))) {
+                let above_chunk = self.chunks.get(*chunk_key).unwrap();
+                dirty.pull_above_chunk(&above_chunk.modified);
+            }
+
+            if let Some((below, _)) = self.from_chunk_point.get(&ChunkPoint(chunk_point.0 - IVec3::new(0, 1, 0))) {
+                let below_chunk = self.chunks.get(*chunk_key).unwrap();
+                dirty.pull_below_chunk(&below_chunk.modified);
             }
         }
     }
@@ -457,19 +482,64 @@ impl SimChunks {
 #[derive(Debug, Clone)]
 pub struct ChunkKeys {
     pub start_chunk_point: IVec3,
-    pub keys: [Option<ChunkKey>; CHUNK_VIEW_LENGTH],
+    pub keys: [Option<(ChunkKey, DirtyKey)>; CHUNK_VIEW_LENGTH],
+}
+
+pub struct BlockView<'a> {
+    pub start_chunk_point: IVec3,
+    // chunk, dirty set
+    chunks: ChunkView<'a>,
+    dirty_sets: [Option<&'a ChunkSet>; CHUNK_VIEW_LENGTH],
+}
+
+impl<'a> BlockView<'a> {
+    pub fn simulate(&mut self, tick: FallingSandTick) {
+        // TODO: Iterate through internal voxels first to avoid accessing other chunks,
+        // then iterate through each 'face', then iterate through each 'corner'.
+        // This should minimize cache misses, but may cause some visible seams.
+        // Profile this, it might not be worthwhile.
+
+        // For now just iterate through every voxel in a linear fashion.
+
+        for chunk in self.chunks.chunks.iter_mut() {
+            if let Some(chunk) = chunk {
+                chunk.modified.clear();
+            }
+        }
+
+        // TODO: figure out update masks here
+        // we can't clear voxels on the edges of chunks, because they might
+        // still be able to move if the neighboring chunk was within the
+        // active area. so
+        for chunk_index in 0..CHUNK_VIEW_LENGTH {
+            if self.chunks.chunks[chunk_index].is_none() {
+                continue;
+            }
+
+            let Some(dirty) = self.dirty_sets[chunk_index] else {
+                continue;
+            };
+
+            for voxel_index in dirty.iter() {
+                let voxel = {
+                    let chunk = self.chunks.chunks[chunk_index].as_ref().unwrap();
+                    let voxel_data = chunk.voxels[voxel_index];
+                    voxel_data
+                };
+
+                if !voxel.is_simulated() {
+                    continue;
+                }
+
+                let position = VoxelPosition::from_indices(chunk_index, voxel_index);
+                voxel.simulate(&mut self.chunks, position, tick);
+            }
+        }
+    }
 }
 
 pub struct ChunkView<'a> {
-    pub start_chunk_point: IVec3,
     pub chunks: [Option<&'a mut SimChunk>; CHUNK_VIEW_LENGTH],
-}
-
-impl<'a> std::fmt::Debug for ChunkView<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ChunkView")
-            .field("start_chunk_point", &self.start_chunk_point).field("chunks", &self.chunks).finish()
-    }
 }
 
 impl<'a> ChunkView<'a> {
@@ -504,11 +574,7 @@ impl<'a> ChunkView<'a> {
 
     pub fn set_voxel(&mut self, voxel_position: VoxelPosition, voxel: Voxel) {
         if let Some(chunk) = &mut self.chunks[voxel_position.chunk_index] {
-            let current_voxel = chunk.voxels[voxel_position.voxel_index];
-            if current_voxel != voxel {
-                chunk.modified.set(voxel_position.voxel_index);
-                chunk.voxels[voxel_position.voxel_index] = voxel;
-            }
+            chunk.set(voxel_position.voxel_index, voxel)
         }
     }
 
@@ -549,40 +615,6 @@ impl<'a> ChunkView<'a> {
         }
     }
 
-    pub fn simulate(&mut self, tick: FallingSandTick, dirty_swap: &mut ChunkSet) {
-        // TODO: Iterate through internal voxels first to avoid accessing other chunks,
-        // then iterate through each 'face', then iterate through each 'corner'.
-        // This should minimize cache misses, but may cause some visible seams.
-
-        // For now just iterate through every voxel in a linear fashion.
-
-        // TODO: figure out update masks here
-        // we can't clear voxels on the edges of chunks, because they might
-        // still be able to move if the neighboring chunk was within the
-        // active area. so
-        for chunk_index in 0..self.chunks.len() {
-            if self.chunks[chunk_index].is_none() {
-                continue;
-            }
-
-            std::mem::swap(dirty_swap, &mut self.chunks[chunk_index].as_mut().unwrap().dirty);
-
-            for voxel_index in dirty_swap.iter() {
-                let voxel = {
-                    let chunk = self.chunks[chunk_index].as_ref().unwrap();
-                    let voxel_data = chunk.voxels[voxel_index];
-                    voxel_data
-                };
-
-                if !voxel.is_simulated() {
-                    continue;
-                }
-
-                let position = VoxelPosition::from_indices(chunk_index, voxel_index);
-                voxel.simulate(self, position, tick);
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -623,17 +655,17 @@ mod tests {
     #[test]
     fn chunk_view() {
         let mut sim = SimChunks::new();
-        sim.add_chunk(ChunkPoint(ivec3(0, 0, 0)), SimChunk::new());
-        sim.add_chunk(ChunkPoint(ivec3(1, 0, 0)), SimChunk::new());
-        sim.add_chunk(ChunkPoint(ivec3(1, 0, 1)), SimChunk::new());
-        sim.add_chunk(ChunkPoint(ivec3(0, 0, 1)), SimChunk::new());
-        sim.add_chunk(ChunkPoint(ivec3(0, 1, 0)), SimChunk::new());
-        sim.add_chunk(ChunkPoint(ivec3(1, 1, 0)), SimChunk::new());
-        sim.add_chunk(ChunkPoint(ivec3(1, 1, 1)), SimChunk::new());
-        sim.add_chunk(ChunkPoint(ivec3(0, 1, 1)), SimChunk::new());
+        sim.add_chunk(ChunkPoint(ivec3(0, 0, 0)), [Voxel::Air; CHUNK_LENGTH]);
+        sim.add_chunk(ChunkPoint(ivec3(1, 0, 0)), [Voxel::Air; CHUNK_LENGTH]);
+        sim.add_chunk(ChunkPoint(ivec3(1, 0, 1)), [Voxel::Air; CHUNK_LENGTH]);
+        sim.add_chunk(ChunkPoint(ivec3(0, 0, 1)), [Voxel::Air; CHUNK_LENGTH]);
+        sim.add_chunk(ChunkPoint(ivec3(0, 1, 0)), [Voxel::Air; CHUNK_LENGTH]);
+        sim.add_chunk(ChunkPoint(ivec3(1, 1, 0)), [Voxel::Air; CHUNK_LENGTH]);
+        sim.add_chunk(ChunkPoint(ivec3(1, 1, 1)), [Voxel::Air; CHUNK_LENGTH]);
+        sim.add_chunk(ChunkPoint(ivec3(0, 1, 1)), [Voxel::Air; CHUNK_LENGTH]);
 
         let views = sim.chunk_views();
-        println!("views: {:?}", views);
+        // println!("views: {:?}", views);
     }
 
     // #[test]
@@ -651,7 +683,7 @@ mod tests {
     #[test]
     fn get_set() {
         let mut chunks = SimChunks::new();
-        chunks.add_chunk(ChunkPoint(ivec3(0, 0, 0)), SimChunk::new());
+        chunks.add_chunk(ChunkPoint(ivec3(0, 0, 0)), [Voxel::Air; CHUNK_LENGTH]);
 
         // basic set
         chunks.set_voxel(ivec3(0, 0, 0), Voxel::Dirt);
