@@ -95,6 +95,7 @@ pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>, tick:
                     };
 
                     if let Some(voxels) = voxels {
+                        info!("pulling chunk to sim: {:?}", chunk_point);
                         sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
                     }
                 }
@@ -121,6 +122,8 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
                     for voxel_index in sim_chunk.modified.iter() {
                         leaf[voxel_index] = sim_chunk.voxels[voxel_index];
                     }
+
+                    // TODO: Set updated neighboring chunks here
                 }
                 _ => {},
             }
