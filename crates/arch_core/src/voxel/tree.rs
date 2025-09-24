@@ -518,7 +518,18 @@ impl VoxelTree {
         }
 
         if self.root.set_voxel(voxel_point, voxel) {
-            self.changed_chunks.insert(voxel_point / IVec3::splat(CHUNK_WIDTH as i32));
+            let min = voxel_point - IVec3::ONE;
+            let max = voxel_point + IVec3::ONE;
+            let min_chunk = min / IVec3::splat(CHUNK_WIDTH as i32);
+            let max_chunk = max / IVec3::splat(CHUNK_WIDTH as i32);
+
+            for x in min_chunk.x..=max_chunk.x {
+                for y in min_chunk.y..=max_chunk.y {
+                    for z in min_chunk.z..=max_chunk.z {
+                        self.changed_chunks.insert(IVec3::new(x, y, z));
+                    }
+                }
+            }
         }
     }
 
