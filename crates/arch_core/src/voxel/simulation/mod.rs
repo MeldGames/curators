@@ -154,10 +154,11 @@ pub fn falling_sands(
     for (_grid_entity, mut sim_chunks) in &mut grids {
         // sim_swap_buffer.0.clear();
 
+        // use the current margolus offset to preserve boundary dirtiness
+        sim_chunks.spread_updates();
+
         sim_chunks.margolus_offset += 1;
         sim_chunks.margolus_offset %= 8;
-
-        sim_chunks.spread_updates();
 
         use rayon::prelude::*;
         let views = sim_chunks.chunk_views();

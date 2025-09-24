@@ -118,7 +118,7 @@ pub const MARGOLUS_OFFSETS: [IVec3; 8] = [
 ];
 
 #[inline]
-pub fn to_linear_index(relative_point: IVec3) -> usize {
+pub const fn to_linear_index(relative_point: IVec3) -> usize {
     debug_assert!(
         relative_point.x < CHUNK_WIDTH as i32
             && relative_point.y < CHUNK_WIDTH as i32
@@ -138,7 +138,7 @@ pub fn to_linear_index(relative_point: IVec3) -> usize {
 }
 
 #[inline]
-pub fn from_linear_index(index: usize) -> IVec3 {
+pub const fn from_linear_index(index: usize) -> IVec3 {
     debug_assert!(index < CHUNK_LENGTH);
 
     let y = index >> CHUNK_WIDTH_BITSHIFT_Y;
@@ -149,14 +149,14 @@ pub fn from_linear_index(index: usize) -> IVec3 {
 }
 
 #[inline]
-pub fn linearize(relative_point: IVec3) -> usize {
+pub const fn linearize(relative_point: IVec3) -> usize {
     to_linear_index(relative_point)
     // super::morton::to_morton_index_lut(relative_point)
     // unsafe { super::morton::into_morton_index_bmi2(relative_point) }
 }
 
 #[inline]
-pub fn delinearize(index: usize) -> IVec3 {
+pub const fn delinearize(index: usize) -> IVec3 {
     from_linear_index(index)
     // super::morton::from_morton_index(index)
     // unsafe { super::morton::from_morton_index_bmi2(index) }
@@ -454,17 +454,102 @@ impl SimChunks {
 
     /// Spread modified updates into the dirty set for the next iteration
     pub fn spread_updates(&mut self) {
+        for (block_key, chunk_keys) in &self.blocks[self.margolus_offset] {
+            for (index, keys) in chunk_keys.keys.iter().enumerate() {
+                let Some((chunk_key, dirty_key)) = keys else { continue; };
+
+                let rel_chunk_point = ChunkView::delinearize_chunk(index);
+                let chunk = self.chunks.get(*chunk_key).unwrap();
+                let dirty = self.dirty.get_mut(*dirty_key).unwrap();
+                let neighbors = [
+                    rel_chunk_point + IVec3::Y,
+                    rel_chunk_point - IVec3::Y,
+                    rel_chunk_point + IVec3::X,
+                    rel_chunk_point - IVec3::X,
+                    rel_chunk_point + IVec3::Z,
+                    rel_chunk_point - IVec3::Z,
+                ];
+                let exists: [bool; 6] = neighbors.map(|neighbor| {
+                    if neighbor.min_element() < 0 || neighbor.max_element() > 1 {
+                        false
+                    } else {
+                        let neighbor_index = ChunkView::linearize_chunk(neighbor);
+                        chunk_keys.keys[neighbor_index].is_some()
+                    }
+                });
+
+                let [above, below, right, left, back, forward] = exists;
+
+                // Vertical masks are fully populated on the XZ plane, so all bits are set.
+                pub const VERTICAL_PRESERVE_MASK: u64 = u64::MAX;
+                // Left = (x == 0)
+                // Right = (x == 15)
+                // there are 16 bits per X axis, so every 4 masks is a new X.
+                pub const LEFT_PRESERVE_MASK: u64 = 0b1111111111111111_0000000000000000_0000000000000000_0000000000000000;
+                pub const RIGHT_PRESERVE_MASK: u64 = 0b0000000000000000_0000000000000000_0000000000000000_1111111111111111;
+
+                // Trickier one, the edge on the Z axis is the first or last bit of every 16 bits.
+                pub const FORWARD_PRESERVE_MASK: u64 = 0b1000000000000000_1000000000000000_1000000000000000_1000000000000000;
+                pub const BACKWARD_PRESERVE_MASK: u64 = 0b0000000000000001_0000000000000001_0000000000000001_0000000000000001;
+
+                // For every index, we can potentially preserve the start and end in the Z directions.
+                let mut initial_preserve_mask = 0u64;
+                if !forward {
+                    initial_preserve_mask |= FORWARD_PRESERVE_MASK;
+                }
+                if !back {
+                    initial_preserve_mask |= BACKWARD_PRESERVE_MASK;
+                }
+
+                for (index, modified_mask) in chunk.modified.iter_masks().enumerate() {
+                    use crate::voxel::simulation::set::{is_top_index, is_bottom_index, is_left_index, is_right_index};
+
+                    // we preserve some dirty bits from the last frame in the case the voxel had no viable neighbor next to it.
+                    // this could've changed by adding chunks to the simulation, or more commonly, the margolus offset changing
+                    let mut preserve_mask = initial_preserve_mask;
+                    if (!above && is_top_index(index)) || (!below && is_bottom_index(index)) {
+                        preserve_mask |= VERTICAL_PRESERVE_MASK;
+                    }
+
+                    if !left && is_left_index(index) {
+                        preserve_mask |= LEFT_PRESERVE_MASK;
+                    } else if !right && is_right_index(index) {
+                        preserve_mask |= RIGHT_PRESERVE_MASK;
+                    }
+
+                    // cool debug visualization of the preserve mask ngl
+                    // println!("preserve mask: {:b}", preserve_mask);
+
+                    let new_dirty = modified_mask | (dirty.get_mask(index) & preserve_mask);
+                    dirty.set_mask(index, new_dirty);
+
+                    if dirty.fix_occupancy() {
+                        println!("occupancy was wrong from preserve/modification masking");
+                    }
+                }
+            }
+        }
+
         for chunk_point in self.from_chunk_point.keys().copied() {
             let (chunk_key, dirty_key) = self.from_chunk_point.get(&chunk_point).unwrap();
-            let chunk = self.chunks.get_mut(*chunk_key).unwrap();
+            let chunk = self.chunks.get(*chunk_key).unwrap();
             let dirty = self.dirty.get_mut(*dirty_key).unwrap();
-            //
-            *dirty = chunk.modified.clone();
+
+            // Use the previous margolus set to find the boundaries of the last dirty
 
             // spread internally
             dirty.spread_y();
+            if dirty.fix_occupancy() {
+                println!("occupancy was wrong from spreading y");
+            }
             dirty.spread_x();
+            if dirty.fix_occupancy() {
+                println!("occupancy was wrong from spreading x");
+            }
             dirty.spread_z();
+            if dirty.fix_occupancy() {
+                println!("occupancy was wrong from spreading z");
+            }
 
             // spread in between surrounding chunks
             if let Some((above, _)) = self.from_chunk_point.get(&ChunkPoint(chunk_point.0 + IVec3::new(0, 1, 0))) {
@@ -475,6 +560,9 @@ impl SimChunks {
             if let Some((below, _)) = self.from_chunk_point.get(&ChunkPoint(chunk_point.0 - IVec3::new(0, 1, 0))) {
                 let below_chunk = self.chunks.get(*below).unwrap();
                 dirty.pull_below_chunk(&below_chunk.modified);
+            }
+            if dirty.fix_occupancy() {
+                println!("occupancy was wrong from pulling");
             }
         }
     }

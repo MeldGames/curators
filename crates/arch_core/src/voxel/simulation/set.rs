@@ -110,37 +110,42 @@ impl ChunkSet {
     #[inline]
     pub fn spread_z(&mut self) {
         for i in 0..SET_LEN {
+            // shouldn't need to update occupancy mask, this is self contained
             self.set[i] = Self::spread_z_individual(self.set[i]);
         }
     }
 
     #[inline]
-    pub fn spread_x_individual(&self, i: usize) -> (u64, u64) { // set, occupancy
-        let (before, occupancy_before) = if i > 0 {
-            ((self.set[i - 1]
+    pub fn spread_x_individual(&self, i: usize) -> u64 {
+        let before = if i > 0 {
+            (self.set[i - 1]
                 & 0b0000000000000000_0000000000000000_0000000000000000_1111111111111111)
-                << (64 - 16), self.occupancy & (1 << (i - 1)))
+                << (64 - 16)
         } else {
-            (0u64, 0u64)
+            0u64
         };
 
-        let (after, occupancy_after) = if i + 1 < self.set.len() {
+        let after = if i + 1 < self.set.len() {
             (self.set[i + 1]
-                & 0b1111111111111111_0000000000000000_0000000000000000_0000000000000000
-                << (64 - 16), self.occupancy & (1 << (i + 1)))
+                & 0b1111111111111111_0000000000000000_0000000000000000_0000000000000000)
+                << (64 - 16)
         } else {
-            (0u64, 0u64)
+            0u64
         };
 
-        (self.set[i] | self.set[i] << 16 | self.set[i] >> 16 | before | after, occupancy_before | occupancy_after)
+        self.set[i] | self.set[i] << 16 | self.set[i] >> 16 | before | after
     }
 
     #[inline]
     pub fn spread_x(&mut self) {
         for i in 0..self.set.len() {
-            let (set, occupancy) = self.spread_x_individual(i);
-            self.occupancy |= occupancy;
+            let set = self.spread_x_individual(i);
             self.set[i] = set;
+            if set == 0 {
+                self.occupancy &= !(1 << i);
+            } else {
+                self.occupancy |= 1 << i;
+            }
         }
     }
 
@@ -159,6 +164,22 @@ impl ChunkSet {
         for i in 0..(self.set.len() - 4) {
             self.set[i] = self.set[i] | self.set[i + 4];
         }
+    }
+
+    #[inline]
+    pub fn fix_occupancy(&mut self) -> bool {
+        let original = self.occupancy;
+
+        // TODO: suss out the cause of any occupancy issues
+        for (index, mask) in self.set.iter().enumerate() {
+            if *mask == 0 {
+                self.occupancy &= !(1 << index);
+            } else {
+                self.occupancy |= 1 << index;
+            }
+        }
+
+        original != self.occupancy
     }
 
     // Here begins hell, I have manually spread modified -> dirty from neighboring chunks
@@ -184,7 +205,7 @@ impl ChunkSet {
 
         for (top_index, bottom_index) in top_layer.zip(bottom_layer) {
             // spread xz plane bits of the above before pulling
-            let (above_spread_x, _occupancy_above) = above.spread_x_individual(bottom_index);
+            let above_spread_x = above.spread_x_individual(bottom_index);
             let above_spread_xz = Self::spread_z_individual(above_spread_x);
             self.set[top_index] |= above_spread_xz;
 
@@ -207,7 +228,7 @@ impl ChunkSet {
 
         for (top_index, bottom_index) in top_layer.zip(bottom_layer) {
             // spread xz plane bits of the above before pulling
-            let (below_spread_x, _occupancy_below) = below.spread_x_individual(top_index);
+            let below_spread_x = below.spread_x_individual(top_index);
             let below_spread_xz = Self::spread_z_individual(below_spread_x);
             self.set[bottom_index] |= below_spread_xz;
 
@@ -276,6 +297,25 @@ impl ChunkSet {
         }
     }
 
+    pub fn iter_masks(&self) -> impl Iterator<Item = u64> {
+        self.set.iter().copied()
+    }
+
+    #[inline]
+    pub fn set_mask(&mut self, index: usize, mask: u64) {
+        self.set[index] = mask;
+        if mask == 0 {
+            self.occupancy &= !(1 << index);
+        } else {
+            self.occupancy |= 1 << index;
+        }
+    }
+
+    #[inline]
+    pub fn get_mask(&mut self, index: usize) -> u64 {
+        self.set[index]
+    }
+
     pub fn display(&self) -> String {
         let mut layers = String::new();
         for mask in self.set {
@@ -283,6 +323,37 @@ impl ChunkSet {
         }
         layers
     }
+}
+
+pub const fn is_top_index(index: usize) -> bool {
+    debug_assert!(index < 64);
+    // 60..63
+    // 60..63 is (0..16, 15, 0..16) note: these are all non-inclusive ranges
+    const TOP_START: usize = linearize(ivec3(0, 15, 0)) / 64;
+    index >= TOP_START
+}
+
+pub const fn is_bottom_index(index: usize) -> bool {
+    // 0..4 is (0..16, 0, 0..16)
+    index < 4
+}
+
+// Does this mask contain the left 
+pub const fn is_left_index(index: usize) -> bool {
+    // (0..4, 0, 0..16) == 0
+    // (0..4, 1, 0..16) == 4
+    // (0..4, 2, 0..16) == 8 (8 % 4 == 0)
+    // ...
+    index % 4 == 0
+}
+
+pub const fn is_right_index(index: usize) -> bool {
+    // right starts at index 3, steps by 4 for each vertical ascent similar to left
+    // (12..16, 0, 0..16) == 3
+    // (12..16, 1, 0..16) == 7 
+    // (12..16, 2, 0..16) == 11 (11 + 1 == 12 % 4 == 0)
+    // ...
+    (index + 1) % 4 == 0
 }
 
 #[cfg(test)]
