@@ -19,6 +19,7 @@ pub mod morton;
 pub mod rle;
 pub mod view;
 pub mod set;
+pub mod debug_dirty;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>().register_type::<SimSettings>();
@@ -32,7 +33,9 @@ pub fn plugin(app: &mut App) {
     app.add_systems(Startup, || {
         info!("available parallelism: {:?}", std::thread::available_parallelism());
     });
+    
     app.add_plugins(data::plugin);
+    app.add_plugins(debug_dirty::plugin);
 }
 
 // Make islands of voxels fall if unsupported.

@@ -11,9 +11,11 @@ pub const CHUNK_WIDTH: usize = 16;
 pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
 
 pub fn plugin(app: &mut App) {
+    app.register_type::<DebugTree>();
     app.insert_resource(DebugTree {
         debug: false,
     });
+
     app.add_systems(Update, draw_tree);
     app.add_systems(FixedLast, compress_tree);
 }
