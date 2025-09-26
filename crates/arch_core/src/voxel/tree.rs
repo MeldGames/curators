@@ -11,11 +11,24 @@ pub const CHUNK_WIDTH: usize = 16;
 pub const CHUNK_LENGTH: usize = CHUNK_WIDTH * CHUNK_WIDTH * CHUNK_WIDTH;
 
 pub fn plugin(app: &mut App) {
+    app.insert_resource(DebugTree {
+        debug: false,
+    });
     app.add_systems(Update, draw_tree);
     app.add_systems(FixedLast, compress_tree);
 }
 
-pub fn draw_tree(grids: Query<(&Voxels,)>, mut gizmos: Gizmos) {
+#[derive(Resource, Debug, Reflect)]
+#[reflect(Resource)]
+pub struct DebugTree {
+    pub debug: bool,
+}
+
+pub fn draw_tree(grids: Query<(&Voxels,)>, mut gizmos: Gizmos, debug_tree: Res<DebugTree>) {
+    if !debug_tree.debug {
+        return;
+    }
+
     for (voxels,) in &grids {
         voxels.tree.root.draw_gizmo(IVec3::ZERO, &mut gizmos);
     }

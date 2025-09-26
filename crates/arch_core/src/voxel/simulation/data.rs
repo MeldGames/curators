@@ -523,9 +523,7 @@ impl SimChunks {
                     let new_dirty = modified_mask | (dirty.get_mask(index) & preserve_mask);
                     dirty.set_mask(index, new_dirty);
 
-                    if dirty.fix_occupancy() {
-                        println!("occupancy was wrong from preserve/modification masking");
-                    }
+                    dirty.assert_occupancy("preserve masking");
                 }
             }
         }
@@ -539,17 +537,11 @@ impl SimChunks {
 
             // spread internally
             dirty.spread_y();
-            if dirty.fix_occupancy() {
-                println!("occupancy was wrong from spreading y");
-            }
+            dirty.assert_occupancy("spreading y");
             dirty.spread_x();
-            if dirty.fix_occupancy() {
-                println!("occupancy was wrong from spreading x");
-            }
+            dirty.assert_occupancy("spreading x");
             dirty.spread_z();
-            if dirty.fix_occupancy() {
-                println!("occupancy was wrong from spreading z");
-            }
+            dirty.assert_occupancy("spreading z");
 
             // spread in between surrounding chunks
             if let Some((above, _)) = self.from_chunk_point.get(&ChunkPoint(chunk_point.0 + IVec3::new(0, 1, 0))) {
@@ -561,9 +553,7 @@ impl SimChunks {
                 let below_chunk = self.chunks.get(*below).unwrap();
                 dirty.pull_below_chunk(&below_chunk.modified);
             }
-            if dirty.fix_occupancy() {
-                println!("occupancy was wrong from pulling");
-            }
+            dirty.assert_occupancy("pulling vertical chunks");
         }
     }
 }

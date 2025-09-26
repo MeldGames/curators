@@ -182,6 +182,13 @@ impl ChunkSet {
         original != self.occupancy
     }
 
+    #[inline]
+    pub fn assert_occupancy(&mut self, msg: &'static str) {
+        if self.fix_occupancy() {
+            warn!("occupancy discrepancy: `{}`", msg);
+        }
+    }
+
     // Here begins hell, I have manually spread modified -> dirty from neighboring chunks
 
     // +Y

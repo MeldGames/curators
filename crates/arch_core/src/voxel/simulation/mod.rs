@@ -95,7 +95,7 @@ pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>, tick:
                     };
 
                     if let Some(voxels) = voxels {
-                        info!("pulling chunk to sim: {:?}", chunk_point);
+                        // info!("pulling chunk to sim: {:?}", chunk_point);
                         sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
                     }
                 }
