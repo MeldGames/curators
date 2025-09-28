@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
-use crate::voxel::simulation::kinds::VoxelPosition;
 use crate::voxel::Voxel;
 use crate::voxel::simulation::data::ChunkView;
+use crate::voxel::simulation::kinds::VoxelPosition;
 // use crate::voxel::simulation::kinds::liquid::LiquidState;
 use crate::voxel::simulation::{FallingSandTick, SimChunks};
 

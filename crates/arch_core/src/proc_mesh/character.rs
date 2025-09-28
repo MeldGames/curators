@@ -39,7 +39,16 @@ impl Default for CharacterMeshSettings {
     fn default() -> Self {
         let body_fatness = Vec3::new(1.0, 0.8, 1.0);
         let head_fatness = Vec3::new(0.2, 0.2, 0.15);
-        Self { body_fatness, head_fatness, head_height: 2.0, neck_z_connection: body_fatness.z * -0.75, neck_fatness: 0.25, eye_radius: 0.15, eye_padding: 0.05, eye_offset: Vec3::new(0.0, 0.1, -0.1) }
+        Self {
+            body_fatness,
+            head_fatness,
+            head_height: 2.0,
+            neck_z_connection: body_fatness.z * -0.75,
+            neck_fatness: 0.25,
+            eye_radius: 0.15,
+            eye_padding: 0.05,
+            eye_offset: Vec3::new(0.0, 0.1, -0.1),
+        }
     }
 }
 
@@ -55,22 +64,17 @@ pub fn update_character_mesh(
 
         let neck_start = Vec3::new(0.0, 0.0, settings.neck_z_connection);
         let neck_end = Vec3::new(0.0, settings.head_height, settings.neck_z_connection);
-        let neck = sdf::Capsule {
-            start: neck_start,
-            end: neck_end,
-            radius: settings.neck_fatness,
-        };
+        let neck = sdf::Capsule { start: neck_start, end: neck_end, radius: settings.neck_fatness };
 
-        let head =
-            sdf::Ellipsoid { radii: settings.head_fatness }
-                .translate(Vec3::new(
-                    0.0,
-                    settings.head_height,
-                    settings.neck_z_connection - settings.head_fatness.z,
-                ));
+        let head = sdf::Ellipsoid { radii: settings.head_fatness }.translate(Vec3::new(
+            0.0,
+            settings.head_height,
+            settings.neck_z_connection - settings.head_fatness.z,
+        ));
 
         // eyes
-        let socket = sdf::Sphere { radius: settings.eye_radius + settings.eye_padding }.translate(settings.eye_offset);
+        let socket = sdf::Sphere { radius: settings.eye_radius + settings.eye_padding }
+            .translate(settings.eye_offset);
 
         let head = head.smooth_subtraction(socket, 0.1);
 
@@ -89,64 +93,64 @@ pub fn update_character_mesh(
             // neck joints
             let neck_midpoint = neck_start.midpoint(neck_end);
 
-            let anchor_joint = commands.spawn((
-                Name::new("Anchor joint"),
-                Transform {
-                    translation: Vec3::ZERO,
-                    ..default()
-                },
-                GlobalTransform::default(),
-                ChildOf(entity),
-            )).id();
+            let anchor_joint = commands
+                .spawn((
+                    Name::new("Anchor joint"),
+                    Transform { translation: Vec3::ZERO, ..default() },
+                    GlobalTransform::default(),
+                    ChildOf(entity),
+                ))
+                .id();
 
             // neck start joint
-            let neck_start_joint = commands.spawn((
-                Name::new("Neck start joint"),
-                Transform {
-                    translation: neck_start,
-                    ..default()
-                },
-                GlobalTransform::default(),
-                ChildOf(anchor_joint),
-            )).id();
-
+            let neck_start_joint = commands
+                .spawn((
+                    Name::new("Neck start joint"),
+                    Transform { translation: neck_start, ..default() },
+                    GlobalTransform::default(),
+                    ChildOf(anchor_joint),
+                ))
+                .id();
 
             let neck_offset = Vec3::new(0.0, (neck_end.y - neck_start.y / 2.0), 0.0);
-            let neck_midpoint_joint = commands.spawn((
-                Name::new("Neck midpoint joint"),
-                Transform {
-                    translation: neck_offset,
-                    ..default()
-                },
-                GlobalTransform::default(),
-                ChildOf(neck_start_joint),
-            )).id();
+            let neck_midpoint_joint = commands
+                .spawn((
+                    Name::new("Neck midpoint joint"),
+                    Transform { translation: neck_offset, ..default() },
+                    GlobalTransform::default(),
+                    ChildOf(neck_start_joint),
+                ))
+                .id();
 
-            let neck_end_joint = commands.spawn((
-                Name::new("Neck end joint"),
-                Transform {
-                    translation: neck_offset,
-                    ..default()
-                },
-                GlobalTransform::default(),
-                ChildOf(neck_midpoint_joint),
-            )).id();
+            let neck_end_joint = commands
+                .spawn((
+                    Name::new("Neck end joint"),
+                    Transform { translation: neck_offset, ..default() },
+                    GlobalTransform::default(),
+                    ChildOf(neck_midpoint_joint),
+                ))
+                .id();
 
             let joints = vec![anchor_joint, neck_start_joint, neck_midpoint_joint, neck_end_joint];
 
-            let mut joint_indices = vec![[0u16; 4]; buffer.positions.len()] ;
-            let mut joint_weights = vec![[0.0; 4]; buffer.positions.len()] ;
+            let mut joint_indices = vec![[0u16; 4]; buffer.positions.len()];
+            let mut joint_weights = vec![[0.0; 4]; buffer.positions.len()];
 
             let body_index = 0;
             for (index, position) in buffer.positions.iter().enumerate() {
                 // in neck?
                 let position = Vec3::from(*position);
-                if body.sdf(position) < 0.05 { // we are inside the neck
+                if body.sdf(position) < 0.05 {
+                    // we are inside the neck
                     // find empty index
-                    let internal_index = joint_weights[index].iter().enumerate().find(|(_, weight)| {
-                        **weight == 0.0
-                        // **index == 0
-                    }).map(|(index, _)| index);
+                    let internal_index = joint_weights[index]
+                        .iter()
+                        .enumerate()
+                        .find(|(_, weight)| {
+                            **weight == 0.0
+                            // **index == 0
+                        })
+                        .map(|(index, _)| index);
 
                     if let Some(internal_index) = internal_index {
                         joint_indices[index][internal_index] = body_index;
@@ -160,17 +164,22 @@ pub fn update_character_mesh(
             for (index, position) in buffer.positions.iter().enumerate() {
                 // in neck?
                 let position = Vec3::from(*position);
-                let neckbase = sdf::primitive::Cylinder { // middle 2/3rd
+                let neckbase = sdf::primitive::Cylinder {
+                    // middle 2/3rd
                     start: neck.start,
                     end: neck_midpoint,
                     radius: 0.25 + 0.05,
                 };
-                if neckbase.sdf(position) < 0.0 { 
+                if neckbase.sdf(position) < 0.0 {
                     // find empty index
-                    let internal_index = joint_indices[index].iter().enumerate().find(|(_, index)| {
-                        // **weight == 0.0
-                        **index == 0
-                    }).map(|(index, _)| index);
+                    let internal_index = joint_indices[index]
+                        .iter()
+                        .enumerate()
+                        .find(|(_, index)| {
+                            // **weight == 0.0
+                            **index == 0
+                        })
+                        .map(|(index, _)| index);
 
                     if let Some(internal_index) = internal_index {
                         joint_indices[index][internal_index] = neck_start_index;
@@ -186,18 +195,24 @@ pub fn update_character_mesh(
             for (index, position) in buffer.positions.iter().enumerate() {
                 // in neck?
                 let position = Vec3::from(*position);
-                let midneck = sdf::primitive::Cylinder { // middle 2/3rd
+                let midneck = sdf::primitive::Cylinder {
+                    // middle 2/3rd
                     start: neck_midpoint.midpoint(neck.start),
                     end: neck_midpoint.midpoint(neck.end),
                     radius: 0.25 + 0.05,
                 };
 
-                if midneck.sdf(position) < 0.0 { // we are inside the neck
+                if midneck.sdf(position) < 0.0 {
+                    // we are inside the neck
                     // find empty index
-                    let internal_index = joint_indices[index].iter().enumerate().find(|(_, index)| {
-                        // **weight == 0.0
-                        **index == 0
-                    }).map(|(index, _)| index);
+                    let internal_index = joint_indices[index]
+                        .iter()
+                        .enumerate()
+                        .find(|(_, index)| {
+                            // **weight == 0.0
+                            **index == 0
+                        })
+                        .map(|(index, _)| index);
 
                     if let Some(internal_index) = internal_index {
                         joint_indices[index][internal_index] = neck_midpoint_index;
@@ -216,12 +231,17 @@ pub fn update_character_mesh(
                     radius: 0.25 + 0.05,
                 };
 
-                if upper_neck.sdf(position) < 0.0 || head.sdf(position) < 0.1 { // we are inside the neck
+                if upper_neck.sdf(position) < 0.0 || head.sdf(position) < 0.1 {
+                    // we are inside the neck
                     // find empty index
-                    let internal_index = joint_indices[index].iter().enumerate().find(|(_, index)| {
-                        // **weight == 0.0
-                        **index == 0
-                    }).map(|(index, _)| index);
+                    let internal_index = joint_indices[index]
+                        .iter()
+                        .enumerate()
+                        .find(|(_, index)| {
+                            // **weight == 0.0
+                            **index == 0
+                        })
+                        .map(|(index, _)| index);
 
                     if let Some(internal_index) = internal_index {
                         joint_indices[index][internal_index] = neck_end_index;
@@ -241,25 +261,23 @@ pub fn update_character_mesh(
                 }
             }
 
-            mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_INDEX, VertexAttributeValues::Uint16x4(joint_indices));
+            mesh.insert_attribute(
+                Mesh::ATTRIBUTE_JOINT_INDEX,
+                VertexAttributeValues::Uint16x4(joint_indices),
+            );
             mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
             mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
             mesh.normalize_joint_weights();
 
-            // assign 
-            let joint_inverses = inverse_bindposes.add(
-            SkinnedMeshInverseBindposes::from(vec![
-                    Mat4::IDENTITY,
-                    Mat4::from_translation(-neck_start),
-                    Mat4::from_translation(-neck_start + -neck_offset),
-                    Mat4::from_translation(-neck_start + -neck_offset),
-                ])
-            );
+            // assign
+            let joint_inverses = inverse_bindposes.add(SkinnedMeshInverseBindposes::from(vec![
+                Mat4::IDENTITY,
+                Mat4::from_translation(-neck_start),
+                Mat4::from_translation(-neck_start + -neck_offset),
+                Mat4::from_translation(-neck_start + -neck_offset),
+            ]));
 
-            let skinned_mesh = SkinnedMesh {
-                inverse_bindposes: joint_inverses,
-                joints,
-            };
+            let skinned_mesh = SkinnedMesh { inverse_bindposes: joint_inverses, joints };
 
             // mesh.duplicate_vertices();
             // mesh.compute_flat_normals();

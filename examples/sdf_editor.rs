@@ -56,5 +56,4 @@ pub fn remesh_sdf(
     }
 }
 
-
 // Snarl node editor

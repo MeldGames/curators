@@ -1,7 +1,7 @@
 use arch_core::bevy;
+use arch_core::sdf::Sdf;
 use arch_core::voxel::simulation::data::{ChunkPoint, SimChunk, SimChunks};
 use arch_core::voxel::{Voxel, Voxels};
-use arch_core::sdf::Sdf;
 use bevy::prelude::*;
 
 pub mod falling_sands;
@@ -16,10 +16,7 @@ pub struct MeasurementSetup {
 
 impl Default for MeasurementSetup {
     fn default() -> Self {
-        Self {
-            measurement_time: std::time::Duration::from_secs(10),
-            sample_size: 100,
-        }
+        Self { measurement_time: std::time::Duration::from_secs(10), sample_size: 100 }
     }
 }
 
@@ -33,10 +30,7 @@ pub struct VoxelSetup {
 
 impl Default for VoxelSetup {
     fn default() -> Self {
-        Self {
-            voxel_size: IVec3::splat(256),
-            brushes: Vec::new(),
-        }
+        Self { voxel_size: IVec3::splat(256), brushes: Vec::new() }
     }
 }
 

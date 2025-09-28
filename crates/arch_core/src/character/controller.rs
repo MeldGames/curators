@@ -82,8 +82,9 @@ pub fn apply_jump(
         &Actions<PlayerInput>,
     )>,
     time: Res<Time>,
-)  {
-    let Ok((mut controller, grounded, mut jump, actions)) = players.get_mut(trigger.target()) else {
+) {
+    let Ok((mut controller, grounded, mut jump, actions)) = players.get_mut(trigger.target())
+    else {
         return;
     };
 

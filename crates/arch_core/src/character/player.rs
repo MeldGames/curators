@@ -6,7 +6,7 @@ use bevy_enhanced_input::prelude::*;
 use super::input::DigState;
 use crate::camera::flying::{CameraMove, CameraRotate};
 use crate::camera::*;
-use crate::character::input::{Move, Jump, Dig};
+use crate::character::input::{Dig, Jump, Move};
 // use crate::item::Hold;
 
 pub(super) fn plugin(app: &mut App) {
@@ -82,7 +82,6 @@ pub fn spawn_player(
                 .looking_at(Vec3::new(100.0, 0.0, 0.0), Vec3::Y),
             //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
             //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-
             ContextPriority::<FlyingCamera>::new(10),
             actions!(FlyingCamera[
                     (
@@ -99,7 +98,6 @@ pub fn spawn_player(
             ),
         ))
         .id();
-
 
     // let follow = commands
     //     .spawn((
@@ -129,6 +127,6 @@ pub fn spawn_player(
         actions!(CameraToggle[
             (Action::<Toggle>::new(), Release::default(), bindings![KeyCode::KeyP]),
         ]),
-        CameraEntities { flying: flying, player: flying, /* digsite, */ active: ActiveCamera::Flying },
+        CameraEntities { flying, player: flying, /* digsite, */ active: ActiveCamera::Flying },
     ));
 }

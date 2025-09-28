@@ -35,7 +35,7 @@ pub fn mesh_benches() -> Vec<MeshBenchSetup> {
                     Box::new(sdf::Torus { minor_radius: 2.0, major_radius: 3.0 }),
                     Voxel::Sand,
                 )],
-            }
+            },
         },
         MeshBenchSetup {
             name: "torus_water",
@@ -47,7 +47,7 @@ pub fn mesh_benches() -> Vec<MeshBenchSetup> {
                     Box::new(sdf::Torus { minor_radius: 2.0, major_radius: 3.0 }),
                     Voxel::Water(default()),
                 )],
-            }
+            },
         },
         MeshBenchSetup {
             name: "sphere_sand_large",
@@ -62,7 +62,7 @@ pub fn mesh_benches() -> Vec<MeshBenchSetup> {
                     Box::new(sdf::Sphere { radius: 20.0 }),
                     Voxel::Sand,
                 )],
-            }
+            },
         },
         MeshBenchSetup {
             name: "sphere_water_large",
@@ -77,7 +77,7 @@ pub fn mesh_benches() -> Vec<MeshBenchSetup> {
                     Box::new(sdf::Sphere { radius: 20.0 }),
                     Voxel::Water(default()),
                 )],
-            }
+            },
         },
     ]
 }

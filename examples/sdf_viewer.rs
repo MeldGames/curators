@@ -53,11 +53,14 @@ pub fn rasterize_sdf(mut voxels: Query<&mut Voxels>, input: Res<ButtonInput<KeyC
 
     let sdf = ops::SmoothUnion { a: sdf, b: translated_sphere, k: 5.0 };
     // let sdf = ops::Intersection { a: sdf, b: translated_sphere };
-    for raster_voxel in voxel_rasterize::rasterize(sdf, RasterConfig {
-        clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-        grid_scale: arch::core::voxel::GRID_SCALE,
-        pad_bounds: Vec3::splat(3.0),
-    }) {
+    for raster_voxel in voxel_rasterize::rasterize(
+        sdf,
+        RasterConfig {
+            clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
+            grid_scale: arch::core::voxel::GRID_SCALE,
+            pad_bounds: Vec3::splat(3.0),
+        },
+    ) {
         if raster_voxel.distance < 0.0 {
             voxels.set_voxel(raster_voxel.point, Voxel::Grass);
         } else if raster_voxel.distance < 3. {

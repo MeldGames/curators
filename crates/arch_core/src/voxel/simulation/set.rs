@@ -194,7 +194,7 @@ impl ChunkSet {
     // +Y
     pub fn pull_above_chunk(&mut self, above: &ChunkSet) {
         // top is near the end of the array, we start at 0, 0, 0 and increase to 15, 15, 15.
-        let top_start= SET_LEN - 4;
+        let top_start = SET_LEN - 4;
         let bottom_start = 0;
 
         // 0 = (0..4, 0, 0..16)
@@ -345,7 +345,7 @@ pub const fn is_bottom_index(index: usize) -> bool {
     index < 4
 }
 
-// Does this mask contain the left 
+// Does this mask contain the left
 pub const fn is_left_index(index: usize) -> bool {
     // (0..4, 0, 0..16) == 0
     // (0..4, 1, 0..16) == 4
@@ -357,7 +357,7 @@ pub const fn is_left_index(index: usize) -> bool {
 pub const fn is_right_index(index: usize) -> bool {
     // right starts at index 3, steps by 4 for each vertical ascent similar to left
     // (12..16, 0, 0..16) == 3
-    // (12..16, 1, 0..16) == 7 
+    // (12..16, 1, 0..16) == 7
     // (12..16, 2, 0..16) == 11 (11 + 1 == 12 % 4 == 0)
     // ...
     (index + 1) % 4 == 0
@@ -507,7 +507,6 @@ mod test {
             ivec3(2, 15, 0),
             ivec3(2, 15, 1),
             ivec3(2, 15, 2),
-
             // from below
             ivec3(0, 0, 0),
             ivec3(0, 0, 1),

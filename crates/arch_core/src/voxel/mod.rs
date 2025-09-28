@@ -10,13 +10,13 @@ use crate::voxel::simulation::data::SimChunks;
 pub mod brush;
 pub mod collider;
 pub mod mesh;
+pub mod painter;
 pub mod pick;
 pub mod raycast;
-pub mod tree;
 pub mod simulation;
+pub mod tree;
 pub mod voxel;
 pub mod voxel_aabb;
-pub mod painter;
 pub mod voxels;
 
 // pub const GRID_SCALE: Vec3 = Vec3::new(1.0, 0.2, 1.0);

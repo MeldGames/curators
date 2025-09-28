@@ -2,8 +2,8 @@
 
 use bevy::prelude::*;
 
-pub mod fence;
 pub mod character;
+pub mod fence;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(fence::plugin);

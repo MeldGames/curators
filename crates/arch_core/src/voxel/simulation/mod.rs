@@ -7,33 +7,95 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::data::{delinearize, ChunkPoint, SimChunk, SimChunks, CHUNK_LENGTH};
+use crate::voxel::simulation::data::{CHUNK_LENGTH, ChunkPoint, SimChunk, SimChunks, delinearize};
 use crate::voxel::simulation::set::ChunkSet;
 use crate::voxel::tree::VoxelNode;
 use crate::voxel::{GRID_SCALE, Voxel, Voxels};
 
 pub mod data;
+pub mod debug_dirty;
 pub mod gpu;
 pub mod kinds;
 pub mod morton;
 pub mod rle;
-pub mod view;
 pub mod set;
-pub mod debug_dirty;
+pub mod view;
+
+#[derive(SystemSet, Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
+pub enum SimStep {
+    #[default]
+    AddVoxelsToSim,
+    PullFromTree,
+    FlagDirty,
+    Simulate,
+    PropagateToTree,
+}
+
+impl SimStep {
+    pub fn next(&self) -> Self {
+        match self {
+            SimStep::AddVoxelsToSim => SimStep::PullFromTree,
+            SimStep::PullFromTree => SimStep::FlagDirty,
+            SimStep::FlagDirty => SimStep::Simulate,
+            SimStep::Simulate => SimStep::PropagateToTree,
+            SimStep::PropagateToTree => SimStep::AddVoxelsToSim,
+        }
+    }
+}
 
 pub fn plugin(app: &mut App) {
-    app.register_type::<FallingSandTick>().register_type::<SimSettings>();
+    app.register_type::<FallingSandTick>()
+        .register_type::<SimSettings>()
+        .register_type::<SimStep>();
 
     app.insert_resource(FallingSandTick(0));
     app.insert_resource(SimSettings::default());
 
-    app.add_systems(FixedPostUpdate, (add_sand, pull_from_tree, falling_sands, propagate_to_tree).chain());
-    app.add_systems(PostUpdate, sim_settings);
+    let none_or_equals = |step: SimStep| -> _ {
+        move |sim_settings: Res<SimSettings>| -> bool {
+            match &sim_settings.step_granular {
+                Some(s) if *s == step => true,
+                None => true,
+                _ => false,
+            }
+        }
+    };
+
+    app.configure_sets(
+        FixedPostUpdate,
+        (
+            SimStep::AddVoxelsToSim.run_if(none_or_equals(SimStep::AddVoxelsToSim)),
+            SimStep::PullFromTree.run_if(none_or_equals(SimStep::PullFromTree)),
+            SimStep::FlagDirty.run_if(none_or_equals(SimStep::FlagDirty)),
+            SimStep::Simulate.run_if(none_or_equals(SimStep::Simulate)),
+            SimStep::PropagateToTree.run_if(none_or_equals(SimStep::PropagateToTree)),
+        )
+            .chain()
+            .run_if(|settings: Res<SimSettings>| settings.run || settings.step_once),
+    );
+
+    app.add_systems(FixedLast, |mut settings: ResMut<SimSettings>| {
+        if settings.run || settings.step_once {
+            if let Some(step) = settings.step_granular.as_mut() {
+                settings.step_granular = Some(step.next());
+            }
+
+            settings.step_once = false;
+        }
+    });
+
+    app.add_systems(FixedPostUpdate, add_sand.in_set(SimStep::AddVoxelsToSim))
+        .add_systems(FixedPostUpdate, pull_from_tree.in_set(SimStep::PullFromTree))
+        .add_systems(FixedPostUpdate, spread_updates.in_set(SimStep::FlagDirty))
+        .add_systems(FixedPostUpdate, simulate.in_set(SimStep::Simulate))
+        .add_systems(FixedPostUpdate, propagate_to_tree.in_set(SimStep::PropagateToTree));
+
+    app.add_systems(First, sim_settings);
 
     app.add_systems(Startup, || {
         info!("available parallelism: {:?}", std::thread::available_parallelism());
     });
-    
+
     app.add_plugins(data::plugin);
     app.add_plugins(debug_dirty::plugin);
 }
@@ -45,11 +107,18 @@ pub fn islands(mut grids: Query<&mut Voxels>) {}
 #[reflect(Resource)]
 pub struct FallingSandTick(pub u32);
 
-#[derive(Resource, Copy, Clone, Reflect)]
+#[derive(Resource, Clone, Reflect)]
 #[reflect(Resource)]
 pub struct SimSettings {
     /// Run the simulation.
     pub run: bool,
+
+    /// Step at a granular system level.
+    pub step_granular: Option<SimStep>,
+
+    /// Step the simulation once, this will be flipped after we simulate either 1 frame,
+    /// or 1 granular system if [`SimSettings::step_granular`] is set.
+    pub step_once: bool,
 
     /// Display voxels that are being actively simulated.
     pub display_simulated: bool,
@@ -65,21 +134,35 @@ impl Default for SimSettings {
     fn default() -> Self {
         let threads =
             std::thread::available_parallelism().map(|nonzero| nonzero.get()).unwrap_or(4);
-        Self { run: true, display_simulated: false, display_checked: false, sim_threads: threads }
+        Self {
+            run: true,
+            step_granular: None,
+            step_once: false,
+            display_simulated: false,
+            display_checked: false,
+            sim_threads: threads,
+        }
     }
 }
 
 pub fn sim_settings(mut sim_settings: ResMut<SimSettings>, input: Res<ButtonInput<KeyCode>>) {
+    // if input.just_pressed(KeyCode::KeyL) {
+    // sim_settings.display_simulated = sim_settings.display_simulated;
+    // }
+
     if input.just_pressed(KeyCode::KeyL) {
-        sim_settings.display_simulated = sim_settings.display_simulated;
+        sim_settings.step_once = true;
     }
 }
 
 // Pull relevant chunks from the 64tree into our linear array.
-pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>, tick: Res<FallingSandTick>) {
+pub fn pull_from_tree(
+    mut grids: Query<(Entity, &Voxels, &mut SimChunks)>,
+    tick: Res<FallingSandTick>,
+) {
     // TODO: Stop doing this on every chunk every frame, should only do this on modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        for z in 0..16{
+        for z in 0..16 {
             for x in 0..16 {
                 for y in 0..4 {
                     let chunk_point = IVec3::new(x, y, z);
@@ -88,13 +171,9 @@ pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>, tick:
                     }
 
                     let voxels = match voxels.tree.root.get_chunk(chunk_point) {
-                        VoxelNode::Solid { voxel, .. } => {
-                            Some([*voxel; CHUNK_LENGTH])
-                        }
-                        VoxelNode::Leaf { leaf } => {
-                            Some(**leaf)
-                        }
-                        _ => None
+                        VoxelNode::Solid { voxel, .. } => Some([*voxel; CHUNK_LENGTH]),
+                        VoxelNode::Leaf { leaf } => Some(**leaf),
+                        _ => None,
                     };
 
                     if let Some(voxels) = voxels {
@@ -104,7 +183,7 @@ pub fn pull_from_tree(mut grids: Query<(Entity, &Voxels, &mut SimChunks)>, tick:
                 }
             }
         }
-    } 
+    }
 }
 
 pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
@@ -120,14 +199,14 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
             match voxels.tree.get_chunk_mut(**chunk_point) {
                 VoxelNode::Solid { .. } => {
                     voxels.tree.set_chunk_data(**chunk_point, sim_chunk.voxels);
-                }
+                },
                 VoxelNode::Leaf { leaf } => {
                     for voxel_index in sim_chunk.modified.iter() {
                         leaf[voxel_index] = sim_chunk.voxels[voxel_index];
                     }
 
                     // TODO: Set updated neighboring chunks here
-                }
+                },
                 _ => {},
             }
         }
@@ -140,32 +219,23 @@ pub fn add_sand(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
     }
 }
 
-pub fn falling_sands(
-    mut grids: Query<(Entity, &mut SimChunks)>,
-    mut sim_tick: ResMut<FallingSandTick>,
+pub fn spread_updates(mut grids: Query<(Entity, &mut SimChunks)>) {
+    for (_grid_entity, mut sim_chunks) in &mut grids {
+        // use the current margolus offset to preserve boundary dirtiness
+        sim_chunks.spread_updates();
 
-    sim_settings: Res<SimSettings>,
-    // mut changed_chunk_event: EventWriter<ChangedChunk>,
-    // mut gizmos: Option<Gizmos>,
-) {
-    if !sim_settings.run {
-        return;
+        sim_chunks.margolus_offset += 1;
+        sim_chunks.margolus_offset %= 8;
     }
+}
 
+pub fn simulate(mut grids: Query<(Entity, &mut SimChunks)>, mut sim_tick: ResMut<FallingSandTick>) {
     #[cfg(feature = "trace")]
     let falling_sands_span = info_span!("falling_sands").entered();
 
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
     for (_grid_entity, mut sim_chunks) in &mut grids {
-        // sim_swap_buffer.0.clear();
-
-        // use the current margolus offset to preserve boundary dirtiness
-        sim_chunks.spread_updates();
-
-        sim_chunks.margolus_offset += 1;
-        sim_chunks.margolus_offset %= 8;
-
         use rayon::prelude::*;
         let views = sim_chunks.chunk_views();
 
@@ -178,46 +248,5 @@ pub fn falling_sands(
         // views.into_iter().for_each(|mut chunk_view| {
         //     chunk_view.simulate(*sim_tick);
         // });
-
-        // for (chunk_point, voxel_index) in sim_chunks.sim_updates(&mut
-        // sim_swap_buffer.0) {     #[cfg(feature = "trace")]
-        //     let update_span = info_span!("update_voxel").entered();
-
-        //     changed_chunk_event.write(ChangedChunk { grid_entity, chunk_point
-        // });
-
-        //     let sim_voxel = sim_chunks.get_voxel_from_indices(chunk_point,
-        // voxel_index);     // if sim_voxel.is_simulated() {
-        //     let point =
-        // SimChunks::point_from_chunk_and_voxel_indices(chunk_point,
-        // voxel_index);     sim_voxel.simulate(&mut sim_chunks, point,
-        // &sim_tick);
-
-        //     // if let Some(gizmos) = gizmos.as_mut() &&
-        //     // sim_settings.display_simulated {     gizmos.cuboid(
-        //     //         Transform {
-        //     //             translation: point.as_vec3() * GRID_SCALE,
-        //     //             scale: GRID_SCALE,
-        //     //             ..default()
-        //     //         },
-        //     //         Color::srgb(1.0, 0.0, 0.0),
-        //     //     );
-        //     // }
-        //     // } else {
-        //     // if let Some(gizmos) = gizmos.as_mut() &&
-        //     // sim_settings.display_checked {     let point =
-        //     //
-        // SimChunks::point_from_chunk_and_voxel_indices(chunk_point,
-        // voxel_index);     //     gizmos.cuboid(
-        //     //         Transform {
-        //     //             translation: point.as_vec3() * GRID_SCALE,
-        //     //             scale: GRID_SCALE,
-        //     //             ..default()
-        //     //         },
-        //     //         Color::srgb(0.0, 0.0, 1.0),
-        //     //     );
-        //     // }
-        //     // }
-        // }
     }
 }

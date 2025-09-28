@@ -12,8 +12,7 @@ pub fn plugin_setup() -> App {
 
     app.add_event::<ChangedChunk>();
 
-    app
-        .insert_resource(voxel::simulation::FallingSandTick(0))
+    app.insert_resource(voxel::simulation::FallingSandTick(0))
         .insert_resource(SimSettings::default());
 
     app.add_plugins(MinimalPlugins)
@@ -59,7 +58,7 @@ pub fn basic_benches() -> Vec<SimBenchSetup> {
                     Box::new(sdf::Torus { minor_radius: 2.0, major_radius: 3.0 }),
                     Voxel::Sand,
                 )],
-            }
+            },
         },
         SimBenchSetup {
             name: "torus_water",
@@ -72,7 +71,7 @@ pub fn basic_benches() -> Vec<SimBenchSetup> {
                     Box::new(sdf::Torus { minor_radius: 2.0, major_radius: 3.0 }),
                     Voxel::Water(default()),
                 )],
-            }
+            },
         },
         SimBenchSetup {
             name: "sphere_sand_large",
@@ -88,7 +87,7 @@ pub fn basic_benches() -> Vec<SimBenchSetup> {
                     Box::new(sdf::Sphere { radius: 20.0 }),
                     Voxel::Sand,
                 )],
-            }
+            },
         },
         SimBenchSetup {
             name: "sphere_water_large",
@@ -104,7 +103,7 @@ pub fn basic_benches() -> Vec<SimBenchSetup> {
                     Box::new(sdf::Sphere { radius: 20.0 }),
                     Voxel::Water(default()),
                 )],
-            }
+            },
         },
         // SimBenchSetup {
         //     name: "blob",

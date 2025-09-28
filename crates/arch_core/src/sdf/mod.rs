@@ -108,7 +108,7 @@ pub trait Sdf: Send + Sync + Debug {
     fn smooth_intersection<O: Sdf>(self, other: O, smooth: f32) -> ops::SmoothIntersection<Self, O>
     where
         Self: Sized + Clone + Default,
-        O:  Clone + Default,
+        O: Clone + Default,
     {
         ops::SmoothIntersection { a: self, b: other, k: smooth }
     }
@@ -138,7 +138,6 @@ impl<S: Sdf> Sdf for Box<S> {
         S::aabb(&*self)
     }
 }
-
 
 impl Sdf for Box<dyn Sdf + Send + Sync> {
     fn sdf(&self, point: Vec3) -> f32 {

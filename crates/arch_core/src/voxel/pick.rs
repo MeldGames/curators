@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use bevy_math::bounding::Aabb3d;
 use bevy_enhanced_input::prelude::*;
+use bevy_math::bounding::Aabb3d;
 
 use crate::sdf;
 use crate::sdf::voxel_rasterize::RasterConfig;

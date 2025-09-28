@@ -74,12 +74,7 @@ pub fn camera_components() -> impl Bundle {
         },
         Smaa { preset: SmaaPreset::Ultra },
         // Fxaa::default(),
-
-        BlockingMeshes {
-            per_x: 40,
-            per_y: 40,
-            mesh_entities: Vec::new(),
-        },
+        BlockingMeshes { per_x: 40, per_y: 40, mesh_entities: Vec::new() },
     )
 }
 

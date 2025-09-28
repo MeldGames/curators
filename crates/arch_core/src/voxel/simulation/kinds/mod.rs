@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::voxel::Voxel;
-use crate::voxel::simulation::data::{delinearize, linearize, ChunkView, CHUNK_WIDTH};
+use crate::voxel::simulation::data::{CHUNK_WIDTH, ChunkView, delinearize, linearize};
 // use crate::voxel::simulation::kinds::liquid::LiquidState;
 use crate::voxel::simulation::{FallingSandTick, SimChunks};
 
@@ -21,17 +21,13 @@ impl VoxelPosition {
     pub fn from_indices(chunk_index: usize, voxel_index: usize) -> Self {
         let chunk_point = ChunkView::delinearize_chunk(chunk_index);
         let voxel_point = delinearize(voxel_index);
-        Self {
-            chunk_index, voxel_index, chunk_point, voxel_point,
-        }
+        Self { chunk_index, voxel_index, chunk_point, voxel_point }
     }
 
     pub fn from_points(chunk_point: IVec3, voxel_point: IVec3) -> Self {
         let chunk_index = ChunkView::linearize_chunk(chunk_point);
         let voxel_index = linearize(voxel_point);
-        Self {
-            chunk_index, voxel_index, chunk_point, voxel_point,
-        }
+        Self { chunk_index, voxel_index, chunk_point, voxel_point }
     }
 
     // pub fn left(mut self) -> Self {
@@ -43,7 +39,6 @@ impl VoxelPosition {
     //     }
     //     self
     // }
-
 }
 
 impl Voxel {

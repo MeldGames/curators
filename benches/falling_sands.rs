@@ -9,7 +9,7 @@ use arch::core::{
         self,
         voxel_rasterize::{RasterConfig, RasterVoxel, rasterize},
     },
-    voxel::simulation::{data::SimChunks},
+    voxel::simulation::data::SimChunks,
 };
 use bench::falling_sands::{SimBenchSetup, plugin_setup};
 

@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 
-use bevy::platform::collections::hash_map::Entry;
 use bevy::platform::collections::HashMap;
+use bevy::platform::collections::hash_map::Entry;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 use slotmap::SlotMap;
@@ -9,11 +9,11 @@ use slotmap::SlotMap;
 use tracing::*;
 
 use crate::sdf::Sdf;
+use crate::voxel::Voxel;
+use crate::voxel::simulation::FallingSandTick;
 use crate::voxel::simulation::kinds::VoxelPosition;
 use crate::voxel::simulation::set::ChunkSet;
-use crate::voxel::simulation::FallingSandTick;
 use crate::voxel::voxel::VoxelSet;
-use crate::voxel::Voxel;
 
 pub const CHUNK_WIDTH_BITSHIFT: usize = 4;
 pub const CHUNK_WIDTH_BITSHIFT_Y: usize = CHUNK_WIDTH_BITSHIFT * 2;
@@ -49,24 +49,18 @@ impl SimChunk {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn fill(voxel: Voxel) -> Self {
-        Self {
-            modified: ChunkSet::empty(),
-            voxels: [voxel; CHUNK_LENGTH],
-        }
+        Self { modified: ChunkSet::empty(), voxels: [voxel; CHUNK_LENGTH] }
     }
 
     pub fn set(&mut self, voxel_index: usize, voxel: Voxel) {
         let current_voxel = if cfg!(feature = "safe-bounds") {
             self.voxels[voxel_index]
         } else {
-            unsafe {
-                *self.voxels.get_unchecked(voxel_index)
-            }
+            unsafe { *self.voxels.get_unchecked(voxel_index) }
         };
 
-        let current_voxel = self.voxels[voxel_index];
         if current_voxel != voxel {
             self.modified.set(voxel_index);
 
@@ -225,10 +219,7 @@ impl SimChunks {
                 existing_chunk.set(index, voxel);
             }
         } else {
-            let chunk_key = self.chunks.insert(SimChunk {
-                modified: ChunkSet::filled(),
-                voxels: voxels,
-            });
+            let chunk_key = self.chunks.insert(SimChunk { modified: ChunkSet::filled(), voxels });
             let dirty_key = self.dirty.insert(ChunkSet::filled()); // this doesn't really matter, it'll get overwritten later
             self.from_chunk_point.insert(chunk_point, (chunk_key, dirty_key));
 
@@ -246,7 +237,8 @@ impl SimChunks {
                 let block_key = match self.to_block_index.entry(ChunkPoint(corner)) {
                     Entry::Occupied(entry) => *entry.get(),
                     Entry::Vacant(entry) => {
-                        let block_key = self.blocks[offset_index].insert(ChunkKeys { start_chunk_point: corner, keys: [None; 8] });
+                        let block_key = self.blocks[offset_index]
+                            .insert(ChunkKeys { start_chunk_point: corner, keys: [None; 8] });
                         entry.insert(block_key);
                         block_key
                     },
@@ -258,9 +250,7 @@ impl SimChunks {
         }
     }
 
-    pub fn remove_chunk(&mut self, chunk_point: ChunkPoint) {
-
-    }
+    pub fn remove_chunk(&mut self, chunk_point: ChunkPoint) {}
 
     #[inline]
     pub fn chunk_key_from_point(&self, chunk_point: ChunkPoint) -> Option<(ChunkKey, DirtyKey)> {
@@ -332,29 +322,32 @@ impl SimChunks {
     /// processed in parallel.
     pub fn chunk_views<'a>(&'a mut self) -> Vec<BlockView<'a>> {
         let current_blocks = &self.blocks[self.margolus_offset];
-        let mut views = current_blocks.iter().map(|(_, keys)| BlockView {
-            start_chunk_point: keys.start_chunk_point,
-            chunks: ChunkView {
-                chunks: std::array::from_fn(|_| None)
-            },
-            dirty_sets: std::array::from_fn(|_| None),
-        }).collect::<Vec<_>>();
-
-        // block_index, key_index, key
-        let flattened = current_blocks.iter()
-            .enumerate()
-            .flat_map(|(block_index, (block_key, chunk_key))| {
-                chunk_key.keys.iter()
-                    .enumerate()
-                    .filter_map(move |(key_index, key)| {
-                        key.map(|key| (block_index, key_index, key))
-                    })
+        let mut views = current_blocks
+            .iter()
+            .map(|(_, keys)| BlockView {
+                start_chunk_point: keys.start_chunk_point,
+                chunks: ChunkView { chunks: std::array::from_fn(|_| None) },
+                dirty_sets: std::array::from_fn(|_| None),
             })
             .collect::<Vec<_>>();
-        
-        let keys = flattened.iter().map(|(_, _, (key, dirty_key))| (*key, *dirty_key)).collect::<Vec<_>>();
+
+        // block_index, key_index, key
+        let flattened = current_blocks
+            .iter()
+            .enumerate()
+            .flat_map(|(block_index, (block_key, chunk_key))| {
+                chunk_key.keys.iter().enumerate().filter_map(move |(key_index, key)| {
+                    key.map(|key| (block_index, key_index, key))
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let keys =
+            flattened.iter().map(|(_, _, (key, dirty_key))| (*key, *dirty_key)).collect::<Vec<_>>();
         let disjoint = unsafe { self.get_disjoint_mut_unchecked(&keys.as_slice()) };
-        for ((chunk_ref, dirty_set), (block_index, key_index, chunk_key)) in disjoint.into_iter().zip(flattened) {
+        for ((chunk_ref, dirty_set), (block_index, key_index, chunk_key)) in
+            disjoint.into_iter().zip(flattened)
+        {
             let block = &mut views[block_index];
             block.chunks.chunks[key_index] = Some(chunk_ref);
             block.dirty_sets[key_index] = Some(dirty_set);
@@ -365,7 +358,10 @@ impl SimChunks {
 
     // TODO: Fix this, it currently leads to a double free issue.
     /// - The caller must guarantee that all `keys` are valid and unique (disjoint).
-    pub unsafe fn get_disjoint_mut_unchecked<'a>(&'a mut self, keys: &[(ChunkKey, DirtyKey)]) -> Vec<(&'a mut SimChunk, &'a ChunkSet)> {
+    pub unsafe fn get_disjoint_mut_unchecked<'a>(
+        &'a mut self,
+        keys: &[(ChunkKey, DirtyKey)],
+    ) -> Vec<(&'a mut SimChunk, &'a ChunkSet)> {
         let mut result = Vec::with_capacity(keys.len());
         for &(key, dirty_key) in keys {
             // SAFETY: The caller must guarantee that all keys are valid and disjoint.
@@ -456,7 +452,9 @@ impl SimChunks {
     pub fn spread_updates(&mut self) {
         for (block_key, chunk_keys) in &self.blocks[self.margolus_offset] {
             for (index, keys) in chunk_keys.keys.iter().enumerate() {
-                let Some((chunk_key, dirty_key)) = keys else { continue; };
+                let Some((chunk_key, dirty_key)) = keys else {
+                    continue;
+                };
 
                 let rel_chunk_point = ChunkView::delinearize_chunk(index);
                 let chunk = self.chunks.get(*chunk_key).unwrap();
@@ -485,12 +483,16 @@ impl SimChunks {
                 // Left = (x == 0)
                 // Right = (x == 15)
                 // there are 16 bits per X axis, so every 4 masks is a new X.
-                pub const LEFT_PRESERVE_MASK: u64 = 0b1111111111111111_0000000000000000_0000000000000000_0000000000000000;
-                pub const RIGHT_PRESERVE_MASK: u64 = 0b0000000000000000_0000000000000000_0000000000000000_1111111111111111;
+                pub const LEFT_PRESERVE_MASK: u64 =
+                    0b1111111111111111_0000000000000000_0000000000000000_0000000000000000;
+                pub const RIGHT_PRESERVE_MASK: u64 =
+                    0b0000000000000000_0000000000000000_0000000000000000_1111111111111111;
 
                 // Trickier one, the edge on the Z axis is the first or last bit of every 16 bits.
-                pub const FORWARD_PRESERVE_MASK: u64 = 0b1000000000000000_1000000000000000_1000000000000000_1000000000000000;
-                pub const BACKWARD_PRESERVE_MASK: u64 = 0b0000000000000001_0000000000000001_0000000000000001_0000000000000001;
+                pub const FORWARD_PRESERVE_MASK: u64 =
+                    0b1000000000000000_1000000000000000_1000000000000000_1000000000000000;
+                pub const BACKWARD_PRESERVE_MASK: u64 =
+                    0b0000000000000001_0000000000000001_0000000000000001_0000000000000001;
 
                 // For every index, we can potentially preserve the start and end in the Z directions.
                 let mut initial_preserve_mask = 0u64;
@@ -502,7 +504,9 @@ impl SimChunks {
                 }
 
                 for (index, modified_mask) in chunk.modified.iter_masks().enumerate() {
-                    use crate::voxel::simulation::set::{is_top_index, is_bottom_index, is_left_index, is_right_index};
+                    use crate::voxel::simulation::set::{
+                        is_bottom_index, is_left_index, is_right_index, is_top_index,
+                    };
 
                     // we preserve some dirty bits from the last frame in the case the voxel had no viable neighbor next to it.
                     // this could've changed by adding chunks to the simulation, or more commonly, the margolus offset changing
@@ -544,12 +548,16 @@ impl SimChunks {
             dirty.assert_occupancy("spreading z");
 
             // spread in between surrounding chunks
-            if let Some((above, _)) = self.from_chunk_point.get(&ChunkPoint(chunk_point.0 + IVec3::new(0, 1, 0))) {
+            if let Some((above, _)) =
+                self.from_chunk_point.get(&ChunkPoint(chunk_point.0 + IVec3::new(0, 1, 0)))
+            {
                 let above_chunk = self.chunks.get(*above).unwrap();
                 dirty.pull_above_chunk(&above_chunk.modified);
             }
 
-            if let Some((below, _)) = self.from_chunk_point.get(&ChunkPoint(chunk_point.0 - IVec3::new(0, 1, 0))) {
+            if let Some((below, _)) =
+                self.from_chunk_point.get(&ChunkPoint(chunk_point.0 - IVec3::new(0, 1, 0)))
+            {
                 let below_chunk = self.chunks.get(*below).unwrap();
                 dirty.pull_below_chunk(&below_chunk.modified);
             }
@@ -627,10 +635,8 @@ impl<'a> ChunkView<'a> {
             panic!("chunk point out of bounds: {:?}", chunk_point);
         }
 
-        let IVec3 { x, y, z} = chunk_point;
-        z as usize
-            + x as usize * CHUNK_VIEW_SIZE
-            + y as usize * CHUNK_VIEW_SIZE * CHUNK_VIEW_SIZE
+        let IVec3 { x, y, z } = chunk_point;
+        z as usize + x as usize * CHUNK_VIEW_SIZE + y as usize * CHUNK_VIEW_SIZE * CHUNK_VIEW_SIZE
     }
 
     pub fn delinearize_chunk(index: usize) -> IVec3 {
@@ -662,8 +668,7 @@ impl<'a> ChunkView<'a> {
         voxel_position: VoxelPosition,
         relative: IVec3,
     ) -> Option<(VoxelPosition, Voxel)> {
-        let relative_position =
-            self.get_relative_voxel_position(voxel_position, relative)?;
+        let relative_position = self.get_relative_voxel_position(voxel_position, relative)?;
         let voxel = self.get_voxel(relative_position)?;
         Some((relative_position, voxel))
     }
@@ -684,7 +689,8 @@ impl<'a> ChunkView<'a> {
 
         let mut combined_point = position.voxel_point + relative;
 
-        let chunk_point = position.chunk_point + combined_point.div_euclid(IVec3::splat(CHUNK_WIDTH as i32));
+        let chunk_point =
+            position.chunk_point + combined_point.div_euclid(IVec3::splat(CHUNK_WIDTH as i32));
         combined_point = combined_point.rem_euclid(IVec3::splat(CHUNK_WIDTH as i32));
 
         if chunk_point.min_element() < 0 || chunk_point.max_element() >= CHUNK_VIEW_SIZE as i32 {
@@ -693,7 +699,6 @@ impl<'a> ChunkView<'a> {
             Some(VoxelPosition::from_points(chunk_point, combined_point))
         }
     }
-
 }
 
 #[cfg(test)]

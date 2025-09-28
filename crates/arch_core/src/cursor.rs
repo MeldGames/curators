@@ -31,9 +31,8 @@ pub fn cursor_grabbed(windows: Query<&Window>) -> bool {
 }
 
 pub fn spawn_cursor_input(mut commands: Commands) {
-    commands.spawn(
-        (
-        Name::new("Cursor Input"), 
+    commands.spawn((
+        Name::new("Cursor Input"),
         Cursor,
         actions!(Cursor[
             (

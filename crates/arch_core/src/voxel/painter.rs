@@ -121,11 +121,14 @@ pub fn paint_voxels(
 
     if let Some(hit) = cursor_voxel.hit() {
         // Place block
-        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(painter.brush(), RasterConfig {
-            clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-            grid_scale: crate::voxel::GRID_SCALE,
-            pad_bounds: Vec3::splat(3.0),
-        }) {
+        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
+            painter.brush(),
+            RasterConfig {
+                clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
+                grid_scale: crate::voxel::GRID_SCALE,
+                pad_bounds: Vec3::splat(3.0),
+            },
+        ) {
             let point = hit.voxel + raster_voxel.point;
             if raster_voxel.distance < 0.0 {
                 if voxels.get_voxel(point) == Voxel::Air {
@@ -155,11 +158,14 @@ pub fn erase_voxels(
 
     if let Some(hit) = cursor_voxel.hit() {
         // Place block
-        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(painter.brush(), RasterConfig {
-            clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-            grid_scale: crate::voxel::GRID_SCALE,
-            pad_bounds: Vec3::splat(3.0),
-        }) {
+        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
+            painter.brush(),
+            RasterConfig {
+                clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
+                grid_scale: crate::voxel::GRID_SCALE,
+                pad_bounds: Vec3::splat(3.0),
+            },
+        ) {
             let point = hit.voxel + raster_voxel.point;
             if raster_voxel.distance < 0.0 {
                 if voxels.get_voxel(point).breakable() {
