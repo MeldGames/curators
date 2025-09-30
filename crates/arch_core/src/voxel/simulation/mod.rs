@@ -45,43 +45,26 @@ impl SimStep {
 pub fn plugin(app: &mut App) {
     app.register_type::<FallingSandTick>()
         .register_type::<SimSettings>()
-        .register_type::<SimStep>();
+        .register_type::<SimStep>()
+        .register_type::<SimRun>();
 
     app.insert_resource(FallingSandTick(0));
     app.insert_resource(SimSettings::default());
 
-    let none_or_equals = |step: SimStep| -> _ {
-        move |sim_settings: Res<SimSettings>| -> bool {
-            match &sim_settings.step_granular {
-                Some(s) if *s == step => true,
-                None => true,
-                _ => false,
-            }
-        }
-    };
-
     app.configure_sets(
         FixedPostUpdate,
         (
-            SimStep::AddVoxelsToSim.run_if(none_or_equals(SimStep::AddVoxelsToSim)),
-            SimStep::PullFromTree.run_if(none_or_equals(SimStep::PullFromTree)),
-            SimStep::FlagDirty.run_if(none_or_equals(SimStep::FlagDirty)),
-            SimStep::Simulate.run_if(none_or_equals(SimStep::Simulate)),
-            SimStep::PropagateToTree.run_if(none_or_equals(SimStep::PropagateToTree)),
+            SimStep::AddVoxelsToSim.run_if(SimRun::should_step(SimStep::AddVoxelsToSim)),
+            SimStep::PullFromTree.run_if(SimRun::should_step(SimStep::PullFromTree)),
+            SimStep::FlagDirty.run_if(SimRun::should_step(SimStep::FlagDirty)),
+            SimStep::Simulate.run_if(SimRun::should_step(SimStep::Simulate)),
+            SimStep::PropagateToTree.run_if(SimRun::should_step(SimStep::PropagateToTree)),
         )
             .chain()
-            .run_if(|settings: Res<SimSettings>| settings.run || settings.step_once),
+            .run_if(SimRun::should_run),
     );
 
-    app.add_systems(FixedLast, |mut settings: ResMut<SimSettings>| {
-        if settings.run || settings.step_once {
-            if let Some(step) = settings.step_granular.as_mut() {
-                settings.step_granular = Some(step.next());
-            }
-
-            settings.step_once = false;
-        }
-    });
+    app.add_systems(FixedLast, SimRun::advance_step);
 
     app.add_systems(FixedPostUpdate, add_sand.in_set(SimStep::AddVoxelsToSim))
         .add_systems(FixedPostUpdate, pull_from_tree.in_set(SimStep::PullFromTree))
@@ -106,14 +89,55 @@ pub fn islands(mut grids: Query<&mut Voxels>) {}
 #[reflect(Resource)]
 pub struct FallingSandTick(pub u32);
 
+#[derive(Clone, Default, Debug, PartialEq, Eq, Reflect)]
+pub enum SimRun {
+    #[default]
+    Continuous,
+    Granular(SimStep),
+}
+
+impl SimRun {
+    pub fn should_step(step: SimStep) -> impl Fn(Res<SimSettings>) -> bool {
+        move |settings: Res<SimSettings>| -> bool {
+            match &settings.step {
+                SimRun::Continuous => true,
+                SimRun::Granular(granular_step) if step == *granular_step => true,
+                _ => false,
+            }
+        }
+    }
+
+    pub fn should_run(settings: Res<SimSettings>) -> bool {
+        settings.step == SimRun::Continuous || settings.step_once
+    }
+
+    pub fn advance_step(mut settings: ResMut<SimSettings>) {
+        let SimSettings {
+            step,
+            step_once,
+            ..
+        } = &mut *settings;
+
+        match step {
+            SimRun::Granular(step) => {
+                if *step_once {
+                    *step = step.next();
+                    *step_once = false;
+                }
+            }
+            SimRun::Continuous => {
+                *step_once = false;
+            }
+            _ => {},
+        }
+    }
+}
+
 #[derive(Resource, Clone, Reflect)]
 #[reflect(Resource)]
 pub struct SimSettings {
-    /// Run the simulation.
-    pub run: bool,
-
-    /// Step at a granular system level.
-    pub step_granular: Option<SimStep>,
+    /// Run the simulation continuously or granularly.
+    pub step: SimRun,
 
     /// Step the simulation once, this will be flipped after we simulate either 1 frame,
     /// or 1 granular system if [`SimSettings::step_granular`] is set.
@@ -134,8 +158,8 @@ impl Default for SimSettings {
         let threads =
             std::thread::available_parallelism().map(|nonzero| nonzero.get()).unwrap_or(4);
         Self {
-            run: false,
-            step_granular: Some(default()),
+            step: SimRun::Continuous,
+            // step: SimRun::Granular(default()),
             step_once: false,
             display_simulated: false,
             display_checked: false,
