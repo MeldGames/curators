@@ -215,6 +215,7 @@ impl SimChunks {
         }
 
         if let Some(existing_chunk) = existing_chunk {
+            // info!("modifying existing");
             for (index, voxel) in voxels.into_iter().enumerate() {
                 existing_chunk.set(index, voxel);
             }

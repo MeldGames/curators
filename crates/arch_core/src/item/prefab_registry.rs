@@ -14,7 +14,7 @@ pub fn plugin(app: &mut App) {
     app.add_observer(add_prefabs);
 
     app.add_systems(Startup, spawn_object_prefabs);
-    app.add_systems(PreUpdate, spawn_at_cursor);
+    // app.add_systems(PreUpdate, spawn_at_cursor);
 }
 
 #[derive(Resource, Clone, Debug, Reflect)]

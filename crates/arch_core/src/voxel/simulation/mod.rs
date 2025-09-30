@@ -7,10 +7,9 @@ use bevy::prelude::*;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use crate::voxel::simulation::data::{CHUNK_LENGTH, ChunkPoint, SimChunk, SimChunks, delinearize};
-use crate::voxel::simulation::set::ChunkSet;
+use crate::voxel::simulation::data::{CHUNK_LENGTH, ChunkPoint, SimChunks};
 use crate::voxel::tree::VoxelNode;
-use crate::voxel::{GRID_SCALE, Voxel, Voxels};
+use crate::voxel::{Voxel, Voxels};
 
 pub mod data;
 pub mod debug_dirty;
@@ -135,8 +134,8 @@ impl Default for SimSettings {
         let threads =
             std::thread::available_parallelism().map(|nonzero| nonzero.get()).unwrap_or(4);
         Self {
-            run: true,
-            step_granular: None,
+            run: false,
+            step_granular: Some(default()),
             step_once: false,
             display_simulated: false,
             display_checked: false,
@@ -162,13 +161,13 @@ pub fn pull_from_tree(
 ) {
     // TODO: Stop doing this on every chunk every frame, should only do this on modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        for z in 0..16 {
-            for x in 0..16 {
-                for y in 0..4 {
+        for z in 0..4 {
+            for x in 0..4 {
+                for y in 0..2 {
                     let chunk_point = IVec3::new(x, y, z);
-                    if !voxels.tree.changed_chunks.contains(&chunk_point) {
-                        continue;
-                    }
+                    // if !voxels.tree.changed_chunks.contains(&chunk_point) {
+                    //     continue;
+                    // }
 
                     let voxels = match voxels.tree.root.get_chunk(chunk_point) {
                         VoxelNode::Solid { voxel, .. } => Some([*voxel; CHUNK_LENGTH]),
