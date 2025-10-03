@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+use serde::{Serialize, Deserialize};
 
 use crate::sdf::Sdf;
 
 /// A cone defined by two endpoints and their respective radii.
 /// The cone extends from point a (radius_a) to point b (radius_b).
-#[derive(Clone, Copy, Debug, Reflect)]
+#[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 pub struct Cone {
     /// Start point of the cone

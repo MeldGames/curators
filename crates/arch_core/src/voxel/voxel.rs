@@ -322,7 +322,7 @@ impl Voxel {
     }
 
     #[inline]
-    pub fn id(self) -> u16 {
+    pub const fn id(self) -> u16 {
         match self {
             Voxel::Air => 0,
             Voxel::Base => 1,
@@ -543,12 +543,16 @@ impl VoxelMaterials {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 pub struct VoxelSet(u16);
+
+impl VoxelSet {
+    pub const AIR: VoxelSet = VoxelSet::from_voxel(Voxel::Air);
+}
 
 impl Default for VoxelSet {
     fn default() -> Self {
-        Self(0)
+        Self::new()
     }
 }
 
@@ -569,12 +573,38 @@ impl Iterator for VoxelSet {
 }
 
 impl VoxelSet {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
     pub fn clear(&mut self) {
         self.0 = 0;
     }
 
-    pub fn set(&mut self, voxel: Voxel) {
-        self.0 |= 1 << voxel.id();
+    pub const fn voxel_bit(voxel: Voxel) -> u16 {
+        1 << voxel.id()
+    }
+
+    pub const fn set(&mut self, voxel: Voxel) {
+        self.0 |= Self::voxel_bit(voxel);
+    }
+
+    pub const fn from_voxel(voxel: Voxel) -> Self {
+        Self(Self::voxel_bit(voxel))
+    }
+
+    pub const fn from_list<const N: usize>(voxels: [Voxel; N]) -> Self {
+        let mut set = Self::new();
+        let mut i = 0;
+        while i < N {
+            set.set(voxels[i]);
+            i += 1;
+        }
+        set
+    }
+
+    pub const fn contains(&self, voxel: Voxel) -> bool {
+        (self.0 & Self::voxel_bit(voxel)) != 0
     }
 }
 

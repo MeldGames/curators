@@ -1,9 +1,8 @@
-use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
 
-use crate::sdf::{Sdf, ops};
+use crate::sdf::Sdf;
 
 pub struct RasterVoxel {
     pub point: IVec3,
@@ -20,7 +19,7 @@ pub struct RasterConfig {
 pub struct RasterIterator<S: Sdf, I: Iterator<Item = IVec3>> {
     sdf: S,
     sample_points: I,
-    // config: RasterConfig,
+    config: RasterConfig,
 }
 
 impl<S: Sdf, I: Iterator<Item = IVec3>> Iterator for RasterIterator<S, I> {
@@ -28,7 +27,7 @@ impl<S: Sdf, I: Iterator<Item = IVec3>> Iterator for RasterIterator<S, I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let sample_point = self.sample_points.next()?;
-        let distance = self.sdf.sdf(sample_point.as_vec3());
+        let distance = self.sdf.sdf(sample_point.as_vec3() / self.config.grid_scale);
         Some(RasterVoxel { point: sample_point, distance })
     }
 }
@@ -36,7 +35,7 @@ impl<S: Sdf, I: Iterator<Item = IVec3>> Iterator for RasterIterator<S, I> {
 pub fn rasterize<S: Sdf>(
     sdf: S,
     config: RasterConfig,
-) -> RasterIterator<ops::Scale<S>, impl Iterator<Item = IVec3>> {
+) -> RasterIterator<S, impl Iterator<Item = IVec3>> {
     let aabb = sdf
         .aabb()
         .map(|aabb| aabb.grow(Vec3A::from(config.pad_bounds)))
@@ -54,8 +53,8 @@ pub fn rasterize<S: Sdf>(
     });
 
     RasterIterator {
-        sdf: ops::Scale { primitive: sdf, scale: 1.0 / config.grid_scale }, // might need to invert this scale?
+        sdf: sdf,
         sample_points: point_iter,
-        // config,
+        config,
     }
 }

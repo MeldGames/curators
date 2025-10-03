@@ -121,18 +121,25 @@ pub fn get_sublayer_index_from_chunk(layer: usize, chunk_point: IVec3) -> usize 
     sublayer_index
 }
 
+#[derive(Debug, Clone, Reflect)]
+pub struct SharedData {
+    pub layer: usize,
+    pub authority: bool,
+}
+
 #[derive(Clone)]
 pub enum VoxelNode {
     /// Entire region is filled with a single voxel type.
     Solid {
-        layer: usize,
+        shared: SharedData,
         voxel: Voxel, // Solid(Voxel::Air) is the same as "Empty".
     },
     /// Subdivided region, but not the bottom of the graph.
-    Children { layer: usize, children: Box<[VoxelNode; TREE_LENGTH]> },
+    Children { shared: SharedData, children: Box<[VoxelNode; TREE_LENGTH]> },
     /// Leaf node/bottom of the graph, holds fine-grain voxel data.
     Leaf {
         // layer is assumed 0
+        shared: SharedData,
         leaf: Box<[Voxel; CHUNK_LENGTH]>,
     },
 }
@@ -140,15 +147,15 @@ pub enum VoxelNode {
 impl Debug for VoxelNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Solid { layer, voxel } => {
-                write!(f, "Sl{:?}{:?}", layer, voxel)
+            Self::Solid { shared, voxel, .. } => {
+                write!(f, "Sl{:?}{:?}", shared.layer, voxel)
                 // f.debug_struct("Solid").field("layer", layer).field("voxel", voxel).finish()
             },
-            Self::Children { layer, children } => {
-                write!(f, "Cl{:?}[\n{:?}\n]", layer, children)
+            Self::Children { shared, children } => {
+                write!(f, "Cl{:?}[\n{:?}\n]", shared.layer, children)
                 // f.debug_struct("Children").field("layer", layer).field("children", children).finish()
             },
-            Self::Leaf { leaf } => {
+            Self::Leaf { shared, leaf } => {
                 let mut rle_debug = Vec::new();
                 let mut run = leaf[0];
                 let mut run_count = 0;
@@ -173,8 +180,8 @@ impl Debug for VoxelNode {
 impl VoxelNode {
     pub fn draw_gizmo(&self, origin: IVec3, gizmos: &mut Gizmos) {
         match self {
-            Self::Solid { layer, .. } => {
-                let width = layer_width_voxel(*layer) as i32;
+            Self::Solid { shared, .. } => {
+                let width = layer_width_voxel(shared.layer) as i32;
                 gizmos.cuboid(
                     Transform {
                         translation: (origin.as_vec3() + Vec3::splat(width as f32) / 2.0)
@@ -185,14 +192,15 @@ impl VoxelNode {
                     Color::srgb(1.0, 0.0, 0.0),
                 );
             },
-            Self::Children { layer, children } => {
+            Self::Children { shared, children } => {
                 for (child_index, child) in children.iter().enumerate() {
                     let child_position = from_child_index(child_index);
-                    let voxel_space_offset = child_position * layer_width_voxel(*layer - 1) as i32;
+                    let voxel_space_offset = child_position * layer_width_voxel(shared.layer - 1) as i32;
                     child.draw_gizmo(origin + voxel_space_offset, gizmos);
                 }
             },
-            Self::Leaf { .. } => {
+            Self::Leaf { shared, .. } => {
+                assert_eq!(shared.layer, 0);
                 let width = layer_width_voxel(0) as i32;
                 gizmos.cuboid(
                     Transform {
@@ -209,7 +217,7 @@ impl VoxelNode {
 
     pub fn renderable_chunks(&self, origin: IVec3, buffer: &mut Vec<IVec3>) {
         match self {
-            Self::Solid { layer, voxel } => {
+            Self::Solid { shared, voxel, .. } => {
                 if !voxel.rendered() {
                     return;
                 }
@@ -217,7 +225,7 @@ impl VoxelNode {
                 // TODO: Only add the chunks on the surface of this solid region to the list.
 
                 // add every chunk point from this layer
-                let width = layer_width_chunk(*layer) as i32;
+                let width = layer_width_chunk(shared.layer) as i32;
                 for x in 0..width {
                     for y in 0..width {
                         for z in 0..width {
@@ -230,10 +238,10 @@ impl VoxelNode {
                 // assume there is a renderable voxel in this leaf
                 buffer.push(origin);
             },
-            Self::Children { layer, children } => {
+            Self::Children { shared, children } => {
                 for (child_index, child) in children.iter().enumerate() {
                     let child_position = from_child_index(child_index);
-                    let chunk_space_offset = child_position * layer_width_chunk(*layer) as i32;
+                    let chunk_space_offset = child_position * layer_width_chunk(shared.layer) as i32;
                     child.renderable_chunks(origin + chunk_space_offset, buffer);
                 }
             },
@@ -244,20 +252,26 @@ impl VoxelNode {
         // layer 0 subdivision is a leaf
         // layer 1+ subdivision are children
         match self {
-            Self::Solid { layer, voxel } => {
-                if *layer == 0 {
-                    *self = Self::Leaf { leaf: Box::new([*voxel; CHUNK_LENGTH]) };
+            Self::Solid { shared, voxel } => {
+                if shared.layer == 0 {
+                    *self = Self::Leaf { shared: shared.clone(), leaf: Box::new([*voxel; CHUNK_LENGTH]) };
                 } else {
                     *self = Self::Children {
-                        layer: *layer,
-                        children: Box::new(std::array::from_fn(|_| VoxelNode::Solid {
-                            layer: *layer - 1,
-                            voxel: *voxel,
+                        shared: shared.clone(),
+                        children: Box::new(std::array::from_fn(|_| {
+                            let shared = shared.clone();
+                            VoxelNode::Solid {
+                                shared: SharedData {
+                                    layer: shared.layer - 1,
+                                    ..shared
+                                },
+                                voxel: *voxel,
+                            }
                         })),
                     };
                 }
             },
-            _ => panic!("Tried to fracture a non-solid VoxelNode"),
+            _ => panic!("Tried to subdivide a non-solid VoxelNode"),
             // Self::Leaf { .. } | Self::Children { .. } => {} // already fractured
         }
     }
@@ -265,7 +279,7 @@ impl VoxelNode {
     /// Compress into a Solid node if all of the voxels are the same.
     pub fn compress(&mut self) {
         match self {
-            Self::Children { layer, children } => {
+            Self::Children { shared, children } => {
                 children[0].compress();
 
                 let mut all_solid = true;
@@ -290,10 +304,12 @@ impl VoxelNode {
                 }
 
                 if all_solid {
-                    *self = Self::Solid { layer: *layer, voxel: solid_voxel };
+                    *self = Self::Solid { shared: shared.clone(), voxel: solid_voxel };
                 }
             },
-            Self::Leaf { leaf } => {
+            Self::Leaf { shared, leaf } => {
+                debug_assert_eq!(shared.layer, 0);
+
                 let first_voxel = leaf[0];
                 for voxel in leaf.iter().skip(1) {
                     if *voxel != first_voxel {
@@ -302,7 +318,7 @@ impl VoxelNode {
                 }
 
                 // we are all the same voxel, compress to solid
-                *self = Self::Solid { layer: 0, voxel: first_voxel };
+                *self = Self::Solid { shared: shared.clone(), voxel: first_voxel };
             },
             Self::Solid { .. } => {}, // already compressed
         }
@@ -311,13 +327,13 @@ impl VoxelNode {
     pub fn get_voxel(&self, voxel_point: IVec3) -> Voxel {
         match self {
             // traverse downwards
-            VoxelNode::Children { layer, children } => {
-                let sublayer_index = get_sublayer_index_from_voxel(*layer, voxel_point);
+            VoxelNode::Children { shared, children } => {
+                let sublayer_index = get_sublayer_index_from_voxel(shared.layer, voxel_point);
                 let next_node = &children[sublayer_index];
                 next_node.get_voxel(voxel_point)
             },
             VoxelNode::Solid { voxel, .. } => *voxel,
-            VoxelNode::Leaf { leaf } => {
+            VoxelNode::Leaf { leaf, .. } => {
                 let relative_voxel_point = voxel_point.rem_euclid(IVec3::splat(CHUNK_WIDTH as i32));
                 let voxel_index = to_leaf_index(relative_voxel_point);
                 if voxel_index > CHUNK_LENGTH {
@@ -334,8 +350,8 @@ impl VoxelNode {
     pub fn set_voxel(&mut self, voxel_point: IVec3, voxel: Voxel) -> bool {
         match self {
             // traverse downwards
-            VoxelNode::Children { layer, children } => {
-                let sublayer_index = get_sublayer_index_from_voxel(*layer, voxel_point);
+            VoxelNode::Children { shared, children } => {
+                let sublayer_index = get_sublayer_index_from_voxel(shared.layer, voxel_point);
                 let next_node = &mut children[sublayer_index];
                 next_node.set_voxel(voxel_point, voxel)
             },
@@ -355,7 +371,7 @@ impl VoxelNode {
                 let subdivided = solid;
                 subdivided.set_voxel(voxel_point, voxel) // recurse into the correct path
             },
-            VoxelNode::Leaf { leaf } => {
+            VoxelNode::Leaf { leaf, .. } => {
                 let relative_voxel_point = voxel_point.rem_euclid(IVec3::splat(CHUNK_WIDTH as i32));
                 let voxel_index = to_leaf_index(relative_voxel_point);
                 if voxel_index > CHUNK_LENGTH {
@@ -375,10 +391,10 @@ impl VoxelNode {
         chunk_point: IVec3, // voxel point divided by chunk/leaf size
     ) -> &'a VoxelNode {
         match self {
-            VoxelNode::Children { layer, children } => {
-                assert!(*layer > 0);
+            VoxelNode::Children { shared, children } => {
+                debug_assert!(shared.layer > 0);
 
-                let sublayer_index = get_sublayer_index_from_chunk(*layer, chunk_point);
+                let sublayer_index = get_sublayer_index_from_chunk(shared.layer, chunk_point);
                 // println!("sublayer_index: {:?}", sublayer_index);
                 let next_node = &children[sublayer_index];
                 next_node.get_chunk(chunk_point)
@@ -393,10 +409,10 @@ impl VoxelNode {
         chunk_point: IVec3, // voxel point divided by chunk/leaf size
     ) -> &'a mut VoxelNode {
         match self {
-            VoxelNode::Children { layer, children } => {
-                assert!(*layer > 0);
+            VoxelNode::Children { shared, children } => {
+                debug_assert!(shared.layer > 0);
 
-                let sublayer_index = get_sublayer_index_from_chunk(*layer, chunk_point);
+                let sublayer_index = get_sublayer_index_from_chunk(shared.layer, chunk_point);
                 // println!("sublayer_index: {:?}", sublayer_index);
                 let next_node = &mut children[sublayer_index];
                 next_node.get_chunk_mut(chunk_point)
@@ -413,8 +429,8 @@ impl VoxelNode {
     ) {
         match self {
             // traverse downwards
-            VoxelNode::Children { layer, children } => {
-                let sublayer_index = get_sublayer_index_from_chunk(*layer, chunk_point);
+            VoxelNode::Children { shared, children } => {
+                let sublayer_index = get_sublayer_index_from_chunk(shared.layer, chunk_point);
                 let next_node = &mut children[sublayer_index];
                 next_node.set_chunk_data(chunk_point, chunk_data);
             },
@@ -424,7 +440,7 @@ impl VoxelNode {
                 let subdivided = solid;
                 subdivided.set_chunk_data(chunk_point, chunk_data); // recurse into the correct path
             },
-            VoxelNode::Leaf { leaf } => {
+            VoxelNode::Leaf { leaf, .. } => {
                 **leaf = chunk_data;
             },
         }
@@ -446,9 +462,20 @@ impl VoxelNode {
 
     pub fn layer(&self) -> usize {
         match self {
-            VoxelNode::Solid { layer, .. } => *layer,
-            VoxelNode::Children { layer, .. } => *layer,
-            VoxelNode::Leaf { .. } => 0,
+            VoxelNode::Solid { shared, .. } => shared.layer,
+            VoxelNode::Children { shared, .. } => shared.layer,
+            VoxelNode::Leaf { shared, .. } => {
+                debug_assert_eq!(shared.layer, 0);
+                shared.layer
+            },
+        }
+    }
+
+    pub fn authority(&self) -> bool {
+        match self {
+            VoxelNode::Solid { shared, .. } => shared.authority,
+            VoxelNode::Children { shared, .. } => shared.authority,
+            VoxelNode::Leaf { shared, .. } => shared.authority,
         }
     }
 
@@ -470,7 +497,10 @@ pub struct VoxelTree {
 impl VoxelTree {
     pub fn new() -> VoxelTree {
         // TODO: is 1 the starting layer good? or should it be 0 indexed?
-        Self { root: VoxelNode::Solid { layer: 0, voxel: Voxel::Air }, changed_chunks: default() }
+        Self { root: VoxelNode::Solid { shared: SharedData {
+            layer: 0,
+            authority: true,
+        }, voxel: Voxel::Air }, changed_chunks: default() }
     }
 
     pub fn root_layer(&self) -> usize {
@@ -478,8 +508,6 @@ impl VoxelTree {
     }
 
     pub fn grow_layer(&mut self) {
-        let root_layer = self.root_layer();
-
         // take the root with a temporary value
         // let root = std::mem::swap(self.root,
 
@@ -487,15 +515,28 @@ impl VoxelTree {
         // children -> children [children, ..]
         // solid -> solid
         let new_root = match &self.root {
-            VoxelNode::Leaf { .. } | VoxelNode::Children { .. } => {
+            VoxelNode::Leaf { shared, .. } | VoxelNode::Children { shared, .. } => {
+                let shared = shared.clone();
                 let mut children: [VoxelNode; TREE_LENGTH] = std::array::from_fn(|_| {
-                    VoxelNode::Solid { layer: root_layer, voxel: Voxel::Air }
+                    let shared = shared.clone();
+                    VoxelNode::Solid { shared: shared, voxel: Voxel::Air }
                 });
                 std::mem::swap(&mut children[0], &mut self.root);
-                VoxelNode::Children { layer: root_layer + 1, children: Box::new(children) }
+
+                VoxelNode::Children {
+                    shared: SharedData {
+                        layer: shared.layer + 1,
+                        ..shared
+                    },
+                    children: Box::new(children),
+                }
             },
-            VoxelNode::Solid { layer, voxel } => {
-                VoxelNode::Solid { layer: *layer + 1, voxel: *voxel }
+            VoxelNode::Solid { shared, voxel } => {
+                let shared = shared.clone();
+                VoxelNode::Solid { shared: SharedData {
+                    layer: shared.layer + 1,
+                    ..shared
+                }, voxel: *voxel }
             },
         };
 

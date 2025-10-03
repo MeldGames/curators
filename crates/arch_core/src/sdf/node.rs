@@ -4,10 +4,12 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
 
+use serde::{Serialize, Deserialize};
+
 use super::{Sdf, ops};
 use crate::sdf;
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 pub enum SdfNode {
     // Primitives
     Sphere(sdf::Sphere),

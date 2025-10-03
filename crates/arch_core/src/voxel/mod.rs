@@ -1,14 +1,17 @@
 use bevy::prelude::*;
 pub use mesh::UpdateVoxelMeshSet;
 pub use pick::CursorVoxel;
-pub use voxel::Voxel;
+pub use voxel::{Voxel, VoxelSet};
 pub use voxel_aabb::VoxelAabb;
 pub use voxels::Voxels;
+pub use commands::VoxelCommand;
+pub use tree::{VoxelNode, VoxelTree};
 
 use crate::voxel::simulation::data::SimChunks;
 
 pub mod brush;
 pub mod collider;
+pub mod commands;
 pub mod mesh;
 pub mod painter;
 pub mod pick;

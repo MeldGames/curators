@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+use serde::{Serialize, Deserialize};
 
 use crate::sdf::Sdf;
 
@@ -13,7 +14,7 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
 }
 
 /// Smooth Union operation - combines two SDFs with smooth blending.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 #[reflect(where A: Clone + Default, B: Clone + Default)]
 pub struct SmoothUnion<A: Sdf, B: Sdf> {

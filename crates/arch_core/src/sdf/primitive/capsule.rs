@@ -1,12 +1,13 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+use serde::{Serialize, Deserialize};
 
 use crate::sdf::Sdf;
 
 /// A capsule defined by two endpoints and a radius.
 /// The capsule extends from `start` to `end` with the given `radius` and has
 /// spherical caps at both ends.
-#[derive(Clone, Copy, Debug, Reflect)]
+#[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 pub struct Capsule {
     /// Start point of the capsule

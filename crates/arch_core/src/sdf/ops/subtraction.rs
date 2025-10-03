@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+use serde::{Serialize, Deserialize};
 
 use crate::sdf::Sdf;
 
 /// Subtraction operation - subtracts the second SDF from the first.
-#[derive(Debug, Clone, Default, Reflect)]
+#[derive(Debug, Clone, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 #[reflect(where A: Clone + Default, B: Clone + Default)]
 pub struct Subtraction<A: Sdf, B: Sdf> {

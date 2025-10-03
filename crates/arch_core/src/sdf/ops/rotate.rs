@@ -1,12 +1,12 @@
-use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
+use serde::{Serialize, Deserialize};
 
-use crate::sdf::{Sdf, SdfNode};
+use crate::sdf::Sdf;
 
 /// Rotate the underlying primitive.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 #[reflect(where P: Clone + Default)]
 pub struct Rotate<P: Sdf> {

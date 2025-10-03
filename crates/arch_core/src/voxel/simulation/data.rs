@@ -298,9 +298,6 @@ impl SimChunks {
         } else {
             false
         }
-
-        // self.updated_chunks.insert(chunk_point);
-        // self.push_neighbor_sim_updates(point);
     }
 
     pub fn set_voxel_brush<S: Sdf>(&mut self, center: IVec3, brush: S, voxel: Voxel) {

@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+use serde::{Serialize, Deserialize};
 
 use crate::sdf::Sdf;
 
 /// A capped cylinder defined by two endpoints and a radius.
 /// The cylinder extends from `start` to `end` with the given `radius`.
-#[derive(Clone, Copy, Debug, Reflect)]
+#[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 pub struct Cylinder {
     /// Start point of the cylinder

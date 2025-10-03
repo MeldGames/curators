@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+use serde::{Serialize, Deserialize};
 
 use crate::sdf::Sdf;
 
 /// An ellipsoid defined by radii along each axis, centered at the origin.
-#[derive(Clone, Copy, Debug, Reflect)]
+#[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 pub struct Ellipsoid {
     /// Radii along x, y, z axes

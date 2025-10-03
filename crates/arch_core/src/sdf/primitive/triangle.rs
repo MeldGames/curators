@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+use serde::{Serialize, Deserialize};
 
 use crate::sdf::Sdf;
 
 /// A triangle defined by three vertices.
-#[derive(Clone, Copy, Debug, Reflect)]
+#[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 pub struct Triangle {
     /// First vertex

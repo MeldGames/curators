@@ -14,7 +14,7 @@ pub mod triangle;
 
 pub use capsule::*;
 pub use cone::*;
-pub use cuboid::*;
+// pub use cuboid::*;
 pub use cylinder::*;
 pub use ellipsoid::*;
 pub use hexagonal_prism::*;

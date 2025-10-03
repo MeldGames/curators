@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
+use serde::{Serialize, Deserialize};
 
 use crate::sdf::Sdf;
 
 /// Intersection operation - combines two SDFs with a maximum operation.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 #[reflect(where A: Clone + Default, B: Clone + Default)]
 pub struct Intersection<A: Sdf, B: Sdf> {

@@ -1,10 +1,12 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
+use serde::{Serialize, Deserialize};
+
 use crate::sdf::Sdf;
 
 /// A rounded box defined by size and rounding radius, centered at the origin.
-#[derive(Clone, Copy, Debug, Reflect)]
+#[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 pub struct RoundedBox {
     /// Size of the box (width, height, depth)
