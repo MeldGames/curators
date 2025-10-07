@@ -14,7 +14,9 @@ pub struct SetReader<'a> {
 }
 
 impl<'a> Iterator for SetReader<'a> {
-    type Item = usize; // voxel index
+    type Item = usize;
+
+    // voxel index
     fn next(&mut self) -> Option<Self::Item> {
         while self.occupancy_mask != 0 || self.current_mask != 0 {
             if self.current_mask != 0 {
@@ -48,8 +50,9 @@ impl<'a> Iterator for SetReader<'a> {
 /// Currently hardcoded to 16^3 chunks.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct ChunkSet {
-    /// Bitset overarching the underlying sets, a 1 bit represents that the lower level bitset
-    /// has at least 1 bit set in it, while a 0 means it is empty.
+    /// Bitset overarching the underlying sets, a 1 bit represents that the
+    /// lower level bitset has at least 1 bit set in it, while a 0 means it
+    /// is empty.
     occupancy: u64,
     set: [u64; SET_LEN],
 }
@@ -96,8 +99,8 @@ impl ChunkSet {
         self.occupancy != 0
     }
 
-    // this is self contained, doesn't need to know about surrounding Z because the boundaries
-    // of the Z are contained within 16 bits.
+    // this is self contained, doesn't need to know about surrounding Z because the
+    // boundaries of the Z are contained within 16 bits.
     #[inline]
     pub fn spread_z_individual(set: u64) -> u64 {
         const LEFT_EDGE_MASK: u64 =
@@ -116,32 +119,53 @@ impl ChunkSet {
     }
 
     #[inline]
-    pub fn spread_x_individual(&self, i: usize) -> u64 {
-        let before = if i > 0 {
+    pub fn x_before(&self, i: usize) -> u64 {
+        if i % 4 != 0 {
             (self.set[i - 1]
+                & 0b1111111111111111_0000000000000000_0000000000000000_0000000000000000)
+                >> (64 - 16)
+        } else {
+            0u64
+        }
+    }
+
+    #[inline]
+    pub fn x_after(&self, i: usize) -> u64 {
+        if i % 4 != 3 {
+            (self.set[i + 1]
                 & 0b0000000000000000_0000000000000000_0000000000000000_1111111111111111)
                 << (64 - 16)
         } else {
             0u64
-        };
+        }
+    }
 
-        let after = if i + 1 < self.set.len() {
-            (self.set[i + 1]
-                & 0b1111111111111111_0000000000000000_0000000000000000_0000000000000000)
-                << (64 - 16)
-        } else {
-            0u64
-        };
+    #[inline]
+    pub fn spread_x_left(&self, i: usize) -> u64 {
+        self.set[i] | self.set[i] << 16 | self.x_before(i)
+    }
 
-        self.set[i] | self.set[i] << 16 | self.set[i] >> 16 | before | after
+    #[inline]
+    pub fn spread_x_right(&self, i: usize) -> u64 {
+        self.set[i] | self.set[i] >> 16 | self.x_after(i)
+    }
+
+    #[inline]
+    pub fn spread_x_individual(&self, i: usize) -> u64 {
+        self.spread_x_left(i) | self.spread_x_right(i)
     }
 
     #[inline]
     pub fn spread_x(&mut self) {
-        for i in 0..self.set.len() {
-            let set = self.spread_x_individual(i);
+        for i in (0..self.set.len()).rev() {
+            let set = self.spread_x_left(i);
             self.set[i] = set;
-            if set == 0 {
+        }
+
+        for i in 0..self.set.len() {
+            self.set[i] |= self.spread_x_right(i);
+
+            if self.set[i] == 0 {
                 self.occupancy &= !(1 << i);
             } else {
                 self.occupancy |= 1 << i;
@@ -189,11 +213,13 @@ impl ChunkSet {
         }
     }
 
-    // Here begins hell, I have manually spread modified -> dirty from neighboring chunks
+    // Here begins hell, I have manually spread modified -> dirty from neighboring
+    // chunks
 
     // +Y
     pub fn pull_above_chunk(&mut self, above: &ChunkSet) {
-        // top is near the end of the array, we start at 0, 0, 0 and increase to 15, 15, 15.
+        // top is near the end of the array, we start at 0, 0, 0 and increase to 15, 15,
+        // 15.
         let top_start = SET_LEN - 4;
         let bottom_start = 0;
 
@@ -212,7 +238,8 @@ impl ChunkSet {
 
         for (top_index, bottom_index) in top_layer.zip(bottom_layer) {
             // spread xz plane bits of the above before pulling
-            let above_spread_x = above.spread_x_individual(bottom_index);
+            let above_spread_x =
+                above.spread_x_left(bottom_index) | above.spread_x_right(bottom_index);
             let above_spread_xz = Self::spread_z_individual(above_spread_x);
             self.set[top_index] |= above_spread_xz;
 
@@ -319,7 +346,7 @@ impl ChunkSet {
     }
 
     #[inline]
-    pub fn get_mask(&mut self, index: usize) -> u64 {
+    pub fn get_mask(&self, index: usize) -> u64 {
         self.set[index]
     }
 
@@ -365,9 +392,8 @@ pub const fn is_right_index(index: usize) -> bool {
 
 #[cfg(test)]
 mod test {
-    use crate::voxel::simulation::data::delinearize;
-
     use super::*;
+    use crate::voxel::simulation::data::delinearize;
 
     #[test]
     pub fn iter() {

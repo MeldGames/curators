@@ -27,10 +27,11 @@ pub fn spawn_player(
     let mesh = meshes.add(Mesh::from(Capsule3d::new(0.4, 0.8)));
 
     let hold_entity = commands
-        .spawn((
-            Name::new("Hold position"),
-            Transform { translation: Vec3::NEG_Z, scale: Vec3::splat(0.5), ..default() },
-        ))
+        .spawn((Name::new("Hold position"), Transform {
+            translation: Vec3::NEG_Z,
+            scale: Vec3::splat(0.5),
+            ..default()
+        }))
         .id();
 
     let player = commands
@@ -68,7 +69,8 @@ pub fn spawn_player(
         .add_child(hold_entity)
         .id();
 
-    // let metering_mask: Handle<Image> = asset_server.load("basic_metering_mask.png");
+    // let metering_mask: Handle<Image> =
+    // asset_server.load("basic_metering_mask.png");
 
     let flying = commands
         .spawn((
@@ -78,8 +80,8 @@ pub fn spawn_player(
             FlyingState::default(),
             camera_components(),
             IsDefaultUiCamera,
-            Transform::from_translation(Vec3::new(8., 30.0, 8.0))
-                .looking_at(Vec3::new(100.0, 0.0, 0.0), Vec3::Y),
+            Transform::from_translation(Vec3::new(-3., 3.0, -3.0))
+                .looking_at(Vec3::new(1.0, 1.0, 1.0), Vec3::Y),
             //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
             //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
             ContextPriority::<FlyingCamera>::new(10),

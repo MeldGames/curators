@@ -217,12 +217,12 @@ pub fn update_surface_net_mesh(
             for (position, normal) in positions.iter_mut().zip(normals.iter_mut()) {
                 *normal = (Vec3::from(*normal).normalize()).into();
                 // const STRETCH: [f32; 3] = [0.0, 0.0, 0.0];
-                const STRETCH: [f32; 3] = [0.5, 0.0, 0.5];
-                *position = [
-                    position[0] + normal[0] * STRETCH[0],
-                    position[1] + normal[1] * STRETCH[1],
-                    position[2] + normal[2] * STRETCH[2],
-                ];
+                // const STRETCH: [f32; 3] = [0.5, 0.0, 0.5];
+                // *position = [
+                //     position[0] + normal[0] * STRETCH[0],
+                //     position[1] + normal[1] * STRETCH[1],
+                //     position[2] + normal[2] * STRETCH[2],
+                // ];
             }
 
             let mut mesh = surface_net_to_mesh(&surface_net_buffer);
@@ -288,7 +288,7 @@ pub fn update_surface_net_mesh(
                     MeshMaterial3d(material),
                     ChildOf(*chunk_entity),
                     Transform {
-                        translation: -crate::voxel::GRID_SCALE,
+                        translation: -(crate::voxel::GRID_SCALE * 2.5),
                         // scale: Vec3::splat(lod as f32),
                         ..default()
                     },
