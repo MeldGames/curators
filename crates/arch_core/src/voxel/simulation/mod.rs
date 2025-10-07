@@ -4,14 +4,13 @@
 //! large experiment onto whether we can make this work or not.
 
 use bevy::prelude::*;
+pub use data::{SimChunk, SimChunks};
 #[cfg(feature = "trace")]
 use tracing::*;
 
 use crate::voxel::simulation::data::{CHUNK_LENGTH, ChunkPoint};
 use crate::voxel::tree::VoxelNode;
 use crate::voxel::{Voxel, Voxels};
-
-pub use data::{SimChunk, SimChunks};
 
 pub mod data;
 pub mod debug_dirty;
@@ -114,11 +113,7 @@ impl SimRun {
     }
 
     pub fn advance_step(mut settings: ResMut<SimSettings>) {
-        let SimSettings {
-            step,
-            step_once,
-            ..
-        } = &mut *settings;
+        let SimSettings { step, step_once, .. } = &mut *settings;
 
         match step {
             SimRun::Granular(step) => {
@@ -126,10 +121,10 @@ impl SimRun {
                     *step = step.next();
                     *step_once = false;
                 }
-            }
+            },
             SimRun::Continuous => {
                 *step_once = false;
-            }
+            },
             _ => {},
         }
     }
@@ -141,15 +136,16 @@ pub struct SimSettings {
     /// Run the simulation continuously or granularly.
     pub step: SimRun,
 
-    /// Step the simulation once, this will be flipped after we simulate either 1 frame,
-    /// or 1 granular system if [`SimSettings::step_granular`] is set.
+    /// Step the simulation once, this will be flipped after we simulate either
+    /// 1 frame, or 1 granular system if [`SimSettings::step_granular`] is
+    /// set.
     pub step_once: bool,
 
-    /// Display voxels that are being actively simulated.
-    pub display_simulated: bool,
+    /// Display voxels that were actively modified.
+    pub display_modified: bool,
 
-    /// Display voxels marked for updates but not simulated.
-    pub display_checked: bool,
+    /// Display voxels marked for updates.
+    pub display_flagged: bool,
 
     /// How many threads for the simulation.
     pub sim_threads: usize,
@@ -163,8 +159,8 @@ impl Default for SimSettings {
             step: SimRun::Continuous,
             // step: SimRun::Granular(default()),
             step_once: false,
-            display_simulated: false,
-            display_checked: false,
+            display_modified: false,
+            display_flagged: true,
             sim_threads: threads,
         }
     }
@@ -185,11 +181,12 @@ pub fn pull_from_tree(
     mut grids: Query<(Entity, &Voxels, &mut SimChunks)>,
     tick: Res<FallingSandTick>,
 ) {
-    // TODO: Stop doing this on every chunk every frame, should only do this on modified chunks.
+    // TODO: Stop doing this on every chunk every frame, should only do this on
+    // modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        for z in 0..16 {
-            for x in 0..16 {
-                for y in 0..16 {
+        for z in 0..1 {
+            for x in 0..1 {
+                for y in 0..1 {
                     let chunk_point = IVec3::new(x, y, z);
                     // if !voxels.tree.changed_chunks.contains(&chunk_point) {
                     //     continue;

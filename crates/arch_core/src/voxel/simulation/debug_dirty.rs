@@ -1,28 +1,14 @@
-use crate::voxel::simulation::{
-    data::{CHUNK_WIDTH, SimChunks, delinearize},
-    set::ChunkSet,
-};
 use bevy::prelude::*;
 
+use crate::voxel::simulation::SimSettings;
+use crate::voxel::simulation::data::{CHUNK_WIDTH, SimChunks, delinearize};
+
 pub fn plugin(app: &mut App) {
-    app.register_type::<DebugCellFlags>();
-    app.insert_resource(DebugCellFlags { flagged: false, modified: true });
     app.add_systems(Update, display_dirty);
 }
 
-#[derive(Resource, Debug, Reflect)]
-#[reflect(Resource)]
-pub struct DebugCellFlags {
-    pub flagged: bool,
-    pub modified: bool,
-}
-
-pub fn display_dirty(
-    sims: Query<(&SimChunks,)>,
-    mut gizmos: Gizmos,
-    settings: Res<DebugCellFlags>,
-) {
-    if !settings.flagged && !settings.modified {
+pub fn display_dirty(sims: Query<(&SimChunks,)>, mut gizmos: Gizmos, settings: Res<SimSettings>) {
+    if !settings.display_flagged && !settings.display_modified {
         return;
     }
 
@@ -31,7 +17,7 @@ pub fn display_dirty(
             let chunk = chunks.chunks.get(*chunk_key).unwrap();
             let dirty = chunks.dirty.get(*dirty_key).unwrap();
 
-            if settings.flagged {
+            if settings.display_flagged {
                 for voxel_index in dirty.iter() {
                     let chunk_voxel_start = chunk_point.0 * IVec3::splat(CHUNK_WIDTH as i32);
                     let relative_voxel_point = delinearize(voxel_index);
@@ -48,7 +34,7 @@ pub fn display_dirty(
                 }
             }
 
-            if settings.modified {
+            if settings.display_modified {
                 for voxel_index in chunk.modified.iter() {
                     let chunk_voxel_start = chunk_point.0 * IVec3::splat(CHUNK_WIDTH as i32);
                     let relative_voxel_point = delinearize(voxel_index);
