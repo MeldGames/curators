@@ -167,7 +167,7 @@ impl Default for SimSettings {
             step: SimRun::Granular(default()),
             step_once: false,
             display_modified: false,
-            display_flagged: true,
+            display_flagged: false,
             sim_threads: threads,
         }
     }
@@ -191,9 +191,9 @@ pub fn pull_from_tree(
     // TODO: Stop doing this on every chunk every frame, should only do this on
     // modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        for z in 0..3 {
-            for x in 0..1 {
-                for y in 0..1 {
+        for z in 0..8 {
+            for x in 0..8 {
+                for y in 0..8 {
                     let chunk_point = IVec3::new(x, y, z);
                     // if !voxels.tree.changed_chunks.contains(&chunk_point) {
                     //     continue;

@@ -78,7 +78,33 @@ pub fn shared(app: &mut App) {
         // .add_plugins(bevy::render::diagnostic::RenderDiagnosticsPlugin)
         .add_plugins(PerfUiPlugin);
 
-    app.world_mut().spawn(PerfUiAllEntries::default());
+    // app.world_mut().spawn(PerfUiAllEntries::default());
+
+    app.world_mut().spawn((
+        PerfUiRoot {
+            display_labels: true,
+            fontsize_label: 10.0,
+            fontsize_value: 10.0,
+            values_col_width: 50.0,
+            inner_margin: -2.0,
+            inner_padding: -2.0,
+            ..default()
+        },
+        PerfUiEntryFPS::default(),
+        PerfUiEntryFPSAverage::default(),
+        PerfUiEntryFPSPctLow::default(),
+        PerfUiEntryFPSWorst::default(),
+        PerfUiEntryFrameTime::default(),
+        PerfUiEntryFrameTimeWorst::default(),
+        PerfUiEntryFrameCount::default(),
+        PerfUiEntryEntityCount::default(),
+        PerfUiEntryCpuUsage::default(),
+        PerfUiEntryMemUsage::default(),
+        PerfUiEntrySystemCpuUsage::default(),
+        PerfUiEntrySystemMemUsage::default(),
+        PerfUiEntryRenderCpuTime::default(),
+        PerfUiEntryRenderGpuTime::default(),
+    ));
 }
 
 pub fn viewer(app: &mut App) {

@@ -60,10 +60,9 @@ pub fn add_voxel_painter(mut commands: Commands) {
         Name::new("Voxel painter"),
         VoxelPainter {
             brushes: vec![
-                // &sdf::Torus { minor_radius: 4.0, major_radius: 12.0 },
-                // &sdf::Sphere { radius: 3.0 },
                 &Cuboid { half_size: crate::voxel::GRID_SCALE },
-                // &sdf::Sphere { radius: 0.2 },
+                &sdf::Torus { minor_radius: 4.0, major_radius: 12.0 },
+                &sdf::Sphere { radius: 3.0 },
             ],
             brush_index: 0,
 
@@ -114,7 +113,7 @@ pub fn paint_voxels(
 
     mut voxels: Query<&mut Voxels>,
 ) {
-    info!("painting");
+    // info!("painting");
     let Ok(painter) = painters.get(trigger.target()) else {
         return;
     };

@@ -71,7 +71,7 @@ pub fn spawn_chunk_entities(
         };
 
         if !voxel_chunks.contains_key(chunk_point) {
-            info!("spawning chunk entity: {:?}", chunk_point);
+            // info!("spawning chunk entity: {:?}", chunk_point);
 
             let new_chunk = commands
                 .spawn((

@@ -90,11 +90,16 @@ pub struct SimChunks {
 
     // 0 => 0, 0, 0
     // 1 => 1, 1, 1
-    pub to_block_index: HashMap<ChunkPoint, BlockKey>,
+    pub to_block_index: [HashMap<ChunkPoint, BlockKey>; 8],
     pub blocks: [SlotMap<BlockKey, ChunkKeys>; 8],
 
     /// 0..8 offsets
     pub margolus_offset: usize,
+}
+
+pub struct Blocks {
+    pub to_index: HashMap<ChunkPoint, usize>,
+    pub keys: Vec<Option<ChunkKeys>>,
 }
 
 // TODO: Figure out best looking offsets.
@@ -175,7 +180,7 @@ impl SimChunks {
             chunks: SlotMap::with_key(),
             dirty: SlotMap::with_key(),
             from_chunk_point: HashMap::new(),
-            to_block_index: HashMap::new(),
+            to_block_index: std::array::from_fn(|_| HashMap::new()),
             blocks: std::array::from_fn(|_| SlotMap::with_key()),
             margolus_offset: 0,
         }
@@ -235,7 +240,7 @@ impl SimChunks {
                 // info!("anchor: {corner}, chunk_point: {chunk_point:?}, offset: {offset}");
                 let chunk_index = ChunkView::linearize_chunk(rel);
 
-                let block_key = match self.to_block_index.entry(ChunkPoint(corner)) {
+                let block_key = match self.to_block_index[offset_index].entry(ChunkPoint(corner)) {
                     Entry::Occupied(entry) => *entry.get(),
                     Entry::Vacant(entry) => {
                         let block_key = self.blocks[offset_index]
@@ -447,8 +452,9 @@ impl SimChunks {
 
     /// Spread modified updates into the dirty set for the next iteration
     pub fn spread_updates(&mut self) {
-        for (corner_point, block_key) in self.to_block_index.iter() {
-            let chunk_keys = self.blocks[self.margolus_offset].get(*block_key).unwrap();
+        for (corner_point, block_key) in self.to_block_index[self.margolus_offset].iter() {
+            let blocks = &self.blocks[self.margolus_offset];
+            let chunk_keys = blocks.get(*block_key).unwrap();
 
             for (index, keys) in chunk_keys.keys.iter().enumerate() {
                 let Some((chunk_key, dirty_key)) = keys else {
