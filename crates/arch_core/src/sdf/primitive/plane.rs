@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// A plane defined by a normal vector and distance from origin.
 /// The plane equation is: normal · point + distance = 0
@@ -43,5 +43,9 @@ impl Sdf for Plane {
     fn aabb(&self) -> Option<Aabb3d> {
         // Planes are infinite, so no finite AABB
         None
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Plane(*self)
     }
 }

@@ -3,8 +3,7 @@ use std::sync::Arc;
 // use bevy::reflect::Reflect;
 use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
-
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use super::{Sdf, ops};
 use crate::sdf;
@@ -115,5 +114,9 @@ impl Sdf for SdfNode {
             SdfNode::SmoothSubtraction(smooth_subtraction) => smooth_subtraction.aabb(),
             SdfNode::Xor(xor) => xor.aabb(),
         }
+    }
+
+    fn as_node(&self) -> SdfNode {
+        self.clone()
     }
 }

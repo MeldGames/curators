@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// Scale the underlying primitive.
 ///
@@ -35,5 +37,9 @@ impl<P: Sdf> Sdf for Scale<P> {
 
     fn aabb(&self) -> Option<Aabb3d> {
         self.primitive.aabb().map(|aabb| aabb.scale_around_center(self.scale))
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Scale(Scale { primitive: Arc::new(self.primitive.as_node()), scale: self.scale })
     }
 }

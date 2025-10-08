@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 // Helper functions
 fn clamp(value: f32, min: f32, max: f32) -> f32 {
@@ -44,6 +46,14 @@ impl<A: Sdf, B: Sdf> Sdf for SmoothSubtraction<A, B> {
         self.a.aabb().map(|aabb| {
             let expansion = Vec3A::splat(self.k);
             Aabb3d { min: aabb.min - expansion, max: aabb.max + expansion }
+        })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::SmoothSubtraction(SmoothSubtraction {
+            a: Arc::new(self.a.as_node()),
+            b: Arc::new(self.b.as_node()),
+            k: self.k,
         })
     }
 }

@@ -1,8 +1,8 @@
-use crate::sdf::Sdf;
+pub use bevy::math::primitives::Torus;
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
-pub use bevy::math::primitives::Torus;
+use crate::sdf::{Sdf, SdfNode};
 
 impl Sdf for Torus {
     fn sdf(&self, point: Vec3) -> f32 {
@@ -17,12 +17,18 @@ impl Sdf for Torus {
 
         tube_distance - self.minor_radius
     }
+
     fn aabb(&self) -> Option<Aabb3d> {
         let total_radii = self.minor_radius + self.major_radius;
-        // xz using both radii and y using only the minor radius (the radius of the tube).
+        // xz using both radii and y using only the minor radius (the radius of the
+        // tube).
         Some(Aabb3d {
             min: Vec3A::new(-total_radii, -self.minor_radius, -total_radii),
             max: Vec3A::new(total_radii, self.minor_radius, total_radii),
         })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Torus(*self)
     }
 }

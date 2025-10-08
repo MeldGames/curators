@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 impl Sdf for Cuboid {
     fn sdf(&self, point: Vec3) -> f32 {
@@ -14,5 +14,9 @@ impl Sdf for Cuboid {
     fn aabb(&self) -> Option<Aabb3d> {
         let half_size = self.half_size;
         Some(Aabb3d { min: (-half_size).into(), max: (half_size).into() })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Cuboid(*self)
     }
 }

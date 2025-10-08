@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// A pyramid defined by height and base size, centered at the origin.
 #[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
@@ -62,5 +62,9 @@ impl Sdf for Pyramid {
         let max_point = Vec3::new(half_base.x, self.height, half_base.y);
 
         Some(Aabb3d { min: min_point.into(), max: max_point.into() })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Pyramid(*self)
     }
 }

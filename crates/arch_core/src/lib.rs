@@ -64,12 +64,12 @@ pub fn shared(app: &mut App) {
         .add_plugins(proc_mesh::plugin)
         // .add_plugins(pathfind::plugin)
         .add_plugins(character::plugin)
-        .add_plugins(EdgeDetectionPlugin {
-            // If you wish to apply Smaa anti-aliasing after edge detection,
-            // please ensure that the rendering order of [`EdgeDetectionNode`] is set before
-            // [`SmaaNode`].
-            before: Node3d::Smaa,
-        })
+        // .add_plugins(EdgeDetectionPlugin {
+        //     // If you wish to apply Smaa anti-aliasing after edge detection,
+        //     // please ensure that the rendering order of [`EdgeDetectionNode`] is set before
+        //     // [`SmaaNode`].
+        //     before: Node3d::Smaa,
+        // })
         .add_plugins(WireframePlugin::default())
         .add_plugins(AutoExposurePlugin)
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
@@ -94,14 +94,14 @@ pub fn shared(app: &mut App) {
         PerfUiEntryFPSAverage::default(),
         PerfUiEntryFPSPctLow::default(),
         PerfUiEntryFPSWorst::default(),
-        PerfUiEntryFrameTime::default(),
+        // PerfUiEntryFrameTime::default(),
         PerfUiEntryFrameTimeWorst::default(),
-        PerfUiEntryFrameCount::default(),
+        // PerfUiEntryFrameCount::default(),
         PerfUiEntryEntityCount::default(),
         PerfUiEntryCpuUsage::default(),
         PerfUiEntryMemUsage::default(),
-        PerfUiEntrySystemCpuUsage::default(),
-        PerfUiEntrySystemMemUsage::default(),
+        // PerfUiEntrySystemCpuUsage::default(),
+        // PerfUiEntrySystemMemUsage::default(),
         PerfUiEntryRenderCpuTime::default(),
         PerfUiEntryRenderGpuTime::default(),
     ));

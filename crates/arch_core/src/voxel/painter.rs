@@ -6,8 +6,9 @@ use bevy_math::bounding::Aabb3d;
 
 use crate::sdf;
 use crate::sdf::voxel_rasterize::RasterConfig;
+use crate::voxel::commands::{SetVoxelsSdfParams, VoxelCommandQueue};
 use crate::voxel::raycast::VoxelHit;
-use crate::voxel::{CursorVoxel, Voxel, Voxels};
+use crate::voxel::{CursorVoxel, Voxel, VoxelCommand, VoxelSet, Voxels};
 
 pub fn plugin(app: &mut App) {
     app.add_input_context::<VoxelPainter>();
@@ -111,33 +112,24 @@ pub fn paint_voxels(
     cursor_voxel: Res<CursorVoxel>,
     painters: Query<&VoxelPainter>,
 
-    mut voxels: Query<&mut Voxels>,
+    mut commands: Query<&mut VoxelCommandQueue>,
 ) {
     // info!("painting");
     let Ok(painter) = painters.get(trigger.target()) else {
         return;
     };
 
-    // Calculate if and where the ray is hitting a voxel.
-    let Ok(mut voxels) = voxels.single_mut() else {
-        info!("No voxels found");
-        return;
-    };
-
     if let Some(hit) = cursor_voxel.hit() {
-        // Place block
-        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(painter.brush(), RasterConfig {
-            clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-            grid_scale: crate::voxel::GRID_SCALE,
-            pad_bounds: Vec3::splat(3.0),
-        }) {
-            let normal = hit.normal.unwrap_or(IVec3::Y);
-            let point = hit.voxel + raster_voxel.point + normal;
-            if raster_voxel.distance < 0.0 {
-                if voxels.get_voxel(point) == Voxel::Air {
-                    voxels.set_voxel(point, painter.voxel());
-                }
-            }
+        let normal = hit.normal.unwrap_or(IVec3::Y);
+        let point = hit.voxel + normal;
+
+        for mut command_queue in &mut commands {
+            command_queue.push(VoxelCommand::SetVoxelsSdf {
+                center: point,
+                sdf: painter.brush().as_node(),
+                voxel: painter.voxel(),
+                params: SetVoxelsSdfParams { within: 0.0, can_replace: VoxelSet::AIR },
+            });
         }
     }
 }

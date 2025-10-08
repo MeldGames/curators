@@ -183,7 +183,7 @@ pub fn sim_settings(mut sim_settings: ResMut<SimSettings>, input: Res<ButtonInpu
     }
 }
 
-// Pull relevant chunks from the 64tree into our linear array.
+// Pull relevant chunks from the 64tree into our linear array on startup
 pub fn pull_from_tree(
     mut grids: Query<(Entity, &Voxels, &mut SimChunks)>,
     tick: Res<FallingSandTick>,
@@ -191,13 +191,10 @@ pub fn pull_from_tree(
     // TODO: Stop doing this on every chunk every frame, should only do this on
     // modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        for z in 0..8 {
-            for x in 0..8 {
-                for y in 0..8 {
+        for z in 0..16 {
+            for x in 0..16 {
+                for y in 0..16 {
                     let chunk_point = IVec3::new(x, y, z);
-                    // if !voxels.tree.changed_chunks.contains(&chunk_point) {
-                    //     continue;
-                    // }
 
                     let voxels = match voxels.tree.root.get_chunk(chunk_point) {
                         VoxelNode::Solid { voxel, .. } => Some([*voxel; CHUNK_LENGTH]),
@@ -206,7 +203,6 @@ pub fn pull_from_tree(
                     };
 
                     if let Some(voxels) = voxels {
-                        // info!("pulling chunk to sim: {:?}", chunk_point);
                         sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
                     }
                 }

@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// An octahedron defined by size, centered at the origin.
 #[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
@@ -36,5 +36,9 @@ impl Sdf for Octahedron {
     fn aabb(&self) -> Option<Aabb3d> {
         let half_size = self.size * 0.5;
         Some(Aabb3d { min: (-Vec3::splat(half_size)).into(), max: (Vec3::splat(half_size)).into() })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Octahedron(*self)
     }
 }

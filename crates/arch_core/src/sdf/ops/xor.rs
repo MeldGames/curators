@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 use serde::{Serialize, Deserialize};
+use std::sync::Arc;
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// XOR operation - exclusive or of two SDFs.
 #[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
@@ -34,6 +35,13 @@ impl<A: Sdf, B: Sdf> Sdf for Xor<A, B> {
             (Some(a), None) | (None, Some(a)) => Some(a),
             (None, None) => None,
         }
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Xor(Xor {
+            a: Arc::new(self.a.as_node()),
+            b: Arc::new(self.b.as_node()),
+        })
     }
 }
 

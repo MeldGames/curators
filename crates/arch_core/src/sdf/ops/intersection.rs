@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// Intersection operation - combines two SDFs with a maximum operation.
 #[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
@@ -40,6 +42,13 @@ impl<A: Sdf, B: Sdf> Sdf for Intersection<A, B> {
             },
             _ => None,
         }
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Intersection(Intersection {
+            a: Arc::new(self.a.as_node()),
+            b: Arc::new(self.b.as_node()),
+        })
     }
 }
 

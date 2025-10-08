@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// Twist the underlying primitive around the Y axis.
 #[derive(Debug, Clone, Reflect)]
@@ -43,5 +43,9 @@ impl<P: Sdf> Sdf for Twist<P> {
             min: Vec3A::new(aabb.min.x.min(aabb.min.z), aabb.min.y, aabb.min.x.min(aabb.min.z)),
             max: Vec3A::new(aabb.max.x.max(aabb.max.z), aabb.max.y, aabb.max.x.max(aabb.max.z)),
         })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Twist(self)
     }
 }

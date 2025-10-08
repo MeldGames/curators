@@ -1,15 +1,17 @@
+use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// Translate the underlying primitive.
 #[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
 #[reflect(Default, Clone, Debug)]
 #[reflect(where P: Clone + Default + Reflect)]
-// #[serde(bound(serialize = "P: Serialize", deserialize = "P: for<'de> Deserialize<'de>"))]
+// #[serde(bound(serialize = "P: Serialize", deserialize = "P: for<'de>
+// Deserialize<'de>"))]
 pub struct Translate<P: Sdf> {
     pub translate: Vec3,
     pub primitive: P,
@@ -35,5 +37,12 @@ impl<P: Sdf> Sdf for Translate<P> {
 
     fn aabb(&self) -> Option<Aabb3d> {
         self.primitive.aabb().map(|aabb| aabb.translated_by(self.translate))
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Translate(Translate {
+            translate: self.translate,
+            primitive: Arc::new(self.primitive.as_node()),
+        })
     }
 }

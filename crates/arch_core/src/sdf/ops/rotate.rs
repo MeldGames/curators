@@ -1,9 +1,10 @@
+use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy_math::bounding::{Aabb3d, BoundingVolume};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// Rotate the underlying primitive.
 #[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
@@ -29,6 +30,13 @@ impl<P: Sdf> Sdf for Rotate<P> {
 
     fn aabb(&self) -> Option<Aabb3d> {
         self.primitive.aabb().map(|aabb| aabb.rotated_by(self.rotate))
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Rotate(Rotate {
+            rotate: self.rotate,
+            primitive: Arc::new(self.primitive.as_node()),
+        })
     }
 }
 

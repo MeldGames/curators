@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// Subtraction operation - subtracts the second SDF from the first.
 #[derive(Debug, Clone, Default, Reflect, Serialize, Deserialize)]
@@ -30,5 +32,12 @@ impl<A: Sdf, B: Sdf> Sdf for Subtraction<A, B> {
     fn aabb(&self) -> Option<Aabb3d> {
         // Subtraction can only shrink the result, so use the second operand's bounds
         self.b.aabb()
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Subtraction(Subtraction {
+            a: Arc::new(self.a.as_node()),
+            b: Arc::new(self.b.as_node()),
+        })
     }
 }

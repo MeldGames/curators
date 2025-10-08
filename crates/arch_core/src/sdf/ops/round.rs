@@ -1,9 +1,10 @@
+use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// Round operation - adds rounding to the underlying primitive.
 #[derive(Debug, Clone, Reflect, Serialize, Deserialize)]
@@ -37,5 +38,9 @@ impl<P: Sdf> Sdf for Round<P> {
             let expansion = Vec3A::splat(self.radius);
             Aabb3d { min: aabb.min - expansion, max: aabb.max + expansion }
         })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Round(Round { primitive: Arc::new(self.primitive.as_node()), radius: self.radius })
     }
 }

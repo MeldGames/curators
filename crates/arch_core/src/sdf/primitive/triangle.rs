@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// A triangle defined by three vertices.
 #[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
@@ -69,5 +69,9 @@ impl Sdf for Triangle {
         let max_point = self.v0.max(self.v1).max(self.v2);
 
         Some(Aabb3d { min: min_point.into(), max: max_point.into() })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Triangle(*self)
     }
 }

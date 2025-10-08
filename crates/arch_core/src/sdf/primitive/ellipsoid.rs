@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// An ellipsoid defined by radii along each axis, centered at the origin.
 #[derive(Clone, Copy, Debug, Reflect, Serialize, Deserialize)]
@@ -37,5 +37,9 @@ impl Sdf for Ellipsoid {
 
     fn aabb(&self) -> Option<Aabb3d> {
         Some(Aabb3d { min: (-self.radii).into(), max: (self.radii).into() })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Ellipsoid(*self)
     }
 }

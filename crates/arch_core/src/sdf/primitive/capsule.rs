@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::sdf::Sdf;
+use crate::sdf::{Sdf, SdfNode};
 
 /// A capsule defined by two endpoints and a radius.
 /// The capsule extends from `start` to `end` with the given `radius` and has
@@ -52,5 +52,9 @@ impl Sdf for Capsule {
         let max_point = self.start.max(self.end) + Vec3::splat(self.radius);
 
         Some(Aabb3d { min: min_point.into(), max: max_point.into() })
+    }
+
+    fn as_node(&self) -> SdfNode {
+        SdfNode::Capsule(*self)
     }
 }
