@@ -36,7 +36,7 @@ impl Default for SetVoxelsSdfParams {
     }
 }
 
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component)]
 pub struct VoxelCommandQueue {
     queue: Vec<VoxelCommand>,

@@ -123,7 +123,9 @@ pub fn paint_voxels(
         let normal = hit.normal.unwrap_or(IVec3::Y);
         let point = hit.voxel + normal;
 
+        info!("painting at {:?}", hit);
         for mut command_queue in &mut commands {
+            info!("pushing command");
             command_queue.push(VoxelCommand::SetVoxelsSdf {
                 center: point,
                 sdf: painter.brush().as_node(),

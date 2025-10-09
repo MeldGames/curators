@@ -203,7 +203,9 @@ pub fn pull_from_tree(
                     };
 
                     if let Some(voxels) = voxels {
-                        sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
+                        if !sim_chunks.from_chunk_point.contains_key(&ChunkPoint(chunk_point)) {
+                            sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
+                        }
                     }
                 }
             }
