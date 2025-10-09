@@ -312,7 +312,7 @@ impl Voxel {
     }
 
     #[inline]
-    pub fn type_count() -> usize {
+    pub const fn type_count() -> usize {
         VOXEL_DEFINITIONS.len()
     }
 
@@ -548,6 +548,7 @@ pub struct VoxelSet(u16);
 
 impl VoxelSet {
     pub const AIR: VoxelSet = VoxelSet::from_voxel(Voxel::Air);
+    pub const BREAKABLE: VoxelSet = VoxelSet::from_list([Voxel::Barrier, Voxel::Base]).inverted();
 }
 
 impl Default for VoxelSet {
@@ -577,7 +578,7 @@ impl VoxelSet {
         Self(0)
     }
 
-    pub fn clear(&mut self) {
+    pub const fn clear(&mut self) {
         self.0 = 0;
     }
 
@@ -605,6 +606,10 @@ impl VoxelSet {
 
     pub const fn contains(&self, voxel: Voxel) -> bool {
         (self.0 & Self::voxel_bit(voxel)) != 0
+    }
+
+    pub const fn inverted(self) -> Self {
+        Self(!self.0)
     }
 }
 

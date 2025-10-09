@@ -49,7 +49,7 @@ impl VoxelCommandQueue {
         for (mut voxels, mut sim, mut queue) in &mut voxels {
             for command in queue.queue.drain(..) {
                 info!("applying command: {:?}", command);
-                command.apply_sim(&mut *sim);
+                // command.apply_sim(&mut *sim);
                 command.apply_tree(&mut voxels.tree);
             }
         }
@@ -69,6 +69,9 @@ pub enum VoxelCommand {
 
 impl VoxelCommand {
     pub fn apply_tree(&self, tree: &mut VoxelTree) {
+        info!("applying command to tree: {:?}", self);
+
+        let mut set = 0;
         match self {
             Self::SetVoxel { point, voxel, params } => {
                 let current_voxel = tree.get_voxel(*point);
@@ -82,7 +85,7 @@ impl VoxelCommand {
 
                 use crate::sdf::voxel_rasterize::{RasterConfig, rasterize};
                 let raster_config = RasterConfig {
-                    clip_bounds: Aabb3d::new(Vec3A::splat(0.0), Vec3A::splat(50.0)),
+                    clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
                     grid_scale: crate::voxel::GRID_SCALE,
                     pad_bounds: Vec3::splat(0.0),
                 };
@@ -94,11 +97,14 @@ impl VoxelCommand {
 
                     let current_voxel = tree.get_voxel(raster.point);
                     if params.can_replace.contains(current_voxel) {
+                        set += 1;
                         tree.set_voxel(*center + raster.point, *voxel);
                     }
                 }
             },
         }
+
+        info!("{} voxels set from command", set);
     }
 
     pub fn apply_sim(&self, sim_chunks: &mut SimChunks) {
@@ -116,9 +122,9 @@ impl VoxelCommand {
 
                 use crate::sdf::voxel_rasterize::{RasterConfig, rasterize};
                 let raster_config = RasterConfig {
-                    clip_bounds: Aabb3d::new(Vec3A::splat(0.0), Vec3A::splat(50.0)),
+                    clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
                     grid_scale: crate::voxel::GRID_SCALE,
-                    pad_bounds: Vec3::splat(0.0),
+                    pad_bounds: Vec3::splat(3.0),
                 };
 
                 for raster in rasterize(sdf, raster_config) {

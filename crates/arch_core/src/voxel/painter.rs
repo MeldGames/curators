@@ -63,7 +63,7 @@ pub fn add_voxel_painter(mut commands: Commands) {
             brushes: vec![
                 &Cuboid { half_size: crate::voxel::GRID_SCALE },
                 &sdf::Torus { minor_radius: 4.0, major_radius: 12.0 },
-                &sdf::Sphere { radius: 3.0 },
+                &sdf::Sphere { radius: 1.0 },
             ],
             brush_index: 0,
 
