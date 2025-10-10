@@ -6,7 +6,7 @@ use crate::voxel::simulation::data::{CHUNK_WIDTH, ChunkView, delinearize, linear
 use crate::voxel::simulation::{FallingSandTick, SimChunks};
 
 // pub mod fire;
-pub mod liquid;
+// pub mod liquid;
 pub mod semisolid;
 
 #[derive(Debug, Copy, Clone)]
@@ -56,7 +56,7 @@ impl Voxel {
                 semisolid::simulate_semisolid(view, voxel_position, *self, tick);
             },
             Voxel::Water(..) | Voxel::Oil(..) => {
-                liquid::simulate_liquid(view, voxel_position, *self, tick);
+                // liquid::simulate_liquid(view, voxel_position, *self, tick);
             },
             // Voxel::Fire { .. } => {
             //     fire::simulate_fire(chunks, point, self, &tick);
