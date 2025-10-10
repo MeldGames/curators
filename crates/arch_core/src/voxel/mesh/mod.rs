@@ -55,26 +55,10 @@ pub fn plugin(app: &mut App) {
         )
             .chain(),
     );
-
-    app.add_systems(PostUpdate, clear_changed_chunks.before(UpdateVoxelMeshSet::Finish));
 }
 
 #[derive(Event, Debug, PartialEq, Eq, Hash, Copy, Clone, Reflect)]
 pub struct ChangedChunk {
     pub grid_entity: Entity,
     pub chunk_point: ChunkPoint,
-}
-
-pub fn clear_changed_chunks(
-    mut voxels: Query<(Entity, &mut Voxels)>,
-    mut writer: EventWriter<ChangedChunk>,
-) {
-    for (voxel_entity, mut voxels) in &mut voxels {
-        // writer.write(ChangedChunks {
-        //     voxel_entity,
-        //     changed_chunks:
-        // voxels.render_chunks.changed_chunk_pos_iter().collect::<Vec<_>>(),
-        // });
-        // voxels.render_chunks.clear_changed_chunks();
-    }
 }

@@ -6,7 +6,7 @@ use bevy_math::bounding::Aabb3d;
 
 use crate::sdf;
 use crate::sdf::voxel_rasterize::RasterConfig;
-use crate::voxel::commands::{SetVoxelsSdfParams, VoxelCommandQueue};
+use crate::voxel::commands::{SetVoxelsSdfParams, VoxelCommands};
 use crate::voxel::raycast::VoxelHit;
 use crate::voxel::{CursorVoxel, Voxel, VoxelCommand, VoxelSet, Voxels};
 
@@ -112,7 +112,7 @@ pub fn paint_voxels(
     cursor_voxel: Res<CursorVoxel>,
     painters: Query<&VoxelPainter>,
 
-    mut commands: Query<&mut VoxelCommandQueue>,
+    mut commands: Query<&mut VoxelCommands>,
 ) {
     // info!("painting");
     let Ok(painter) = painters.get(trigger.target()) else {
@@ -125,7 +125,6 @@ pub fn paint_voxels(
 
         info!("painting at {:?}", hit);
         for mut command_queue in &mut commands {
-            info!("pushing command");
             command_queue.push(VoxelCommand::SetVoxelsSdf {
                 center: point,
                 sdf: painter.brush().as_node(),
@@ -141,31 +140,24 @@ pub fn erase_voxels(
     cursor_voxel: Res<CursorVoxel>,
     painters: Query<&VoxelPainter>,
 
-    mut voxels: Query<&mut Voxels>,
+    mut commands: Query<&mut VoxelCommands>,
 ) {
     let Ok(painter) = painters.get(trigger.target()) else {
         return;
     };
 
-    // Calculate if and where the ray is hitting a voxel.
-    let Ok(mut voxels) = voxels.single_mut() else {
-        info!("No voxels found");
-        return;
-    };
-
     if let Some(hit) = cursor_voxel.hit() {
-        // Place block
-        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(painter.brush(), RasterConfig {
-            clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-            grid_scale: crate::voxel::GRID_SCALE,
-            pad_bounds: Vec3::splat(3.0),
-        }) {
-            let point = hit.voxel + raster_voxel.point;
-            if raster_voxel.distance < 0.0 {
-                if voxels.get_voxel(point).breakable() {
-                    voxels.set_voxel(point, Voxel::Air);
-                }
-            }
+        let normal = hit.normal.unwrap_or(IVec3::Y);
+        let point = hit.voxel + normal;
+
+        info!("erasing at {:?}", hit);
+        for mut command_queue in &mut commands {
+            command_queue.push(VoxelCommand::SetVoxelsSdf {
+                center: point,
+                sdf: painter.brush().as_node(),
+                voxel: Voxel::Air,
+                params: SetVoxelsSdfParams { within: 0.0, can_replace: VoxelSet::BREAKABLE },
+            });
         }
     }
 }

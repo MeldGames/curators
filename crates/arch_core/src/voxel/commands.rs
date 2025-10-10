@@ -2,15 +2,15 @@ use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 use serde::{Deserialize, Serialize};
 
-use crate::sdf::{Sdf, SdfNode};
+use crate::sdf::SdfNode;
 use crate::voxel::simulation::SimChunks;
 use crate::voxel::tree::VoxelTree;
 use crate::voxel::{Voxel, VoxelSet, Voxels};
 
 pub fn plugin(app: &mut App) {
-    app.register_type::<VoxelCommandQueue>();
+    app.register_type::<VoxelCommands>();
 
-    app.add_systems(FixedPreUpdate, VoxelCommandQueue::apply_commands);
+    app.add_systems(FixedPreUpdate, VoxelCommands::apply_commands);
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
@@ -38,18 +38,15 @@ impl Default for SetVoxelsSdfParams {
 
 #[derive(Component, Clone, Debug, Reflect, Default)]
 #[reflect(Component)]
-pub struct VoxelCommandQueue {
+pub struct VoxelCommands {
     queue: Vec<VoxelCommand>,
 }
 
-impl VoxelCommandQueue {
-    pub fn apply_commands(
-        mut voxels: Query<(&mut Voxels, &mut SimChunks, &mut VoxelCommandQueue)>,
-    ) {
+impl VoxelCommands {
+    pub fn apply_commands(mut voxels: Query<(&mut Voxels, &mut SimChunks, &mut VoxelCommands)>) {
         for (mut voxels, mut sim, mut queue) in &mut voxels {
             for command in queue.queue.drain(..) {
-                info!("applying command: {:?}", command);
-                // command.apply_sim(&mut *sim);
+                command.apply_sim(&mut *sim);
                 command.apply_tree(&mut voxels.tree);
             }
         }
@@ -69,13 +66,14 @@ pub enum VoxelCommand {
 
 impl VoxelCommand {
     pub fn apply_tree(&self, tree: &mut VoxelTree) {
-        info!("applying command to tree: {:?}", self);
+        // info!("applying command to tree: {:?}", self);
 
         let mut set = 0;
         match self {
             Self::SetVoxel { point, voxel, params } => {
                 let current_voxel = tree.get_voxel(*point);
                 if params.can_replace.contains(current_voxel) {
+                    set += 1;
                     tree.set_voxel(*point, *voxel);
                 }
             },
@@ -91,27 +89,32 @@ impl VoxelCommand {
                 };
 
                 for raster in rasterize(sdf, raster_config) {
+                    let point = *center + raster.point;
                     if raster.distance >= params.within {
                         continue;
                     }
 
-                    let current_voxel = tree.get_voxel(raster.point);
+                    let current_voxel = tree.get_voxel(point);
                     if params.can_replace.contains(current_voxel) {
                         set += 1;
-                        tree.set_voxel(*center + raster.point, *voxel);
+                        tree.set_voxel(point, *voxel);
                     }
                 }
             },
         }
 
-        info!("{} voxels set from command", set);
+        // info!("{} voxels set from command", set);
     }
 
     pub fn apply_sim(&self, sim_chunks: &mut SimChunks) {
+        // info!("applying command to sim: {:?}", self);
+
+        let mut set = 0;
         match self {
             Self::SetVoxel { point, voxel, params } => {
                 if let Some(current_voxel) = sim_chunks.get_voxel(*point) {
                     if params.can_replace.contains(current_voxel) {
+                        set += 1;
                         sim_chunks.set_voxel(*point, *voxel);
                     }
                 }
@@ -124,21 +127,25 @@ impl VoxelCommand {
                 let raster_config = RasterConfig {
                     clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
                     grid_scale: crate::voxel::GRID_SCALE,
-                    pad_bounds: Vec3::splat(3.0),
+                    pad_bounds: Vec3::splat(0.0),
                 };
 
                 for raster in rasterize(sdf, raster_config) {
+                    let point = *center + raster.point;
                     if raster.distance >= params.within {
                         continue;
                     }
 
-                    if let Some(current_voxel) = sim_chunks.get_voxel(raster.point) {
+                    if let Some(current_voxel) = sim_chunks.get_voxel(point) {
                         if params.can_replace.contains(current_voxel) {
-                            sim_chunks.set_voxel(*center + raster.point, *voxel);
+                            set += 1;
+                            sim_chunks.set_voxel(point, *voxel);
                         }
                     }
                 }
             },
         }
+
+        // info!("{} voxels set in sim from command", set);
     }
 }

@@ -1,14 +1,12 @@
 use bevy::prelude::*;
-pub use commands::VoxelCommand;
+pub use commands::{VoxelCommand, VoxelCommands};
 pub use mesh::UpdateVoxelMeshSet;
 pub use pick::CursorVoxel;
+pub use simulation::*;
 pub use tree::{VoxelNode, VoxelTree};
 pub use voxel::{Voxel, VoxelSet};
 pub use voxel_aabb::VoxelAabb;
 pub use voxels::Voxels;
-
-use crate::voxel::commands::VoxelCommandQueue;
-use crate::voxel::simulation::data::SimChunks;
 
 pub mod brush;
 pub mod collider;
@@ -56,7 +54,7 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         // Voxels::new(IVec3::new(15, 15, 15)),
         Transform { scale: GRID_SCALE, ..default() },
         SimChunks::new(),
-        VoxelCommandQueue::default(),
+        VoxelCommands::default(),
         mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
         // mesh::meshem::Meshem,

@@ -34,7 +34,7 @@ impl Plugin for SurfaceNetPlugin {
         app.insert_resource(SampleBuffers::default());
 
         // app.add_observer(surface_net_components);
-        app.add_systems(PreUpdate, update_surface_net_mesh.in_set(UpdateVoxelMeshSet::Mesh));
+        app.add_systems(PostUpdate, update_surface_net_mesh.in_set(UpdateVoxelMeshSet::Mesh));
     }
 }
 
@@ -137,26 +137,8 @@ pub fn update_surface_net_mesh(
     }
 
     for &changed_chunk in changed_chunks.read() {
-        for x in -1..1 {
-            for y in -1..1 {
-                for z in -1..1 {
-                    let offset = IVec3::new(x, y, z);
-                    let neighboring_chunk_point = *changed_chunk.chunk_point + offset;
-                    if neighboring_chunk_point.min_element() < 0 {
-                        continue;
-                    }
-
-                    // add all neighboring chunks to be updated as well
-                    let neighbor_changed = ChangedChunk {
-                        grid_entity: changed_chunk.grid_entity,
-                        chunk_point: ChunkPoint(neighboring_chunk_point),
-                    };
-
-                    if !queue.change_priority_by(&neighbor_changed, |priority| *priority += 1) {
-                        queue.push(neighbor_changed, 1);
-                    }
-                }
-            }
+        if !queue.change_priority_by(&changed_chunk, |priority| *priority += 1) {
+            queue.push(changed_chunk, 1);
         }
     }
 

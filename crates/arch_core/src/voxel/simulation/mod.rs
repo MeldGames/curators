@@ -8,9 +8,10 @@ pub use data::{SimChunk, SimChunks};
 #[cfg(feature = "trace")]
 use tracing::*;
 
+use crate::voxel::commands::SetVoxelParams;
 use crate::voxel::simulation::data::{CHUNK_LENGTH, ChunkPoint};
 use crate::voxel::tree::VoxelNode;
-use crate::voxel::{Voxel, Voxels};
+use crate::voxel::{Voxel, VoxelCommand, VoxelCommands, VoxelSet, Voxels};
 
 pub mod data;
 pub mod debug_dirty;
@@ -131,7 +132,6 @@ impl SimRun {
             SimRun::Continuous => {
                 *step_once = false;
             },
-            _ => {},
         }
     }
 }
@@ -162,9 +162,9 @@ impl Default for SimSettings {
         let threads =
             std::thread::available_parallelism().map(|nonzero| nonzero.get()).unwrap_or(4);
         Self {
-            // step: SimRun::Continuous,
+            step: SimRun::Continuous,
             // step: SimRun::Step,
-            step: SimRun::Granular(default()),
+            // step: SimRun::Granular(default()),
             step_once: false,
             display_modified: false,
             display_flagged: false,
@@ -204,6 +204,7 @@ pub fn pull_from_tree(
 
                     if let Some(voxels) = voxels {
                         if !sim_chunks.from_chunk_point.contains_key(&ChunkPoint(chunk_point)) {
+                            info!("added chunk to sim: {:?}", chunk_point);
                             sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
                         }
                     }
@@ -233,6 +234,15 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
                     }
 
                     // TODO: Set updated neighboring chunks here
+                    // all neighbors should re-mesh
+                    for x in -1..=1 {
+                        for y in -1..=1 {
+                            for z in -1..=1 {
+                                let offset = IVec3::new(x, y, z);
+                                voxels.tree.changed_chunks.insert(chunk_point.0 + offset);
+                            }
+                        }
+                    }
                 },
                 _ => {},
             }
@@ -240,9 +250,13 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
     }
 }
 
-pub fn add_sand(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
-    for (_grid_entity, mut voxels, sim_chunks) in &mut grids {
-        voxels.set_voxel(IVec3::new(10, 20, 10), Voxel::Sand);
+pub fn add_sand(mut grids: Query<(Entity, &mut VoxelCommands)>) {
+    for (_grid_entity, mut voxel_commands) in &mut grids {
+        voxel_commands.push(VoxelCommand::SetVoxel {
+            point: IVec3::new(10, 20, 10),
+            voxel: Voxel::Sand,
+            params: SetVoxelParams { can_replace: VoxelSet::AIR },
+        });
     }
 }
 
