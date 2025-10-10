@@ -70,7 +70,7 @@ pub fn add_voxel_painter(mut commands: Commands) {
             voxels: vec![
                 Voxel::Dirt,
                 Voxel::Sand,
-                // Voxel::Water(default()),
+                Voxel::Water(default()),
                 // Voxel::Oil(default())
             ],
             voxel_index: 0,

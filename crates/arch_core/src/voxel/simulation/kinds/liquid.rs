@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::voxel::Voxel;
+use crate::voxel::kinds::{ChunkView, VoxelPosition};
 use crate::voxel::simulation::{FallingSandTick, SimChunks};
 
 #[derive(Copy, Clone, Debug)]
@@ -160,10 +161,10 @@ impl LiquidState {
 
 #[inline]
 pub fn simulate_liquid(
-    grid: &mut SimChunks,
-    point: IVec3,
+    view: &mut ChunkView,
+    point: VoxelPosition,
     sim_voxel: Voxel,
-    tick: &FallingSandTick,
+    tick: FallingSandTick,
 ) {
     #[cfg(feature = "trace")]
     let simulate_liquid_span = info_span!("simulate_liquid").entered();
@@ -185,33 +186,40 @@ pub fn simulate_liquid(
     const STARTING_ENERGY: u8 = 16;
 
     // fall down
-    let below_point = IVec3::from(point + IVec3::NEG_Y);
-    let below_voxel = grid.get_voxel(below_point);
+    let Some((below_point, below_voxel)) = view.get_relative_voxel(point, IVec3::NEG_Y) else {
+        return;
+    };
+
     if swappable(below_voxel, sim_voxel) {
         liquid_voxel.set_state(new_direction, STARTING_ENERGY);
 
-        grid.set_voxel(below_point, liquid_voxel.to_voxel());
-        grid.set_voxel(point, below_voxel);
+        view.set_voxel(below_point, liquid_voxel.to_voxel());
+        view.set_voxel(point, below_voxel);
         return;
     }
 
     // check direction diagonal
     {
-        let diagonal_direction_point = point + liquid_voxel.direction().as_ivec3() - IVec3::Y;
-        let diagonal_direction_voxel = grid.get_voxel(diagonal_direction_point);
-
-        if swappable(diagonal_direction_voxel, sim_voxel) {
-            liquid_voxel.set_state(liquid_voxel.direction(), STARTING_ENERGY);
-            grid.set_voxel(diagonal_direction_point, liquid_voxel.to_voxel());
-            grid.set_voxel(point, diagonal_direction_voxel);
-            return;
+        if let Some((diagonal_direction_point, diagonal_direction_voxel)) =
+            view.get_relative_voxel(point, liquid_voxel.direction().as_ivec3() - IVec3::Y)
+        {
+            if swappable(diagonal_direction_voxel, sim_voxel) {
+                liquid_voxel.set_state(liquid_voxel.direction(), STARTING_ENERGY);
+                view.set_voxel(diagonal_direction_point, liquid_voxel.to_voxel());
+                view.set_voxel(point, diagonal_direction_voxel);
+                return;
+            }
         }
     }
 
-    let direction_voxels: [Voxel; 4] =
-        Direction::directions().map(|d| grid.get_voxel(point + d.as_ivec3()));
-    let open = direction_voxels.iter().filter(|v| **v == Voxel::Air).count();
-    let mix = direction_voxels.iter().filter(|v| v.is_liquid() && sim_voxel.denser(**v)).count();
+    let direction_voxels: [Option<(VoxelPosition, Voxel)>; 4] =
+        Direction::directions().map(|d| view.get_relative_voxel(point, d.as_ivec3()));
+    let open = direction_voxels.iter().filter_map(|v| *v).filter(|(_, v)| *v == Voxel::Air).count();
+    let mix = direction_voxels
+        .iter()
+        .filter_map(|v| *v)
+        .filter(|(_, v)| v.is_liquid() && sim_voxel.denser(*v))
+        .count();
 
     if open == 0 && mix == 0 {
         return;
@@ -220,11 +228,8 @@ pub fn simulate_liquid(
     let mut energy = liquid_voxel.energy();
     // let energy = 32;
     {
-        let direction_point = point + liquid_voxel.direction().as_ivec3();
-        let direction_voxel = direction_voxels[liquid_voxel.direction().index()];
-
         if energy == 0 {
-            grid.set_voxel(point, Voxel::Air);
+            view.set_voxel(point, Voxel::Air);
             return;
             // if below_voxel.id() == sim_voxel.id() {
             //     grid.set_voxel(point, Voxel::Air);
@@ -255,29 +260,37 @@ pub fn simulate_liquid(
         // energy = energy.saturating_sub(1);
 
         // water tension
-        // if below_voxel.id() == sim_voxel.id() {
-        // prioritize previous direction
-        if swappable(direction_voxel, sim_voxel) {
-            liquid_voxel.set_state(liquid_voxel.direction(), energy);
-            grid.set_voxel(direction_point, liquid_voxel.to_voxel());
-            grid.set_voxel(point, direction_voxel);
-            return;
-        } else {
-            // check if there is an open direction to move next time and lose energy
-            const DIRECTIONS: [Direction; 4] =
-                [Direction::Left, Direction::Forward, Direction::Right, Direction::Back];
-            for direction in DIRECTIONS.iter().cycle().skip((tick.0 % 4) as usize).take(4) {
-                if swappable(direction_voxels[direction.index()], sim_voxel) {
-                    // try a new direction next time.
-                    liquid_voxel.set_state(*direction, energy);
-                    grid.set_voxel(point, liquid_voxel.to_voxel());
-                    return;
-                }
-            }
+        match direction_voxels[liquid_voxel.direction().index()] {
+            // prioritize previous direction
+            Some((direction_point, direction_voxel)) if swappable(direction_voxel, sim_voxel) => {
+                liquid_voxel.set_state(liquid_voxel.direction(), energy);
+                view.set_voxel(direction_point, liquid_voxel.to_voxel());
+                view.set_voxel(point, direction_voxel);
+                return;
+            },
+            _ => {
+                // check if there is an open direction to move next time and lose energy
+                const DIRECTIONS: [Direction; 4] =
+                    [Direction::Left, Direction::Forward, Direction::Right, Direction::Back];
+                for direction in DIRECTIONS.iter().cycle().skip((tick.0 % 4) as usize).take(4) {
+                    let Some((direction_point, direction_voxel)) =
+                        direction_voxels[direction.index()]
+                    else {
+                        continue;
+                    };
 
-            unreachable!("Voxels without an open direction should've been short circuited earlier");
+                    if swappable(direction_voxel, sim_voxel) {
+                        // try a new direction next time.
+                        liquid_voxel.set_state(*direction, energy);
+                        view.set_voxel(point, liquid_voxel.to_voxel());
+                        return;
+                    }
+                }
+
+                unreachable!(
+                    "Voxels without an open direction should've been short circuited earlier"
+                );
+            },
         }
-        // } else {
-        // }
     }
 }
