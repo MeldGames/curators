@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::voxel::Voxel;
+use crate::voxel::kinds::VoxelPosition;
 use crate::voxel::simulation::data::ChunkView;
 use crate::voxel::simulation::{FallingSandTick, SimChunks};
 
@@ -162,8 +163,7 @@ impl LiquidState {
 #[inline]
 pub fn simulate_liquid(
     view: &mut ChunkView<'_>,
-    chunk_index: usize,
-    voxel_index: usize,
+    voxel_position: VoxelPosition,
     sim_voxel: Voxel,
     tick: FallingSandTick,
 ) {

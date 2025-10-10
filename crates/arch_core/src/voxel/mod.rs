@@ -1,3 +1,4 @@
+use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 pub use commands::{VoxelCommand, VoxelCommands};
 pub use mesh::UpdateVoxelMeshSet;
@@ -40,7 +41,10 @@ impl Plugin for VoxelPlugin {
             .add_plugins(mesh::plugin)
             .add_plugins(raycast::plugin)
             .add_plugins(painter::plugin)
-            .add_plugins(simulation::plugin);
+            .add_plugins(simulation::SimPlugin {
+                sim_schedule: FixedPostUpdate.intern(),
+                sim_run_schedule: FixedLast.intern(),
+            });
 
         app.add_systems(Startup, spawn_voxel_grid);
         app.add_systems(Startup, spawn_directional_lights);

@@ -33,8 +33,10 @@ impl VoxelPosition {
     // pub fn left(mut self) -> Self {
     //     self.voxel_point.x -= 1;
     //     if self.voxel_point.x < 0 {
-    //         self.chunk_point.x += self.voxel_point.x.div_euclid(IVec3::splat(CHUNK_WIDTH as i32));
-    //         self.voxel_point.x = self.voxel_point.x.rem_euclid(IVec3::splat(CHUNK_WIDTH as i32));
+    //         self.chunk_point.x +=
+    // self.voxel_point.x.div_euclid(IVec3::splat(CHUNK_WIDTH as i32));
+    //         self.voxel_point.x =
+    // self.voxel_point.x.rem_euclid(IVec3::splat(CHUNK_WIDTH as i32));
     //         self.voxel_index = linearize(self.voxel_point);
     //     }
     //     self
@@ -53,9 +55,9 @@ impl Voxel {
             Voxel::Sand => {
                 semisolid::simulate_semisolid(view, voxel_position, *self, tick);
             },
-            // Voxel::Water(..) | Voxel::Oil(..) => {
-            //     liquid::simulate_liquid(chunks, point, *self, &tick);
-            // },
+            Voxel::Water(..) | Voxel::Oil(..) => {
+                liquid::simulate_liquid(view, voxel_position, *self, tick);
+            },
             // Voxel::Fire { .. } => {
             //     fire::simulate_fire(chunks, point, self, &tick);
             // }

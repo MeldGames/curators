@@ -1,9 +1,7 @@
+use arch::core::voxel::{Voxel, Voxels};
 use arch_core::voxel::mesh::{BinaryGreedy, SurfaceNet};
 use arch_core::voxel::simulation::FallingSandTick;
 use bench::falling_sands::basic_benches;
-use bevy::prelude::*;
-
-use arch::core::voxel::{Voxel, Voxels};
 use bevy::prelude::*;
 
 pub fn main() {
@@ -14,14 +12,17 @@ pub fn main() {
     app.insert_resource(FallingSandTick(0));
     app.insert_resource(CurrentBench::new(0));
     app.insert_resource(AmbientLight { brightness: 2500.0, ..default() });
-
     app.add_systems(
         Update,
-        (arch::core::voxel::simulation::falling_sands, increment_step).run_if(should_run),
+        (arch::core::voxel::simulation::SimPlugin, increment_step).run_if(should_run),
     );
-    // app.add_systems(PostUpdate, arch::core::voxel::simulation::update_render_voxels);
+    // app.add_systems(PostUpdate,
+    // arch::core::voxel::simulation::update_render_voxels);
 
-    app.add_plugins(arch::core::voxel::simulation::data::plugin);
+    app.add_plugins(arch::core::voxel::simulation::SimPlugin {
+        sim_schedule: PostUpdate.intern(),
+        sim_run_schedule: Last.intern(),
+    });
 
     app.add_plugins(arch::core::voxel::voxel::plugin)
         .add_plugins(arch::core::voxel::mesh::plugin)

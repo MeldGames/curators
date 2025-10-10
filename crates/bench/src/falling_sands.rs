@@ -3,6 +3,7 @@ use arch_core::sdf::{self, Sdf};
 use arch_core::voxel::mesh::ChangedChunk;
 use arch_core::voxel::simulation::SimSettings;
 use arch_core::voxel::{self, Voxel};
+use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
 use crate::{MeasurementSetup, VoxelSetup};
@@ -15,10 +16,12 @@ pub fn plugin_setup() -> App {
     app.insert_resource(voxel::simulation::FallingSandTick(0))
         .insert_resource(SimSettings::default());
 
-    app.add_plugins(MinimalPlugins)
-        .add_plugins(voxel::voxels::plugin)
-        .add_plugins(voxel::simulation::data::plugin)
-        .add_systems(Update, voxel::simulation::falling_sands);
+    app.add_plugins(MinimalPlugins).add_plugins(voxel::voxels::plugin).add_plugins(
+        arch_core::voxel::simulation::SimPlugin {
+            sim_schedule: PostUpdate.intern(),
+            sim_run_schedule: Last.intern(),
+        },
+    );
 
     app
 }

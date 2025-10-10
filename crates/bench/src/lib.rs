@@ -1,5 +1,6 @@
 use arch_core::bevy;
 use arch_core::sdf::Sdf;
+use arch_core::voxel::data::CHUNK_LENGTH;
 use arch_core::voxel::simulation::data::{ChunkPoint, SimChunk, SimChunks};
 use arch_core::voxel::{Voxel, Voxels};
 use bevy::prelude::*;
@@ -42,11 +43,11 @@ impl VoxelSetup {
 
     pub fn new_sim(&self) -> SimChunks {
         let mut chunks = SimChunks::new();
-        for z in 0..6 {
-            for x in 0..6 {
-                for y in 0..6 {
+        for z in 0..16 {
+            for x in 0..16 {
+                for y in 0..16 {
                     let chunk_point = IVec3::new(x, y, z);
-                    chunks.add_chunk(ChunkPoint(chunk_point), SimChunk::new());
+                    chunks.add_chunk(ChunkPoint(chunk_point), [Voxel::Air; CHUNK_LENGTH]);
                 }
             }
         }

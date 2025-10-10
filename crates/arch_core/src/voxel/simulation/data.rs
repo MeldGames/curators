@@ -534,9 +534,9 @@ impl SimChunks {
                 // For every index, we can potentially preserve the start and end in the Z
                 // directions.
                 let mut initial_preserve_mask = 0u64;
-                if !forward {
-                    initial_preserve_mask |= FORWARD_PRESERVE_MASK;
-                }
+                // if !forward {
+                //     initial_preserve_mask |= FORWARD_PRESERVE_MASK;
+                // }
                 // if !back {
                 //     initial_preserve_mask |= BACKWARD_PRESERVE_MASK;
                 // }

@@ -5,8 +5,8 @@ use crate::voxel::simulation::SimSettings;
 use crate::voxel::simulation::data::{CHUNK_WIDTH, SimChunks, delinearize};
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, display_cell_grids);
-    app.add_systems(Update, display_dirty);
+    app.add_systems(Update, display_cell_grids.run_if(resource_exists::<GizmoConfigStore>));
+    app.add_systems(Update, display_dirty.run_if(resource_exists::<GizmoConfigStore>));
     // app.add_systems(Update, display_margolus_offset);
 }
 

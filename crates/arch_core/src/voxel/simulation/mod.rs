@@ -3,6 +3,8 @@
 //! This needs to be relatively fast... going to be a
 //! large experiment onto whether we can make this work or not.
 
+use bevy::ecs::intern::Interned;
+use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 pub use data::{SimChunk, SimChunks};
 #[cfg(feature = "trace")]
@@ -45,44 +47,51 @@ impl SimStep {
     }
 }
 
-pub fn plugin(app: &mut App) {
-    app.register_type::<FallingSandTick>()
-        .register_type::<SimSettings>()
-        .register_type::<SimStep>()
-        .register_type::<SimRun>();
+pub struct SimPlugin {
+    pub sim_schedule: Interned<dyn ScheduleLabel>,
+    pub sim_run_schedule: Interned<dyn ScheduleLabel>,
+}
 
-    app.insert_resource(FallingSandTick(0));
-    app.insert_resource(SimSettings::default());
+impl Plugin for SimPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<FallingSandTick>()
+            .register_type::<SimSettings>()
+            .register_type::<SimStep>()
+            .register_type::<SimRun>();
 
-    app.configure_sets(
-        FixedPostUpdate,
-        (
-            SimStep::AddVoxelsToSim.run_if(SimRun::should_step(SimStep::AddVoxelsToSim)),
-            SimStep::PullFromTree.run_if(SimRun::should_step(SimStep::PullFromTree)),
-            SimStep::FlagDirty.run_if(SimRun::should_step(SimStep::FlagDirty)),
-            SimStep::Simulate.run_if(SimRun::should_step(SimStep::Simulate)),
-            SimStep::PropagateToTree.run_if(SimRun::should_step(SimStep::PropagateToTree)),
-        )
-            .chain()
-            .run_if(SimRun::should_run),
-    );
+        app.insert_resource(FallingSandTick(0));
+        app.insert_resource(SimSettings::default());
 
-    app.add_systems(FixedLast, SimRun::advance_step);
+        app.configure_sets(
+            self.sim_schedule,
+            (
+                SimStep::AddVoxelsToSim.run_if(SimRun::should_step(SimStep::AddVoxelsToSim)),
+                SimStep::PullFromTree.run_if(SimRun::should_step(SimStep::PullFromTree)),
+                SimStep::FlagDirty.run_if(SimRun::should_step(SimStep::FlagDirty)),
+                SimStep::Simulate.run_if(SimRun::should_step(SimStep::Simulate)),
+                SimStep::PropagateToTree.run_if(SimRun::should_step(SimStep::PropagateToTree)),
+            )
+                .chain()
+                .run_if(SimRun::should_run),
+        );
 
-    app.add_systems(FixedPostUpdate, add_sand.in_set(SimStep::AddVoxelsToSim))
-        .add_systems(FixedPostUpdate, pull_from_tree.in_set(SimStep::PullFromTree))
-        .add_systems(FixedPostUpdate, spread_updates.in_set(SimStep::FlagDirty))
-        .add_systems(FixedPostUpdate, simulate.in_set(SimStep::Simulate))
-        .add_systems(FixedPostUpdate, propagate_to_tree.in_set(SimStep::PropagateToTree));
+        app.add_systems(self.sim_run_schedule, SimRun::advance_step);
 
-    app.add_systems(First, sim_settings);
+        // app.add_systems(self.sim_schedule, add_sand.in_set(SimStep::AddVoxelsToSim))
+        app.add_systems(self.sim_schedule, pull_from_tree.in_set(SimStep::PullFromTree))
+            .add_systems(self.sim_schedule, spread_updates.in_set(SimStep::FlagDirty))
+            .add_systems(self.sim_schedule, simulate.in_set(SimStep::Simulate))
+            .add_systems(self.sim_schedule, propagate_to_tree.in_set(SimStep::PropagateToTree));
 
-    app.add_systems(Startup, || {
-        info!("available parallelism: {:?}", std::thread::available_parallelism());
-    });
+        app.add_systems(First, sim_settings.run_if(resource_exists::<ButtonInput<KeyCode>>));
 
-    app.add_plugins(data::plugin);
-    app.add_plugins(debug_dirty::plugin);
+        app.add_systems(Startup, || {
+            info!("available parallelism: {:?}", std::thread::available_parallelism());
+        });
+
+        app.add_plugins(data::plugin);
+        app.add_plugins(debug_dirty::plugin);
+    }
 }
 
 // Make islands of voxels fall if unsupported.
@@ -195,6 +204,9 @@ pub fn pull_from_tree(
             for x in 0..16 {
                 for y in 0..16 {
                     let chunk_point = IVec3::new(x, y, z);
+                    if sim_chunks.from_chunk_point.contains_key(&ChunkPoint(chunk_point)) {
+                        continue;
+                    }
 
                     let voxels = match voxels.tree.root.get_chunk(chunk_point) {
                         VoxelNode::Solid { voxel, .. } => Some([*voxel; CHUNK_LENGTH]),
@@ -203,10 +215,8 @@ pub fn pull_from_tree(
                     };
 
                     if let Some(voxels) = voxels {
-                        if !sim_chunks.from_chunk_point.contains_key(&ChunkPoint(chunk_point)) {
-                            info!("added chunk to sim: {:?}", chunk_point);
-                            sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
-                        }
+                        info!("added chunk to sim: {:?}", chunk_point);
+                        sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
                     }
                 }
             }
