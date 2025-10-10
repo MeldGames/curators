@@ -1,9 +1,7 @@
+use arch::core::voxel::{Voxel, Voxels};
 use arch_core::voxel::mesh::{BinaryGreedy, SurfaceNet};
 use arch_core::voxel::simulation::FallingSandTick;
 use bench::surface_net::{bench_setup, mesh_benches};
-use bevy::prelude::*;
-
-use arch::core::voxel::{Voxel, Voxels};
 use bevy::prelude::*;
 
 pub fn main() {
@@ -16,8 +14,8 @@ pub fn main() {
 
     // app.add_systems(
     //     Update,
-    //     (arch::core::voxel::simulation::falling_sands, increment_step).run_if(should_run),
-    // );
+    //     (arch::core::voxel::simulation::falling_sands,
+    // increment_step).run_if(should_run), );
 
     // app.add_plugins(arch::core::voxel::voxel::plugin)
     //     .add_plugins(arch::core::voxel::mesh::plugin)

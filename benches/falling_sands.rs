@@ -1,17 +1,12 @@
-use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 
-use bevy::prelude::*;
-
+use arch::core::sdf::voxel_rasterize::{RasterConfig, RasterVoxel, rasterize};
+use arch::core::sdf::{self};
+use arch::core::voxel::simulation::data::SimChunks;
 use arch::core::voxel::{self, Voxel, Voxels};
-use arch::core::{
-    sdf::{
-        self,
-        voxel_rasterize::{RasterConfig, RasterVoxel, rasterize},
-    },
-    voxel::simulation::data::SimChunks,
-};
 use bench::falling_sands::{SimBenchSetup, plugin_setup};
+use bevy::prelude::*;
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
 criterion_group!(benches, falling_sand);
 criterion_main!(benches);

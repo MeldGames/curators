@@ -22,7 +22,6 @@ pub mod kinds;
 pub mod morton;
 pub mod rle;
 pub mod set;
-pub mod view;
 
 #[derive(SystemSet, Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Reflect)]
 #[reflect(Default, Clone, Debug)]
@@ -202,7 +201,7 @@ pub fn pull_from_tree(
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
         for z in 0..16 {
             for x in 0..16 {
-                for y in 0..16 {
+                for y in 0..4 {
                     let chunk_point = IVec3::new(x, y, z);
                     if sim_chunks.from_chunk_point.contains_key(&ChunkPoint(chunk_point)) {
                         continue;

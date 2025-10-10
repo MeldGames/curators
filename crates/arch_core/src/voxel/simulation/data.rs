@@ -452,6 +452,7 @@ impl SimChunks {
 
     /// Spread modified updates into the dirty set for the next iteration
     pub fn spread_updates(&mut self) {
+        let mut chunks = 0;
         for (corner_point, block_key) in self.to_block_index[self.margolus_offset].iter() {
             let blocks = &self.blocks[self.margolus_offset];
             let chunk_keys = blocks.get(*block_key).unwrap();
@@ -461,23 +462,42 @@ impl SimChunks {
                     continue;
                 };
 
+                chunks += 1;
+
                 let rel_chunk_point = ChunkView::delinearize_chunk(index);
                 let chunk_point = corner_point.0 + rel_chunk_point;
                 let chunk = self.chunks.get(*chunk_key).unwrap();
                 let dirty = self.dirty.get_mut(*dirty_key).unwrap();
 
+                #[cfg(feature = "trace")]
+                let span = info_span!("previous_dirty").entered();
                 let previous_dirty = dirty.clone();
-                for (index, modified_mask) in chunk.modified.iter_masks().enumerate() {
-                    dirty.set_mask(index, modified_mask);
+                #[cfg(feature = "trace")]
+                span.exit();
+
+                #[cfg(feature = "trace")]
+                let span = info_span!("dirty_copy_modified").entered();
+                if chunk.modified.any_set() {
+                    for (index, modified_mask) in chunk.modified.iter_masks().enumerate() {
+                        dirty.set_mask(index, modified_mask);
+                    }
+                } else {
+                    dirty.clear();
                 }
+                #[cfg(feature = "trace")]
+                span.exit();
 
                 // spread internally
-                dirty.spread_y();
-                dirty.spread_x();
-                dirty.spread_z();
+                if dirty.any_set() {
+                    #[cfg(feature = "trace")]
+                    let span = info_span!("dirty_spread_internally").entered();
+
+                    dirty.spread_y();
+                    dirty.spread_x();
+                    dirty.spread_z();
+                }
 
                 // spread in between surrounding chunks
-                /*
                 if let Some((above, _)) =
                     self.from_chunk_point.get(&ChunkPoint(chunk_point + IVec3::new(0, 1, 0)))
                 {
@@ -492,7 +512,6 @@ impl SimChunks {
                     dirty.pull_below_chunk(&below_chunk.modified);
                 }
                 dirty.assert_occupancy("pulling vertical chunks");
-                */
 
                 // preserve previous dirty on boundaries
                 let neighbors = [
@@ -572,6 +591,8 @@ impl SimChunks {
                 }
             }
         }
+
+        info!("spread masks in {} chunks", chunks);
     }
 }
 

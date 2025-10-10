@@ -46,7 +46,7 @@ pub fn shared(app: &mut App) {
     app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
 
-    app.insert_resource(Time::<Fixed>::from_hz(20.0));
+    app.insert_resource(Time::<Fixed>::from_hz(60.0));
 
     let seed: u64 = 1;
     app.add_plugins(EntropyPlugin::<WyRand>::with_seed(seed.to_be_bytes()));
@@ -64,12 +64,12 @@ pub fn shared(app: &mut App) {
         .add_plugins(proc_mesh::plugin)
         // .add_plugins(pathfind::plugin)
         .add_plugins(character::plugin)
-        // .add_plugins(EdgeDetectionPlugin {
-        //     // If you wish to apply Smaa anti-aliasing after edge detection,
-        //     // please ensure that the rendering order of [`EdgeDetectionNode`] is set before
-        //     // [`SmaaNode`].
-        //     before: Node3d::Smaa,
-        // })
+        .add_plugins(EdgeDetectionPlugin {
+            // If you wish to apply Smaa anti-aliasing after edge detection,
+            // please ensure that the rendering order of [`EdgeDetectionNode`] is set before
+            // [`SmaaNode`].
+            before: Node3d::Smaa,
+        })
         .add_plugins(WireframePlugin::default())
         .add_plugins(AutoExposurePlugin)
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
@@ -133,17 +133,16 @@ pub fn spawn_flying_camera(mut commands: Commands) {
         //      .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ContextPriority::<FlyingCamera>::new(10),
         actions!(FlyingCamera[
-                (
-                    Action::<CameraMove>::new(),
-                    Bindings::spawn(Spatial::wasd_and(KeyCode::Space, KeyCode::ControlRight)),
-                ),
-                (
-                    Action::<CameraRotate>::new(),
-                    bindings![
-                        Binding::mouse_motion(),
-                    ],
-                ),
-            ]
-        ),
+            (
+                Action::<CameraMove>::new(),
+                Bindings::spawn(Spatial::wasd_and(KeyCode::Space, KeyCode::ControlRight)),
+            ),
+            (
+                Action::<CameraRotate>::new(),
+                bindings![
+                    Binding::mouse_motion(),
+                ],
+            ),
+        ]),
     ));
 }

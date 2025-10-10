@@ -337,7 +337,7 @@ pub fn surface_net_to_mesh(buffer: &SurfaceNetsBuffer) -> Mesh {
         VertexAttributeValues::Float32x2(vec![[0.0; 2]; num_vertices]),
     );
     mesh.insert_indices(Indices::U32(buffer.indices.clone()));
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    // mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
 
     mesh
 }

@@ -187,87 +187,86 @@ pub fn simulate_liquid(
     const STARTING_ENERGY: u8 = 16;
 
     // fall down
-    // let below_point = IVec3::from(point + IVec3::NEG_Y);
-    // let below_voxel = view.get_relative_voxel(below_point);
-    // if swappable(below_voxel, sim_voxel) {
-    // liquid_voxel.set_state(new_direction, STARTING_ENERGY);
+    let below_point = IVec3::from(point + IVec3::NEG_Y);
+    let below_voxel = view.get_relative_voxel(below_point);
+    if swappable(below_voxel, sim_voxel) {
+        liquid_voxel.set_state(new_direction, STARTING_ENERGY);
+
+        grid.set_voxel(below_point, liquid_voxel.to_voxel());
+        grid.set_voxel(point, below_voxel);
+        return;
+    }
     //
-    // grid.set_voxel(below_point, liquid_voxel.to_voxel());
-    // grid.set_voxel(point, below_voxel);
-    // return;
-    // }
+    let direction_voxels: [Voxel; 4] =
+        Direction::directions().map(|d| grid.get_voxel(point + d.as_ivec3()));
+    let open = direction_voxels.iter().filter(|v| **v == Voxel::Air).count();
+    let mix = direction_voxels.iter().filter(|v| v.is_liquid() && sim_voxel.denser(**v)).count();
+
+    if open == 0 && mix == 0 {
+        return;
+    }
+
+    let mut energy = liquid_voxel.energy();
+    let energy = 32;
+    {
+        let direction_point = point + liquid_voxel.direction().as_ivec3();
+        let direction_voxel = direction_voxels[liquid_voxel.direction().index()];
+
+        if energy == 0 {
+            grid.set_voxel(point, Voxel::Air);
+            return;
+            if below_voxel.id() == sim_voxel.id() {
+                grid.set_voxel(point, Voxel::Air);
+                return;
+            } else {
+                // check every voxel this voxel could've come from.
+                // type, then don't despawn
+                return;
+            }
+        }
+
+        // evaporation
+        if open > 0 {
+            let rate = match open {
+                1 => 4,
+                2 => 2,
+                3 => 1,
+                4 => 1,
+                _ => unreachable!(),
+            };
+            energy = if tick.0 % rate == 0 { energy.saturating_sub(1) } else { energy }; //let new_energy = ;
+            liquid_voxel.set_state(liquid_voxel.direction(), new_energy);
+            grid.set_voxel(point, liquid_voxel.to_voxel());
+        }
+    }
+
     //
-    // let direction_voxels: [Voxel; 4] =
-    // Direction::directions().map(|d| grid.get_voxel(point + d.as_ivec3()));
-    // let open = direction_voxels.iter().filter(|v| **v == Voxel::Air).count();
-    // let mix = direction_voxels.iter().filter(|v| v.is_liquid() &&
-    // sim_voxel.denser(**v)).count();
-    //
-    // if open == 0 && mix == 0 {
-    // return;
-    // }
-    //
-    // let mut energy = liquid_voxel.energy();
-    // let energy = 32;
-    // {
-    // let direction_point = point + liquid_voxel.direction().as_ivec3();
-    // let direction_voxel = direction_voxels[liquid_voxel.direction().index()];
-    //
-    // if energy == 0 {
-    // grid.set_voxel(point, Voxel::Air);
-    // return;
-    // if below_voxel.id() == sim_voxel.id() {
-    //     grid.set_voxel(point, Voxel::Air);
-    //     return;
-    // } else {
-    //     // check every voxel this voxel could've come from.
-    //     // type, then don't despawn
-    //     return;
-    // }
-    // }
-    //
-    // evaporation
-    // if open > 0 {
-    // let rate = match open {
-    // 1 => 4,
-    // 2 => 2,
-    // 3 => 1,
-    // 4 => 1,
-    // _ => unreachable!(),
-    // };
-    //
-    // energy = if tick.0 % rate == 0 { energy.saturating_sub(1) } else { energy
-    // }; let new_energy = ;
-    // liquid_voxel.set_state(liquid_voxel.direction(), new_energy);
-    // grid.set_voxel(point, liquid_voxel.to_voxel());
-    // }
-    //
-    // energy = energy.saturating_sub(1);
-    //
+    energy = energy.saturating_sub(1);
     // water tension
-    // if below_voxel.id() == sim_voxel.id() {
-    // prioritize previous direction
-    // if swappable(direction_voxel, sim_voxel) {
-    // liquid_voxel.set_state(liquid_voxel.direction(), energy);
-    // grid.set_voxel(direction_point, liquid_voxel.to_voxel());
-    // grid.set_voxel(point, direction_voxel);
-    // return;
-    // } else {
-    // check if there is an open direction to move next time and lose energy
-    // const DIRECTIONS: [Direction; 4] =
-    // [Direction::Left, Direction::Forward, Direction::Right, Direction::Back];
-    // for direction in DIRECTIONS.iter().cycle().skip((tick.0 % 4) as
-    // usize).take(4) { if swappable(direction_voxels[direction.index()],
-    // sim_voxel) { try a new direction next time.
-    // liquid_voxel.set_state(*direction, energy);
-    // grid.set_voxel(point, liquid_voxel.to_voxel());
-    // return;
-    // }
-    // }
-    //
-    // unreachable!("Voxels without an open direction should've been short
-    // circuited earlier"); }
-    // } else {
-    // }
-    // }
+    if below_voxel.id() == sim_voxel.id() {
+        // prioritize previous direction
+        if swappable(direction_voxel, sim_voxel) {
+            liquid_voxel.set_state(liquid_voxel.direction(), energy);
+            grid.set_voxel(direction_point, liquid_voxel.to_voxel());
+            grid.set_voxel(point, direction_voxel);
+            return;
+        } else {
+            // check if there is an open direction to move next time and lose energy
+            const DIRECTIONS: [Direction; 4] =
+                [Direction::Left, Direction::Forward, Direction::Right, Direction::Back];
+            for direction in DIRECTIONS.iter().cycle().skip((tick.0 % 4) as usize).take(4) {
+                if swappable(direction_voxels[direction.index()], sim_voxel) {
+                    // try a new direction next time.
+                    liquid_voxel.set_state(*direction, energy);
+                    grid.set_voxel(point, liquid_voxel.to_voxel());
+                    return;
+                }
+            }
+
+            unreachable!(
+                "Voxels without an open direction should've been short
+            circuited earlier"
+            );
+        }
+    }
 }
