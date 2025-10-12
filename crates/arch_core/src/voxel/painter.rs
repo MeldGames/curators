@@ -148,7 +148,7 @@ pub fn erase_voxels(
 
     if let Some(hit) = cursor_voxel.hit() {
         let normal = hit.normal.unwrap_or(IVec3::Y);
-        let point = hit.voxel + normal;
+        let point = hit.voxel;
 
         info!("erasing at {:?}", hit);
         for mut command_queue in &mut commands {

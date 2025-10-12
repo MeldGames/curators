@@ -6,6 +6,8 @@
 use bevy::ecs::intern::Interned;
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
+use std::sync::{Mutex, Arc};
+
 pub use data::{SimChunk, SimChunks};
 #[cfg(feature = "trace")]
 use tracing::*;
@@ -194,13 +196,18 @@ pub fn sim_settings(mut sim_settings: ResMut<SimSettings>, input: Res<ButtonInpu
 // Pull relevant chunks from the 64tree into our linear array on startup
 pub fn pull_from_tree(
     mut grids: Query<(Entity, &Voxels, &mut SimChunks)>,
-    tick: Res<FallingSandTick>,
+    // tick: Res<FallingSandTick>,
+    mut added: Local<bool>,
 ) {
+    if *added {
+        return;
+    }
+
     // TODO: Stop doing this on every chunk every frame, should only do this on
     // modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        for z in 0..16 {
-            for x in 0..16 {
+        for z in 0..4 {
+            for x in 0..4 {
                 for y in 0..4 {
                     let chunk_point = IVec3::new(x, y, z);
                     if sim_chunks.from_chunk_point.contains_key(&ChunkPoint(chunk_point)) {
@@ -221,6 +228,8 @@ pub fn pull_from_tree(
             }
         }
     }
+
+    *added = true;
 }
 
 pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
@@ -269,29 +278,38 @@ pub fn add_sand(mut grids: Query<(Entity, &mut VoxelCommands)>) {
     }
 }
 
-pub fn spread_updates(mut grids: Query<(Entity, &mut SimChunks)>) {
-    for (_grid_entity, mut sim_chunks) in &mut grids {
+pub fn spread_updates(mut grids: Query<(Entity, &mut SimChunks, &SpreadList)>) {
+    for (_grid_entity, mut sim_chunks, spread_list) in &mut grids {
         // use the current margolus offset to preserve boundary dirtiness
-        sim_chunks.spread_updates();
+        sim_chunks.spread_updates(spread_list);
 
         sim_chunks.margolus_offset += 1;
         sim_chunks.margolus_offset %= 8;
     }
 }
 
-pub fn simulate(mut grids: Query<(Entity, &mut SimChunks)>, mut sim_tick: ResMut<FallingSandTick>) {
+#[derive(Component, Clone)]
+pub struct SpreadList(Arc<Mutex<Vec<(IVec3, [bool; 6])>>>);
+
+impl Default for SpreadList {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(Vec::with_capacity(128))))
+    }
+}
+
+pub fn simulate(mut grids: Query<(Entity, &mut SimChunks, &SpreadList)>, mut sim_tick: ResMut<FallingSandTick>) {
     #[cfg(feature = "trace")]
     let falling_sands_span = info_span!("falling_sands").entered();
 
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
-    for (_grid_entity, mut sim_chunks) in &mut grids {
+    for (_grid_entity, mut sim_chunks, spread_list) in &mut grids {
         use rayon::prelude::*;
         let views = sim_chunks.chunk_views();
 
         // Parallel version
         views.into_par_iter().for_each(|mut block_view| {
-            block_view.simulate(*sim_tick);
+            block_view.simulate(spread_list.0.clone(), *sim_tick);
         });
 
         // Single threaded version
