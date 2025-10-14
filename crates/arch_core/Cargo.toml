@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [features]
 default = ["safe-bounds"]
+# default = []
 safe-bounds = [] # Remove bounds checks for some operations
 trace = [
   # "tracy-client",
