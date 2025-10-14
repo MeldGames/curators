@@ -134,6 +134,7 @@ criterion = { version = "0.6.0", features = ["html_reports"] }
 
 [profile.release]
 debug = true
+strip = false
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

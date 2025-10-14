@@ -42,8 +42,10 @@ impl Plugin for VoxelPlugin {
             .add_plugins(raycast::plugin)
             .add_plugins(painter::plugin)
             .add_plugins(simulation::SimPlugin {
-                sim_schedule: FixedPostUpdate.intern(),
-                sim_run_schedule: FixedLast.intern(),
+                // sim_schedule: FixedPostUpdate.intern(),
+                // sim_run_schedule: FixedLast.intern(),
+                sim_schedule: PostUpdate.intern(),
+                sim_run_schedule: Last.intern(),
             });
 
         app.add_systems(Startup, spawn_voxel_grid);

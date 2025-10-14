@@ -234,7 +234,14 @@ pub fn pull_from_tree(
 
 pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
     for (_grid_entity, mut voxels, sim_chunks) in &mut grids {
-        for (chunk_point, (chunk_key, _dirty_key)) in &sim_chunks.from_chunk_point {
+        let spread_list = sim_chunks.spread_list.lock().unwrap();
+        for (chunk_point, _) in spread_list.spread_list.iter() {
+            let Some((chunk_key, dirty_key)) = sim_chunks.from_chunk_point.get(&ChunkPoint(*chunk_point)) else {
+                continue;
+            };
+        //     let sim_chunk = sim_chunks.chunks.get(*chunk_key).unwrap();
+        // }
+        // for (chunk_point, (chunk_key, _dirty_key)) in &sim_chunks.from_chunk_point {
             // info!("propagating to tree: {:?}", chunk_point);
             let sim_chunk = sim_chunks.chunks.get(*chunk_key).unwrap();
 
@@ -242,9 +249,9 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
                 continue;
             }
 
-            match voxels.tree.get_chunk_mut(**chunk_point) {
+            match voxels.tree.get_chunk_mut(*chunk_point) {
                 VoxelNode::Solid { .. } => {
-                    voxels.tree.set_chunk_data(**chunk_point, sim_chunk.voxels);
+                    voxels.tree.set_chunk_data(*chunk_point, sim_chunk.voxels);
                 },
                 VoxelNode::Leaf { leaf, .. } => {
                     for voxel_index in sim_chunk.modified.iter() {
@@ -257,7 +264,7 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
                         for y in -1..=1 {
                             for z in -1..=1 {
                                 let offset = IVec3::new(x, y, z);
-                                voxels.tree.changed_chunks.insert(chunk_point.0 + offset);
+                                voxels.tree.changed_chunks.insert(chunk_point + offset);
                             }
                         }
                     }

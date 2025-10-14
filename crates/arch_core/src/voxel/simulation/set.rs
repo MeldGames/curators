@@ -169,12 +169,19 @@ impl ChunkSet {
         for i in 0..self.set.len() {
             self.set[i] |= self.spread_x_right(i);
 
-            if self.set[i] == 0 {
-                self.occupancy &= !(1 << i);
-            } else {
-                self.occupancy |= 1 << i;
-            }
+            self.occupancy = Self::set_occupancy(self.occupancy, i, self.set[i]);
         }
+    }
+
+    pub fn set_occupancy(occupancy: u64, index: usize, mask: u64) -> u64 {
+        // if mask == 0 {
+        //     occupancy & !(1 << index)
+        // } else {
+        //     occupancy | 1 << index
+        // }
+        let bit = 1 << index;
+        let mask = (mask != 0) as i64;
+        occupancy ^ ((-mask ^ occupancy as i64) & bit) as u64
     }
 
     #[inline]
@@ -200,11 +207,7 @@ impl ChunkSet {
 
         // TODO: suss out the cause of any occupancy issues
         for (index, mask) in self.set.iter().enumerate() {
-            if *mask == 0 {
-                self.occupancy &= !(1 << index);
-            } else {
-                self.occupancy |= 1 << index;
-            }
+            self.occupancy = Self::set_occupancy(self.occupancy, index, *mask);
         }
 
         original != self.occupancy
@@ -246,13 +249,7 @@ impl ChunkSet {
                 above.spread_x_left(bottom_index) | above.spread_x_right(bottom_index);
             let above_spread_xz = Self::spread_z_individual(above_spread_x);
             self.set[top_index] |= above_spread_xz;
-
-            // TODO: Figure this part out better.
-            if self.set[top_index] != 0 {
-                self.occupancy |= 1 << top_index;
-            } else {
-                self.occupancy &= !(1 << top_index);
-            }
+            self.occupancy = Self::set_occupancy(self.occupancy, top_index, self.set[top_index]);
         }
     }
 
@@ -269,13 +266,7 @@ impl ChunkSet {
             let below_spread_x = below.spread_x_individual(top_index);
             let below_spread_xz = Self::spread_z_individual(below_spread_x);
             self.set[bottom_index] |= below_spread_xz;
-
-            // TODO: Figure this part out better.
-            if self.set[bottom_index] != 0 {
-                self.occupancy |= 1 << bottom_index;
-            } else {
-                self.occupancy &= !(1 << bottom_index);
-            }
+            self.occupancy = Self::set_occupancy(self.occupancy, bottom_index, self.set[bottom_index]);
         }
     }
 
@@ -342,11 +333,14 @@ impl ChunkSet {
     #[inline]
     pub fn set_mask(&mut self, index: usize, mask: u64) {
         self.set[index] = mask;
-        if mask == 0 {
-            self.occupancy &= !(1 << index);
-        } else {
-            self.occupancy |= 1 << index;
-        }
+        let bit = 1 << index;
+        let mask_binary = (mask != 0) as i64;
+        self.occupancy ^= ((-mask_binary ^ self.occupancy as i64) & bit) as u64;
+        // if mask == 0 {
+        //     self.occupancy &= !(1 << index);
+        // } else {
+        //     self.occupancy |= 1 << index;
+        // }
     }
 
     #[inline]
