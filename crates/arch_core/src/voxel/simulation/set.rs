@@ -53,8 +53,8 @@ pub struct ChunkSet {
     /// Bitset overarching the underlying sets, a 1 bit represents that the
     /// lower level bitset has at least 1 bit set in it, while a 0 means it
     /// is empty.
-    occupancy: u64,
-    set: [u64; SET_LEN],
+    pub occupancy: u64,
+    pub set: [u64; SET_LEN],
 }
 
 impl ChunkSet {
@@ -68,6 +68,10 @@ impl ChunkSet {
 
     #[inline]
     pub fn clear(&mut self) {
+        if self.occupancy == 0 {
+            return;
+        }
+
         self.occupancy = 0;
         for mask in &mut self.set {
             *mask = 0;

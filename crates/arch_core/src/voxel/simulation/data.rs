@@ -509,11 +509,11 @@ impl SimChunks {
 
         let mut spread_list = self.spread_list.lock().unwrap();
         if spread_list.spread_list.len() > 0 {
-            info!("spread_list len: {:?}", spread_list.spread_list.len());
+            // info!("spread_list len: {:?}", spread_list.spread_list.len());
         }
 
-        for (chunk_point, preserve) in spread_list.spread_list.drain() {
-            let Some((chunk_key, dirty_key)) = self.from_chunk_point.get(&ChunkPoint(chunk_point)) else {
+        for (chunk_point, preserve) in spread_list.spread_list.iter() {
+            let Some((chunk_key, dirty_key)) = self.from_chunk_point.get(&ChunkPoint(*chunk_point)) else {
                 warn!("missing from_chunk_point entry for a spread list entry: {:?}", chunk_point);
                 continue;
             };
@@ -629,6 +629,8 @@ impl SimChunks {
                 // dirty.assert_occupancy("preserve masking");
             }
         }
+
+        spread_list.spread_list.clear();
     }
 }
 
@@ -665,6 +667,20 @@ impl<'a> BlockView<'a> {
         // we can't clear voxels on the edges of chunks, because they might
         // still be able to move if the neighboring chunk was within the
         // active area. so
+
+        let mut any_dirty = 0;
+        for chunk_index in 0..CHUNK_VIEW_LENGTH {
+            let Some(dirty) = self.dirty_sets[chunk_index] else {
+                continue;
+            };
+
+            any_dirty |= dirty.occupancy;
+        }
+
+        if any_dirty == 0 {
+            return;
+        }
+
         for chunk_index in 0..CHUNK_VIEW_LENGTH {
             if self.chunks.chunks[chunk_index].is_none() {
                 continue;

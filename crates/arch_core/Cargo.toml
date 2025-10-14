@@ -116,4 +116,4 @@ thiserror = "2"
 
 [dev-dependencies]
 criterion = {version = "0.6.0", features = ["html_reports"]}
-# pprof = { version = "0.15.0", features = ["flamegraph", "criterion"] }
+pprof = { version = "0.15.0", features = ["flamegraph", "criterion"] }
