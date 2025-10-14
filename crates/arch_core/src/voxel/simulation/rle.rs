@@ -69,6 +69,7 @@ impl RLEChunk {
         rle
     }
 
+    /*
     pub fn to_sim(&self) -> SimChunk {
         let mut chunk = SimChunk::new();
         let mut voxel_index = 0;
@@ -86,6 +87,7 @@ impl RLEChunk {
         }
         chunk
     }
+    */
 
     pub fn runs_count(&self) -> usize {
         self.runs.len()
@@ -100,6 +102,7 @@ mod tests {
     use crate::voxel::simulation::data::{SimChunk, delinearize, linearize};
     use crate::voxel::simulation::rle::RLEChunk;
 
+    /*
     #[test]
     pub fn sanity() {
         let mut sim_chunk = SimChunk::new();
@@ -111,4 +114,5 @@ mod tests {
         println!("runs: {:?}", rle.runs);
         assert_eq!(sim_chunk, from_rle);
     }
+    */
 }

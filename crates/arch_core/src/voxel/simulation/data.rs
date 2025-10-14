@@ -12,7 +12,6 @@ use std::sync::{Mutex, Arc};
 
 use crate::sdf::Sdf;
 use crate::voxel::Voxel;
-use crate::voxel::SpreadList;
 use crate::voxel::simulation::FallingSandTick;
 use crate::voxel::simulation::kinds::VoxelPosition;
 use crate::voxel::simulation::set::ChunkSet;
@@ -36,25 +35,22 @@ pub fn plugin(app: &mut App) {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Reflect)]
 pub struct SimChunk {
+    // Internal reference for what chunk this is.
+    pub chunk_point: ChunkPoint,
+
     /// Voxels we have modified this iteration.
     pub modified: ChunkSet,
 
     pub voxels: [Voxel; CHUNK_LENGTH],
 }
 
-impl Default for SimChunk {
-    fn default() -> Self {
-        Self::fill(Voxel::Air)
-    }
-}
-
 impl SimChunk {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(chunk_point: ChunkPoint) -> Self {
+        Self::fill(chunk_point, Voxel::Air)
     }
 
-    pub fn fill(voxel: Voxel) -> Self {
-        Self { modified: ChunkSet::empty(), voxels: [voxel; CHUNK_LENGTH] }
+    pub fn fill(chunk_point: ChunkPoint, voxel: Voxel) -> Self {
+        Self { chunk_point, modified: ChunkSet::empty(), voxels: [voxel; CHUNK_LENGTH] }
     }
 
     pub fn set(&mut self, voxel_index: usize, voxel: Voxel) {
@@ -90,7 +86,6 @@ slotmap::new_key_type! { pub struct BlockKey; }
 // TODO: Double buffer this data so we can throw this on another thread,
 // and we can read the current chunks from the last sim
 #[derive(Component, Clone)]
-#[require(SpreadList)]
 pub struct SimChunks {
     pub chunks: SlotMap<ChunkKey, SimChunk>, // active chunks
     pub dirty: SlotMap<DirtyKey, ChunkSet>,
@@ -104,6 +99,36 @@ pub struct SimChunks {
 
     /// 0..8 offsets
     pub margolus_offset: usize,
+
+    pub spread_list: Arc<Mutex<SpreadList>>,
+}
+
+pub struct SpreadList {
+    pub spread_list: HashMap<IVec3, [bool; 6]>,
+}
+
+impl SpreadList {
+    pub fn new() -> Self {
+        Self {
+            spread_list: HashMap::with_capacity(128),
+        }
+    }
+
+    pub fn mark(&mut self, chunk_point: IVec3) {
+        self.spread_list.entry(chunk_point).or_insert([false; 6]);
+    }
+
+    pub fn with_preserve(&mut self, chunk_point: IVec3, preserve: [bool; 6]) {
+        self.spread_list.insert(chunk_point, preserve);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (IVec3, [bool; 6])> {
+        self.spread_list.iter().map(|(point, preserve)| (*point, *preserve))
+    }
+
+    pub fn clear(&mut self) {
+        self.spread_list.clear();
+    }
 }
 
 pub struct Blocks {
@@ -192,6 +217,7 @@ impl SimChunks {
             to_block_index: std::array::from_fn(|_| HashMap::new()),
             blocks: std::array::from_fn(|_| SlotMap::with_key()),
             margolus_offset: 0,
+            spread_list: Arc::new(Mutex::new(SpreadList::new())),
         }
     }
 
@@ -234,7 +260,7 @@ impl SimChunks {
                 existing_chunk.set(index, voxel);
             }
         } else {
-            let chunk_key = self.chunks.insert(SimChunk { modified: ChunkSet::filled(), voxels });
+            let chunk_key = self.chunks.insert(SimChunk { chunk_point, modified: ChunkSet::filled(), voxels });
             let dirty_key = self.dirty.insert(ChunkSet::filled()); // this doesn't really matter, it'll get overwritten later
             self.from_chunk_point.insert(chunk_point, (chunk_key, dirty_key));
 
@@ -301,11 +327,27 @@ impl SimChunks {
     }
 
     #[inline]
+    pub fn set_voxel_no_spread(&mut self, point: IVec3, voxel: Voxel) -> bool {
+        let (chunk_point, voxel_index) = Self::chunk_and_voxel_indices(point);
+        if let Some((chunk_key, _dirty_key)) = self.chunk_key_from_point(chunk_point) {
+            let chunk = self.chunks.get_mut(chunk_key).unwrap();
+
+            // self.spread_list.lock().unwrap().mark(*chunk_point);
+            chunk.set(voxel_index, voxel);
+
+            true
+        } else {
+            false
+        }
+    }
+
+    #[inline]
     pub fn set_voxel(&mut self, point: IVec3, voxel: Voxel) -> bool {
         let (chunk_point, voxel_index) = Self::chunk_and_voxel_indices(point);
         if let Some((chunk_key, _dirty_key)) = self.chunk_key_from_point(chunk_point) {
             let chunk = self.chunks.get_mut(chunk_key).unwrap();
 
+            self.spread_list.lock().unwrap().mark(*chunk_point);
             chunk.set(voxel_index, voxel);
 
             true
@@ -461,16 +503,16 @@ impl SimChunks {
     // }
 
     /// Spread modified updates into the dirty set for the next iteration
-    pub fn spread_updates(&mut self, spread_list: &SpreadList) {
+    pub fn spread_updates(&mut self) {
         #[cfg(feature = "trace")]
         let spread_span = info_span!("spread_updates").entered();
 
-        let mut spread_list = spread_list.0.lock().unwrap();
-        if spread_list.len() > 0 {
-            info!("spread_list len: {:?}", spread_list.len());
+        let mut spread_list = self.spread_list.lock().unwrap();
+        if spread_list.spread_list.len() > 0 {
+            info!("spread_list len: {:?}", spread_list.spread_list.len());
         }
 
-        for (chunk_point, preserve) in spread_list.drain(..) {
+        for (chunk_point, preserve) in spread_list.spread_list.drain() {
             let Some((chunk_key, dirty_key)) = self.from_chunk_point.get(&ChunkPoint(chunk_point)) else {
                 warn!("missing from_chunk_point entry for a spread list entry: {:?}", chunk_point);
                 continue;
@@ -605,7 +647,7 @@ pub struct BlockView<'a> {
 }
 
 impl<'a> BlockView<'a> {
-    pub fn simulate(&mut self, chunk_modified_list: Arc<Mutex<Vec<(IVec3, [bool; 6])>>>, tick: FallingSandTick) {
+    pub fn simulate(&mut self, spread_list: Arc<Mutex<SpreadList>>, tick: FallingSandTick) {
         // TODO: Iterate through internal voxels first to avoid accessing other chunks,
         // then iterate through each 'face', then iterate through each 'corner'.
         // This should minimize cache misses, but may cause some visible seams.
@@ -647,7 +689,7 @@ impl<'a> BlockView<'a> {
                 voxel.simulate(&mut self.chunks, position, tick);
             }
 
-            if self.chunks.chunks[chunk_index].as_ref().unwrap().modified.any_set() {
+            if self.chunks.chunks[chunk_index].as_ref().unwrap().modified.any_set() || dirty.any_set() {
                 let rel_chunk_point = ChunkView::delinearize_chunk(chunk_index);
                 let chunk_point = self.start_chunk_point + rel_chunk_point;
                 let neighbors = [
@@ -667,8 +709,9 @@ impl<'a> BlockView<'a> {
                     }
                 });
 
-                let mut list = chunk_modified_list.lock().unwrap();
-                list.push((chunk_point, exists));
+                // We should spread the modified
+                let mut spread_list = spread_list.lock().unwrap();
+                spread_list.with_preserve(chunk_point, exists.map(|e| !e));
             }
         }
     }

@@ -278,38 +278,31 @@ pub fn add_sand(mut grids: Query<(Entity, &mut VoxelCommands)>) {
     }
 }
 
-pub fn spread_updates(mut grids: Query<(Entity, &mut SimChunks, &SpreadList)>) {
-    for (_grid_entity, mut sim_chunks, spread_list) in &mut grids {
+pub fn spread_updates(mut grids: Query<(Entity, &mut SimChunks)>) {
+    for (_grid_entity, mut sim_chunks) in &mut grids {
         // use the current margolus offset to preserve boundary dirtiness
-        sim_chunks.spread_updates(spread_list);
+        sim_chunks.spread_updates();
 
         sim_chunks.margolus_offset += 1;
         sim_chunks.margolus_offset %= 8;
     }
 }
 
-#[derive(Component, Clone)]
-pub struct SpreadList(Arc<Mutex<Vec<(IVec3, [bool; 6])>>>);
 
-impl Default for SpreadList {
-    fn default() -> Self {
-        Self(Arc::new(Mutex::new(Vec::with_capacity(128))))
-    }
-}
-
-pub fn simulate(mut grids: Query<(Entity, &mut SimChunks, &SpreadList)>, mut sim_tick: ResMut<FallingSandTick>) {
+pub fn simulate(mut grids: Query<(Entity, &mut SimChunks)>, mut sim_tick: ResMut<FallingSandTick>) {
     #[cfg(feature = "trace")]
     let falling_sands_span = info_span!("falling_sands").entered();
 
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
-    for (_grid_entity, mut sim_chunks, spread_list) in &mut grids {
+    for (_grid_entity, mut sim_chunks) in &mut grids {
         use rayon::prelude::*;
+        let spread_list = sim_chunks.spread_list.clone();
         let views = sim_chunks.chunk_views();
 
         // Parallel version
         views.into_par_iter().for_each(|mut block_view| {
-            block_view.simulate(spread_list.0.clone(), *sim_tick);
+            block_view.simulate(spread_list.clone(), *sim_tick);
         });
 
         // Single threaded version
