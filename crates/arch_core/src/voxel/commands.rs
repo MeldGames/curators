@@ -2,10 +2,11 @@ use bevy::prelude::*;
 use bevy_math::bounding::Aabb3d;
 use serde::{Deserialize, Serialize};
 
-use crate::sdf::SdfNode;
+use crate::sdf::{SdfNode, Sdf};
 use crate::voxel::simulation::SimChunks;
 use crate::voxel::tree::VoxelTree;
 use crate::voxel::{Voxel, VoxelSet, Voxels};
+use crate::sdf::voxel_rasterize::{RasterConfig, rasterize};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<VoxelCommands>();
@@ -80,8 +81,8 @@ impl VoxelCommand {
             Self::SetVoxelsSdf { center, sdf, voxel, params } => {
                 // TODO: Get the overlapping chunks and the overlaps in the chunks for setting.
                 // This should save us a lot of lookup time for setting.
+                let aabb = sdf.aabb().expect("Can't set voxels SDF without a bound");
 
-                use crate::sdf::voxel_rasterize::{RasterConfig, rasterize};
                 let raster_config = RasterConfig {
                     clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
                     grid_scale: crate::voxel::GRID_SCALE,
