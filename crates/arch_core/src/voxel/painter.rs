@@ -61,9 +61,9 @@ pub fn add_voxel_painter(mut commands: Commands) {
         Name::new("Voxel painter"),
         VoxelPainter {
             brushes: vec![
-                &Cuboid { half_size: crate::voxel::GRID_SCALE },
+                &Cuboid { half_size: Vec3::ONE },
                 &sdf::Torus { minor_radius: 4.0, major_radius: 12.0 },
-                &sdf::Sphere { radius: 1.0 },
+                &sdf::Sphere { radius: 5.0 },
             ],
             brush_index: 0,
 
@@ -126,7 +126,7 @@ pub fn paint_voxels(
         info!("painting at {:?}", hit);
         for mut command_queue in &mut commands {
             command_queue.push(VoxelCommand::SetVoxelsSdf {
-                center: point,
+                origin: point,
                 sdf: painter.brush().as_node(),
                 voxel: painter.voxel(),
                 params: SetVoxelsSdfParams { within: 0.0, can_replace: VoxelSet::AIR },
@@ -153,7 +153,7 @@ pub fn erase_voxels(
         info!("erasing at {:?}", hit);
         for mut command_queue in &mut commands {
             command_queue.push(VoxelCommand::SetVoxelsSdf {
-                center: point,
+                origin: point,
                 sdf: painter.brush().as_node(),
                 voxel: Voxel::Air,
                 params: SetVoxelsSdfParams { within: 0.0, can_replace: VoxelSet::BREAKABLE },

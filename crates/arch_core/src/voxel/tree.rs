@@ -284,7 +284,8 @@ impl VoxelNode {
                     };
                 }
             },
-            _ => panic!("Tried to subdivide a non-solid VoxelNode"),
+            _ => {},
+            // _ => panic!("Tried to subdivide a non-solid VoxelNode"),
             // Self::Leaf { .. } | Self::Children { .. } => {} // already fractured
         }
     }

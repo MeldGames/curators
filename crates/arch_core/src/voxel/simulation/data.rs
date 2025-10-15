@@ -10,6 +10,7 @@ use tracing::*;
 
 use std::sync::{Mutex, Arc};
 
+use crate::sdf::voxel_rasterize::PointIter;
 use crate::sdf::Sdf;
 use crate::voxel::Voxel;
 use crate::voxel::simulation::FallingSandTick;
@@ -357,17 +358,9 @@ impl SimChunks {
     }
 
     pub fn set_voxel_brush<S: Sdf>(&mut self, center: IVec3, brush: S, voxel: Voxel) {
-        let half_size = Vec3A::splat(500.0);
-        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
-            brush,
-            crate::sdf::voxel_rasterize::RasterConfig {
-                clip_bounds: Aabb3d { min: -half_size, max: half_size },
-                grid_scale: crate::voxel::GRID_SCALE,
-                pad_bounds: Vec3::ZERO,
-            },
-        ) {
-            if raster_voxel.distance <= 0.0 {
-                self.set_voxel(raster_voxel.point + center, voxel);
+        for point in PointIter::from_sdf(&brush) {
+            if brush.sdf(point.as_vec3()) <= 0.0 {
+                self.set_voxel(point + center, voxel);
             }
         }
     }

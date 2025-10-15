@@ -81,8 +81,8 @@ impl Plugin for SimPlugin {
         // app.add_systems(self.sim_schedule, add_sand.in_set(SimStep::AddVoxelsToSim))
         app.add_systems(self.sim_schedule, pull_from_tree.in_set(SimStep::PullFromTree))
             .add_systems(self.sim_schedule, spread_updates.in_set(SimStep::FlagDirty))
-            .add_systems(self.sim_schedule, simulate.in_set(SimStep::Simulate))
-            .add_systems(self.sim_schedule, propagate_to_tree.in_set(SimStep::PropagateToTree));
+            .add_systems(self.sim_schedule, simulate.in_set(SimStep::Simulate));
+            // .add_systems(self.sim_schedule, propagate_to_tree.in_set(SimStep::PropagateToTree));
 
         app.add_systems(First, sim_settings.run_if(resource_exists::<ButtonInput<KeyCode>>));
 

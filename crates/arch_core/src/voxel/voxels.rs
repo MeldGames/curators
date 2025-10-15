@@ -8,6 +8,7 @@ use bevy_math::bounding::Aabb3d;
 use tracing::*;
 
 use super::raycast::Hit;
+use crate::sdf::voxel_rasterize::PointIter;
 use crate::sdf::Sdf;
 use crate::voxel::mesh::binary_greedy::Chunks;
 // use crate::voxel::mesh::surface_net::Remeshed;
@@ -254,17 +255,9 @@ impl Voxels {
     }
 
     pub fn set_voxel_brush<S: Sdf>(&mut self, center: IVec3, brush: S, voxel: Voxel) {
-        let half_size = self.voxel_size.as_vec3a() / 2.0;
-        for raster_voxel in crate::sdf::voxel_rasterize::rasterize(
-            brush,
-            crate::sdf::voxel_rasterize::RasterConfig {
-                clip_bounds: Aabb3d { min: -half_size, max: half_size },
-                grid_scale: GRID_SCALE,
-                pad_bounds: Vec3::ZERO,
-            },
-        ) {
-            if raster_voxel.distance <= 0.0 {
-                self.set_voxel(raster_voxel.point + center, voxel);
+        for sdf_point in PointIter::from_sdf(&brush) {
+            if brush.sdf(sdf_point.as_vec3()) <= 0.0 {
+                self.set_voxel(center + sdf_point, voxel);
             }
         }
     }

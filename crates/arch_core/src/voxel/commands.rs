@@ -3,10 +3,11 @@ use bevy_math::bounding::Aabb3d;
 use serde::{Deserialize, Serialize};
 
 use crate::sdf::{SdfNode, Sdf};
+use crate::voxel::data::linearize;
 use crate::voxel::simulation::SimChunks;
 use crate::voxel::tree::VoxelTree;
-use crate::voxel::{Voxel, VoxelSet, Voxels};
-use crate::sdf::voxel_rasterize::{RasterConfig, rasterize};
+use crate::voxel::{Voxel, VoxelNode, VoxelSet, Voxels};
+use crate::sdf::voxel_rasterize::{PointIter, ChunkIntersectIter};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<VoxelCommands>();
@@ -62,7 +63,7 @@ impl VoxelCommands {
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub enum VoxelCommand {
     SetVoxel { point: IVec3, voxel: Voxel, params: SetVoxelParams },
-    SetVoxelsSdf { center: IVec3, sdf: SdfNode, voxel: Voxel, params: SetVoxelsSdfParams },
+    SetVoxelsSdf { origin: IVec3, sdf: SdfNode, voxel: Voxel, params: SetVoxelsSdfParams },
 }
 
 impl VoxelCommand {
@@ -78,27 +79,36 @@ impl VoxelCommand {
                     tree.set_voxel(*point, *voxel);
                 }
             },
-            Self::SetVoxelsSdf { center, sdf, voxel, params } => {
-                // TODO: Get the overlapping chunks and the overlaps in the chunks for setting.
-                // This should save us a lot of lookup time for setting.
-                let aabb = sdf.aabb().expect("Can't set voxels SDF without a bound");
-
-                let raster_config = RasterConfig {
-                    clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-                    grid_scale: crate::voxel::GRID_SCALE,
-                    pad_bounds: Vec3::splat(0.0),
-                };
-
-                for raster in rasterize(sdf, raster_config) {
-                    let point = *center + raster.point;
-                    if raster.distance >= params.within {
+            Self::SetVoxelsSdf { origin, sdf, voxel, params } => {
+                let sdf = sdf.translate(origin.as_vec3());
+                let intersections = ChunkIntersectIter::from_sdf(sdf.clone(), 16);
+                for (chunk_point, local_points) in intersections {
+                    if !tree.chunk_point_in_bounds(*chunk_point) {
                         continue;
                     }
 
-                    let current_voxel = tree.get_voxel(point);
-                    if params.can_replace.contains(current_voxel) {
-                        set += 1;
-                        tree.set_voxel(point, *voxel);
+                    let chunk = tree.get_chunk_mut(*chunk_point);
+                    chunk.subdivide();
+                    let VoxelNode::Leaf { leaf, ..} = chunk else {
+                        error!("chunk was not a leaf");
+                        continue;
+                    };
+
+                    let chunk_min = chunk_point.0 * IVec3::splat(16);
+                    for local_point in local_points {
+                        let world_point = chunk_min + local_point;
+                        let distance = sdf.sdf(world_point.as_vec3());
+
+                        if distance >= params.within {
+                            continue;
+                        }
+
+                        let index = linearize(local_point);
+                        let current_voxel = leaf[index];
+                        if params.can_replace.contains(current_voxel) {
+                            set += 1;
+                            leaf[index] = *voxel;
+                        }
                     }
                 }
             },
@@ -120,20 +130,13 @@ impl VoxelCommand {
                     }
                 }
             },
-            Self::SetVoxelsSdf { center, sdf, voxel, params } => {
+            Self::SetVoxelsSdf { origin, sdf, voxel, params } => {
                 // TODO: Get the overlapping chunks and the overlaps in the chunks for setting.
                 // This should save us a lot of lookup time for setting.
 
-                use crate::sdf::voxel_rasterize::{RasterConfig, rasterize};
-                let raster_config = RasterConfig {
-                    clip_bounds: Aabb3d { min: Vec3A::splat(-1000.0), max: Vec3A::splat(1000.0) },
-                    grid_scale: crate::voxel::GRID_SCALE,
-                    pad_bounds: Vec3::splat(0.0),
-                };
-
-                for raster in rasterize(sdf, raster_config) {
-                    let point = *center + raster.point;
-                    if raster.distance >= params.within {
+                for sdf_point in PointIter::from_sdf(sdf) {
+                    let point = *origin + sdf_point;
+                    if sdf.sdf(point.as_vec3()) >= params.within {
                         continue;
                     }
 

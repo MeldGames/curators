@@ -19,12 +19,12 @@ pub struct RasterConfig {
 }
 
 #[derive(Debug)]
-pub struct RasterIterator<S: Sdf, I: Iterator<Item = IVec3>> {
+pub struct RasterIter<S: Sdf, I: Iterator<Item = IVec3>> {
     sdf: S,
     sample_points: I,
 }
 
-impl<S: Sdf, I: Iterator<Item = IVec3>> Iterator for RasterIterator<S, I> {
+impl<S: Sdf, I: Iterator<Item = IVec3>> Iterator for RasterIter<S, I> {
     type Item = RasterVoxel;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -35,24 +35,47 @@ impl<S: Sdf, I: Iterator<Item = IVec3>> Iterator for RasterIterator<S, I> {
 }
 
 #[derive(Debug)]
-pub struct RasterChunkIterator<S: Sdf, I: Iterator<Item = IVec3>> {
-    sdf: S,
-    min: IVec3,
-    max: IVec3,
-    chunk_points: I,
+pub struct ChunkIntersectIter {
+    world_min: IVec3,
+    world_max: IVec3,
+
+    chunk_points: PointIter,
     chunk_width: i32,
 }
 
-impl<S: Sdf + Clone, I: Iterator<Item = IVec3>> Iterator for RasterChunkIterator<S, I> {
-    type Item = (ChunkPoint, RasterIterator<S, PointIter>);
+impl Iterator for ChunkIntersectIter {
+    type Item = (ChunkPoint, PointIter);
 
     fn next(&mut self) -> Option<Self::Item> {
         let chunk_point = self.chunk_points.next()?;
-        let iterator = RasterIterator {
-            sdf: self.sdf.clone(),
-            sample_points: PointIter::clamped_to_chunk(self.min, self.max, chunk_point, self.chunk_width),
-        };
-        Some((ChunkPoint(chunk_point), iterator))
+        let local_point_iter = PointIter::clamped_to_chunk(self.world_min, self.world_max, chunk_point, self.chunk_width);
+        Some((ChunkPoint(chunk_point), local_point_iter))
+    }
+}
+
+impl ChunkIntersectIter {
+    pub fn new(world_min: IVec3, world_max: IVec3, chunk_width: i32) -> Self {
+        let chunk_min = world_min / chunk_width;
+        let chunk_max = world_max / chunk_width;
+
+        Self {
+            world_min: world_min,
+            world_max: world_max,
+            chunk_points: PointIter::new(chunk_min, chunk_max),
+            chunk_width,
+        }
+    }
+
+    pub fn from_sdf<S: Sdf + Clone>(sdf: S, chunk_width: i32) -> Self {
+        info!("from sdf: {:?}", &sdf);
+        let aabb = sdf
+            .aabb()
+            .expect("Sampling an sdf needs to have proper bounds, if using an unbounded Sdf, use `Bounded::new(sdf, min, max)`");
+
+        let min = aabb.min.floor().as_ivec3();
+        let max = aabb.max.ceil().as_ivec3();
+        info!("min: {:?}, max: {:?}", min, max);
+        Self::new(min, max, chunk_width)
     }
 }
 
@@ -60,7 +83,6 @@ impl<S: Sdf + Clone, I: Iterator<Item = IVec3>> Iterator for RasterChunkIterator
 #[derive(Debug, Clone)]
 pub struct PointIter {
     min: IVec3,
-    max: IVec3,
 
     current: i32,
     length: i32,
@@ -69,11 +91,10 @@ pub struct PointIter {
 
 impl PointIter {
     pub fn new(min: IVec3, max: IVec3) -> Self {
-        let bounds = max - min;
+        let bounds = max - min + IVec3::ONE;
         let length = bounds.x * bounds.y * bounds.z;
         Self {
             min: min,
-            max: max,
 
             current: 0,
             bounds: bounds,
@@ -92,9 +113,20 @@ impl PointIter {
 
         // println!("relative: {:?}..{:?}", relative_min, relative_max);
 
-        let min = relative_min.clamp(IVec3::ZERO, IVec3::splat(chunk_width));
-        let max = relative_max.clamp(IVec3::ZERO, IVec3::splat(chunk_width));
+        let min = relative_min.clamp(IVec3::ZERO, IVec3::splat(chunk_width - 1));
+        let max = relative_max.clamp(IVec3::ZERO, IVec3::splat(chunk_width - 1));
 
+        // Self::new(min_chunk_point + min, min_chunk_point + max)
+        Self::new( min,  max)
+    }
+
+    pub fn from_sdf(sdf: impl Sdf) -> Self {
+        let aabb = sdf
+            .aabb()
+            .expect("Sampling an sdf needs to have proper bounds, if using an unbounded Sdf, use `Bounded::new(sdf, min, max)`");
+
+        let min = aabb.min.floor().as_ivec3();
+        let max = aabb.max.ceil().as_ivec3();
         Self::new(min, max)
     }
 }
@@ -125,6 +157,7 @@ impl Iterator for PointIter {
 
 impl ExactSizeIterator for PointIter { }
 
+/*
 pub fn rasterize<S: Sdf>(
     sdf: S,
     config: RasterConfig,
@@ -142,9 +175,6 @@ pub fn rasterize<S: Sdf>(
     let max = (Vec3::from(aabb.max) / config.grid_scale).ceil().as_ivec3();
 
     let point_iter = PointIter::new(min, max);
-    // let point_iter = (min.x..max.x).flat_map(move |x| {
-    //     (min.y..max.y).flat_map(move |y| (min.z..max.z).map(move |z| IVec3::new(x, y, z)))
-    // });
 
     RasterIterator {
         sdf: ops::Scale { primitive: sdf, scale: 1.0 / config.grid_scale }, /* might need to invert this scale? */
@@ -154,10 +184,11 @@ pub fn rasterize<S: Sdf>(
 }
 
 pub fn rasterize_chunkwise<S: Sdf>(
+    origin: IVec3,
     sdf: S,
     config: RasterConfig,
     chunk_width: i32, 
-) -> RasterIterator<ops::Scale<S>, impl Iterator<Item = IVec3>> {
+) -> RasterChunkIterator<ops::Scale<S>, impl Iterator<Item = IVec3>> {
     let aabb = sdf
         .aabb()
         .map(|aabb| aabb.grow(Vec3A::from(config.pad_bounds)))
@@ -170,31 +201,23 @@ pub fn rasterize_chunkwise<S: Sdf>(
     let min = (Vec3::from(aabb.min) / config.grid_scale).floor().as_ivec3();
     let max = (Vec3::from(aabb.max) / config.grid_scale).ceil().as_ivec3();
 
-    let min_chunk = min / chunk_width;
-    let max_chunk = max / chunk_width;
+    ChunkIntersectIter::new(min, max, 16)
 
-    let chunk_point_iter = (min_chunk.x..max_chunk.x).flat_map(move |x| {
-        (min_chunk.y..max_chunk.y).flat_map(move |y| (min_chunk.z..max_chunk.z).map(move |z| IVec3::new(x, y, z)))
-    });
+    // RasterChunkIterator {
+    //     sdf: ops::Scale { primitive: sdf, scale: 1.0 / config.grid_scale }, /* might need to invert this scale? */
+    //     min: min,
+    //     max: max,
 
-    // 
-    // iterate over points in each chunk individually to keep cache locality
-
-    let point_iter = (min.x..max.x).flat_map(move |x| {
-        (min.y..max.y).flat_map(move |y| (min.z..max.z).map(move |z| IVec3::new(x, y, z)))
-    });
-
-    RasterIterator {
-        sdf: ops::Scale { primitive: sdf, scale: 1.0 / config.grid_scale }, /* might need to invert this scale? */
-        sample_points: point_iter,
-        // config,
-    }
+    //     chunk_points: PointIter::new(min_chunk, max_chunk),
+    //     chunk_width: 16,
+    // }
 }
+*/
 
 
 #[cfg(test)]
 mod test {
-    use crate::sdf::{self, voxel_rasterize::{PointIter, RasterChunkIterator}, Sdf};
+    use crate::sdf::{self, voxel_rasterize::{PointIter, ChunkIntersectIter}, Sdf};
     use bevy::prelude::*;
 
     #[test]
@@ -262,7 +285,7 @@ mod test {
 
         // 30 - 16 = 14
         let valid_points = (0..14).flat_map(move |y| {
-            (0..14).flat_map(move |x| (0..14).map(move |z| IVec3::new(x, y, z)))
+            (0..14).flat_map(move |x| (0..14).map(move |z| IVec3::new(x, y, z) + IVec3::splat(chunk_width)))
         }).collect::<Vec<_>>();
 
         let mut index = 0;
@@ -293,19 +316,7 @@ mod test {
         let chunk_max = (max - IVec3::ONE) / chunk_width;
 
         let chunk_points = PointIter::new(chunk_min, chunk_max);
-        // let chunk_points = (chunk_min.y..=chunk_max.y).flat_map(move |y| {
-        //     (chunk_min.x..=chunk_max.x).flat_map(move |x| (chunk_min.z..=chunk_max.z).map(move |z| IVec3::new(x, y, z)))
-        // });
-
-        let mut iter = RasterChunkIterator {
-            sdf: sdf::Sphere {
-                radius: 1.0,
-            },
-            min: min,
-            max: max,
-            chunk_points: chunk_points,
-            chunk_width: chunk_width,
-        };
+        let mut iter = ChunkIntersectIter::from_sdf(sdf, 16);
 
         eprintln!("{:?}", iter);
 

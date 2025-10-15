@@ -55,10 +55,34 @@ pub trait Sdf: Send + Sync + Debug {
 
     // -- ops --
 
+    /// Scale this SDF from world space into voxel space.
+    fn to_voxel_space(self) -> ops::Scale<Self>
+    where
+        Self: Sized + Clone + Default,
+    {
+        ops::Scale { scale: 1.0 / crate::voxel::GRID_SCALE, primitive: self }
+    }
+
+    /// Scale this SDF from voxel space into world space.
+    fn to_world_space(self) -> ops::Scale<Self>
+    where
+        Self: Sized + Clone + Default,
+    {
+        ops::Scale { scale: crate::voxel::GRID_SCALE, primitive: self }
+    }
+
+    /// Translate this SDF by an amount of voxel cells.
+    fn voxel_translate(self, by: IVec3) -> ops::Translate<Self>
+    where
+        Self: Sized + Clone + Default,
+    {
+        ops::Translate { translate: by.as_vec3() * crate::voxel::GRID_SCALE, primitive: self }
+    }
+
     // isometry
     fn translate(self, by: Vec3) -> ops::Translate<Self>
     where
-        Self: Sized + Clone + Default,
+        Self: Sized + Clone,
     {
         ops::Translate { translate: by, primitive: self }
     }
