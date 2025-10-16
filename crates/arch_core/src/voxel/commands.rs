@@ -10,8 +10,10 @@ use crate::sdf::voxel_rasterize::{PointIter, ChunkIntersectIter};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<VoxelCommand>();
-    app.add_event::<VoxelCommand>();
+    // app.add_message::<VoxelCommand>();
+    app.init_resource::<Messages<VoxelCommand>>();
 
+    app.add_systems(FixedLast, update_command_messages);
     app.add_systems(FixedPostUpdate, apply_sim.in_set(SimStep::AddVoxelsToSim));
     app.add_systems(PostUpdate, apply_tree);
 }
@@ -53,6 +55,10 @@ pub fn apply_sim(mut sims: Query<&mut SimChunks>, mut commands: MessageReader<Vo
             command.apply_sim(&mut *sim);
         }
     }
+}
+
+pub fn update_command_messages(mut messages: ResMut<Messages<VoxelCommand>>) {
+    messages.update();
 }
 
 /// Commands for setting voxels across simulation/tree/network.
