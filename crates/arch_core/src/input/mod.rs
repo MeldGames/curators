@@ -12,8 +12,9 @@ pub fn plugin(app: &mut App) {
 pub fn disable_mouse(
     mut action_sources: ResMut<ActionSources>,
     interactions: Query<&Interaction>,
-    egui_wants: Res<EguiWantsInput>,
+    egui_wants: Option<Res<EguiWantsInput>>,
 ) {
+    let Some(egui_wants) = egui_wants else { return; };
     // bevy ui
     let bevy_ui_using = interactions.iter().any(|&interaction| interaction != Interaction::None);
     // egui
@@ -28,8 +29,9 @@ pub fn disable_mouse(
 pub fn disable_keyboard(
     mut action_sources: ResMut<ActionSources>,
     // interactions: Query<&Interaction>,
-    egui_wants: Res<EguiWantsInput>,
+    egui_wants: Option<Res<EguiWantsInput>>,
 ) {
+    let Some(egui_wants) = egui_wants else { return; };
     // bevy ui
     // let bevy_ui_using = interactions.iter().all(|&interaction| interaction ==
     // Interaction::None); egui

@@ -15,7 +15,7 @@ trace = [
 
 [dependencies]
 # Bevy
-bevy = {version = "0.16.1", default-features = false, features = [
+bevy = {version = "0.17.2", default-features = false, features = [
   "experimental_pbr_pcss", # default features
   "std",
   "async_executor",
@@ -25,23 +25,28 @@ bevy = {version = "0.16.1", default-features = false, features = [
   "bevy_asset",
   "bevy_audio",
   "bevy_color",
-  "bevy_core_pipeline", #   "bevy_core_widgets",  #   "bevy_anti_aliasing",
+  "bevy_core_pipeline",
+  # "bevy_core_widgets", 
+  "bevy_anti_alias",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
   "bevy_input_focus",
+  "bevy_post_process",
   "bevy_log",
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
   "bevy_render",
-  "bevy_scene", #   "bevy_scene2",
+  "bevy_scene",
+  # "bevy_scene2",
   "bevy_sprite",
   "bevy_sprite_picking_backend",
   "bevy_state",
   "bevy_text",
   "bevy_ui",
-  "bevy_ui_picking_backend", #   "bevy_ui_render",
+  "bevy_ui_picking_backend",
+  "bevy_ui_render",
   "bevy_window",
   "bevy_winit",
   "custom_cursor",
@@ -54,9 +59,10 @@ bevy = {version = "0.16.1", default-features = false, features = [
   "tonemapping_luts",
   "vorbis",
   "webgl2",
-  "x11", #   "debug",  #   "zstd_rust",  #   "experimental_bevy_feathers",
+  "x11", #   "debug",  #   "zstd_rust", 
+  "experimental_bevy_feathers",
 ]}
-bevy_math = {version = "0.16.1", features = ["approx"]}
+bevy_math = {version = "0.17.2", features = ["approx"]}
 #bevy = { version = "0.16.0", features = ["dynamic_linking", "trace_tracy"] }
 # Set max log levels. This helps avoid unwanted low-severity log spam, which can affect performance.
 log = {version = "0.4", features = [
@@ -68,22 +74,22 @@ tracing = {version = "0.1", features = [
 ], optional = true}
 
 # Bevy crates
-avian3d = "0.3.1"
-bevy_enhanced_input = "0.18.0"
+avian3d = "0.4.0"
+bevy_enhanced_input = "0.19.0"
 #avian3d = { git = "https://github.com/Jondolf/avian", rev = "8a6953298" }
-bevy_egui = "0.36"
+bevy_egui = "0.38"
 bevy_mod_outline = "0.10.2"
-bevy_replicon = "0.34.3"
+bevy_replicon = "0.36.1"
 # bevy_edge_detection = { git = "https://github.com/aceeri/bevy_edge_detection", branch = "fixes" }
-bevy_edge_detection = {path = "../../../bevy_edge_detection"}
+# bevy_edge_detection = {path = "../../../bevy_edge_detection"}
 
-avian_rerecast = "0.2.0"
-bevy_rerecast = "0.2.0"
+avian_rerecast = "0.3.0"
+bevy_rerecast = "0.3.0"
 
 # Randomness
-bevy_prng = {version = "0.11.1", features = ["rand_chacha", "wyrand"]}
-bevy_rand = {version = "0.11.1", features = ["rand_chacha", "wyrand"]}
-noiz = "0.2.0"
+bevy_prng = {version = "0.12.1", features = ["rand_chacha", "wyrand"]}
+bevy_rand = {version = "0.12.1", features = ["rand_chacha", "wyrand"]}
+noiz = "0.3.0"
 rand_core = "0.9"
 
 # Meshing
@@ -95,9 +101,9 @@ fast-surface-nets = "0.2.1"
 #bevy_meshem = { path = "../../../Meshem" }
 
 # Debug
-iyes_perf_ui = "0.5.0"
+# iyes_perf_ui = "0.5.0" # re-enable once 0.17 is supported
 #iyes_perf_ui = { git = "https://github.com/olekspickle/iyes_perf_ui", branch = "main" }
-bevy-inspector-egui = "0.33.1"
+bevy-inspector-egui = "0.34.0"
 # tracy-client = { version = "0.17.3", optional = true }
 
 # Other
@@ -116,5 +122,5 @@ slotmap = "1.0.7"
 thiserror = "2"
 
 [dev-dependencies]
-criterion = {version = "0.6.0", features = ["html_reports"]}
+criterion = {version = "0.7.0", features = ["html_reports"]}
 pprof = { version = "0.15.0", features = ["flamegraph", "criterion"] }

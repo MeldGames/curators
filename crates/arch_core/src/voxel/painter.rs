@@ -1,6 +1,6 @@
 
 use bevy::prelude::*;
-use bevy_enhanced_input::prelude::*;
+use bevy_enhanced_input::prelude::{*, Press};
 
 use crate::sdf;
 use crate::voxel::commands::SetVoxelsSdfParams;
@@ -130,11 +130,11 @@ pub fn paint_voxels(
 }
 
 pub fn erase_voxels(
-    trigger: Trigger<Fired<Erase>>,
+    trigger: On<Fire<Erase>>,
     cursor_voxel: Res<CursorVoxel>,
     painters: Query<&VoxelPainter>,
 
-    mut commands: EventWriter<VoxelCommand>,
+    mut commands: MessageWriter<VoxelCommand>,
 ) {
     let Ok(painter) = painters.get(trigger.target()) else {
         return;

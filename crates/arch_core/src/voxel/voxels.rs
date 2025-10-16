@@ -123,7 +123,7 @@ impl Voxels {
     ) -> impl Iterator<Item = VoxelHit> {
         // translate ray to voxel space
         let local_ray = {
-            let inv_matrix = grid_transform.compute_matrix().inverse();
+            let inv_matrix = grid_transform.to_matrix().inverse();
             Ray3d {
                 origin: inv_matrix.transform_point3(ray.origin),
                 direction: Dir3::new(inv_matrix.transform_vector3(ray.direction.as_vec3()))

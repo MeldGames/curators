@@ -3,7 +3,8 @@
 
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
-use bevy::render::primitives::{Aabb, Frustum};
+use bevy::camera::prelude::*;
+use bevy::camera::primitives::{Aabb, Frustum};
 use bevy_math::Affine3A;
 
 use crate::voxel::Voxels;

@@ -1,6 +1,6 @@
 //! Try to minimize looking inside voxels by doing some silliness on the near plane.
 
-use bevy::{prelude::*, render::view::NoFrustumCulling};
+use bevy::{prelude::*, camera::visibility::NoFrustumCulling};
 
 use crate::voxel::{Voxel, Voxels};
 
@@ -86,7 +86,7 @@ pub fn inside_voxel(
 
         for (grid_transform, voxels) in grids {
             let local_point = grid_transform
-                .compute_matrix()
+                .to_matrix()
                 .inverse()
                 .transform_point(block_transform.translation());
 

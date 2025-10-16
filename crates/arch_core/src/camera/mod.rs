@@ -1,9 +1,9 @@
 use bevy::core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass};
-use bevy::core_pipeline::smaa::{Smaa, SmaaPreset};
+use bevy::anti_alias::smaa::{Smaa, SmaaPreset};
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::pbr::{Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel};
 use bevy::prelude::*;
-use bevy_edge_detection::EdgeDetection;
+// use bevy_edge_detection::EdgeDetection;
 use bevy_enhanced_input::prelude::*;
 
 // pub mod digsite;
@@ -30,7 +30,7 @@ pub fn plugin(app: &mut App) {
 
 pub fn camera_components() -> impl Bundle {
     (
-        Camera { hdr: true, ..default() },
+        Camera { ..default() },
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection::default()),
         // This will write the depth buffer to a texture that you can use in the main pass
@@ -59,19 +59,19 @@ pub fn camera_components() -> impl Bundle {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
             constant_object_thickness: 4.0,
         },
-        EdgeDetection {
-            depth_threshold: 0.3,
-            normal_threshold: 0.7,
-            depth_thickness: 1.0,
-            edge_color: Color::srgba(0.0, 0.0, 0.0, 0.5),
-            enable_depth: true,
-            enable_normal: true,
-            enable_color: false,
+        // EdgeDetection {
+        //     depth_threshold: 0.3,
+        //     normal_threshold: 0.7,
+        //     depth_thickness: 1.0,
+        //     edge_color: Color::srgba(0.0, 0.0, 0.0, 0.5),
+        //     enable_depth: true,
+        //     enable_normal: true,
+        //     enable_color: false,
 
-            uv_distortion_frequency: Vec2::new(1.0, 1.0),
-            uv_distortion_strength: Vec2::new(0.0, 0.0),
-            ..default()
-        },
+        //     uv_distortion_frequency: Vec2::new(1.0, 1.0),
+        //     uv_distortion_strength: Vec2::new(0.0, 0.0),
+        //     ..default()
+        // },
         Smaa { preset: SmaaPreset::Ultra },
         // Fxaa::default(),
         BlockingMeshes { per_x: 40, per_y: 40, mesh_entities: Vec::new() },

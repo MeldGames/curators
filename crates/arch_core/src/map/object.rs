@@ -17,20 +17,20 @@ use rand::seq::WeightError;
 use crate::map::{Aabb, Digsite, DigsiteObject, VoxelAabb, WorldGenSet};
 use crate::voxel::GRID_SCALE;
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct GenerateObjects {
     digsite: Entity,
     objects: Vec<Vec3>, // clone these entity prefabs
 }
 
 pub fn plugin(app: &mut App) {
-    app.add_event::<GenerateObjects>();
+    app.add_message::<GenerateObjects>();
 
     app.add_systems(PreUpdate, generate_objects.in_set(WorldGenSet::Objects));
     app.add_systems(Startup, create_test_digsite);
 }
 
-pub fn create_test_digsite(mut commands: Commands, mut writer: EventWriter<GenerateObjects>) {
+pub fn create_test_digsite(mut commands: Commands, mut writer: MessageWriter<GenerateObjects>) {
     let digsite = commands
         .spawn(
             (Digsite {
@@ -47,8 +47,8 @@ pub fn create_test_digsite(mut commands: Commands, mut writer: EventWriter<Gener
 }
 
 pub fn generate_objects(
-    mut rng: GlobalEntropy<WyRand>,
-    mut generate_objects: EventReader<GenerateObjects>,
+    mut rng: Single<&mut WyRand, With<GlobalRng>>,
+    mut generate_objects: MessageReader<GenerateObjects>,
     digsites: Query<(&Digsite,)>,
     name: Query<NameOrEntity>,
 ) {

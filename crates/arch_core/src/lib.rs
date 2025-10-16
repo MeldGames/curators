@@ -1,12 +1,12 @@
 use avian3d::prelude::*;
 pub use bevy;
-use bevy::core_pipeline::auto_exposure::AutoExposurePlugin;
+use bevy::post_process::auto_exposure::AutoExposurePlugin;
 use bevy::core_pipeline::core_3d::graph::Node3d;
-use bevy::core_pipeline::experimental::taa::TemporalAntiAliasPlugin;
+use bevy::anti_alias::taa::TemporalAntiAliasPlugin;
 use bevy::pbr::wireframe::WireframePlugin;
-use bevy::pbr::{DirectionalLightShadowMap, PointLightShadowMap};
+use bevy::light::{DirectionalLightShadowMap, PointLightShadowMap};
 use bevy::prelude::*;
-use bevy_edge_detection::*;
+// use bevy_edge_detection::*;
 // use bevy_enhanced_input::{actions, bindings};
 use bevy_enhanced_input::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
@@ -14,7 +14,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mod_outline::*;
 use bevy_prng::WyRand;
 use bevy_rand::prelude::EntropyPlugin;
-use iyes_perf_ui::prelude::*;
+// use iyes_perf_ui::prelude::*;
 use rand_core::RngCore;
 
 use crate::camera::flying::{CameraMove, CameraRotate};
@@ -43,7 +43,7 @@ pub fn shared(app: &mut App) {
     app.add_plugins(bevy_enhanced_input::EnhancedInputPlugin)
         .add_plugins(PhysicsPlugins::default());
     // app.add_plugins(PhysicsDebugPlugin::default());
-    app.add_plugins(TemporalAntiAliasPlugin);
+    // app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
 
     app.insert_resource(Time::<Fixed>::from_hz(60.0));
@@ -53,7 +53,7 @@ pub fn shared(app: &mut App) {
 
     // app.insert_resource(PointLightShadowMap { size: 8192 });
     // app.insert_resource(DirectionalLightShadowMap { size: 8192 });
-    app.add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin::default()));
+    // app.add_plugins((OutlinePlugin, AutoGenerateOutlineNormalsPlugin::default()));
 
     // app.add_plugins(bevy_egui::EguiPlugin::default());
 
@@ -73,38 +73,38 @@ pub fn shared(app: &mut App) {
         .add_plugins(WireframePlugin::default())
         .add_plugins(AutoExposurePlugin)
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(bevy::diagnostic::EntityCountDiagnosticsPlugin)
-        .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin)
+        .add_plugins(bevy::diagnostic::EntityCountDiagnosticsPlugin::default())
+        .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin);
         // .add_plugins(bevy::render::diagnostic::RenderDiagnosticsPlugin)
-        .add_plugins(PerfUiPlugin);
+        // .add_plugins(PerfUiPlugin);
 
     // app.world_mut().spawn(PerfUiAllEntries::default());
 
-    app.world_mut().spawn((
-        PerfUiRoot {
-            display_labels: true,
-            fontsize_label: 10.0,
-            fontsize_value: 10.0,
-            values_col_width: 50.0,
-            inner_margin: -2.0,
-            inner_padding: -2.0,
-            ..default()
-        },
-        PerfUiEntryFPS::default(),
-        PerfUiEntryFPSAverage::default(),
-        PerfUiEntryFPSPctLow::default(),
-        PerfUiEntryFPSWorst::default(),
-        // PerfUiEntryFrameTime::default(),
-        PerfUiEntryFrameTimeWorst::default(),
-        // PerfUiEntryFrameCount::default(),
-        PerfUiEntryEntityCount::default(),
-        PerfUiEntryCpuUsage::default(),
-        PerfUiEntryMemUsage::default(),
-        // PerfUiEntrySystemCpuUsage::default(),
-        // PerfUiEntrySystemMemUsage::default(),
-        PerfUiEntryRenderCpuTime::default(),
-        PerfUiEntryRenderGpuTime::default(),
-    ));
+    // app.world_mut().spawn((
+    //     PerfUiRoot {
+    //         display_labels: true,
+    //         fontsize_label: 10.0,
+    //         fontsize_value: 10.0,
+    //         values_col_width: 50.0,
+    //         inner_margin: -2.0,
+    //         inner_padding: -2.0,
+    //         ..default()
+    //     },
+    //     PerfUiEntryFPS::default(),
+    //     PerfUiEntryFPSAverage::default(),
+    //     PerfUiEntryFPSPctLow::default(),
+    //     PerfUiEntryFPSWorst::default(),
+    //     // PerfUiEntryFrameTime::default(),
+    //     PerfUiEntryFrameTimeWorst::default(),
+    //     // PerfUiEntryFrameCount::default(),
+    //     PerfUiEntryEntityCount::default(),
+    //     PerfUiEntryCpuUsage::default(),
+    //     PerfUiEntryMemUsage::default(),
+    //     // PerfUiEntrySystemCpuUsage::default(),
+    //     // PerfUiEntrySystemMemUsage::default(),
+    //     PerfUiEntryRenderCpuTime::default(),
+    //     PerfUiEntryRenderGpuTime::default(),
+    // ));
 }
 
 pub fn viewer(app: &mut App) {
@@ -112,7 +112,7 @@ pub fn viewer(app: &mut App) {
         .add_plugins(EguiPlugin::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(bevy_enhanced_input::EnhancedInputPlugin)
-        .add_plugins(EdgeDetectionPlugin { before: Node3d::Smaa })
+        // .add_plugins(EdgeDetectionPlugin { before: Node3d::Smaa })
         // .add_plugins(crate::voxel::VoxelPlugin)
         .add_plugins(crate::camera::plugin)
         .add_plugins(crate::cursor::plugin)

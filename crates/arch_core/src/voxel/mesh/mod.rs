@@ -33,7 +33,7 @@ pub enum UpdateVoxelMeshSet {
 }
 
 pub fn plugin(app: &mut App) {
-    app.add_event::<ChangedChunk>();
+    app.add_message::<ChangedChunk>();
 
     // app.add_plugins(ass_mesh::ASSMeshPlugin);
     // app.add_plugins(meshem::MeshemPlugin);
@@ -57,7 +57,7 @@ pub fn plugin(app: &mut App) {
     );
 }
 
-#[derive(Event, Debug, PartialEq, Eq, Hash, Copy, Clone, Reflect)]
+#[derive(Message, Debug, PartialEq, Eq, Hash, Copy, Clone, Reflect)]
 pub struct ChangedChunk {
     pub grid_entity: Entity,
     pub chunk_point: ChunkPoint,

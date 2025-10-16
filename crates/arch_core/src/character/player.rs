@@ -1,7 +1,7 @@
 use avian3d::prelude::*;
 use bevy::color::palettes::css::GRAY;
 use bevy::prelude::*;
-use bevy_enhanced_input::prelude::*;
+use bevy_enhanced_input::prelude::{*, Release};
 
 use super::input::DigState;
 use crate::camera::flying::{CameraMove, CameraRotate};

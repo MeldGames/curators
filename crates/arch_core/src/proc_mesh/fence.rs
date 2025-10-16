@@ -180,7 +180,7 @@ fn rotation_from_to(start: Vec3, end: Vec3, up: Vec3) -> Quat {
 }
 
 pub fn update_board(
-    mut rng: GlobalEntropy<WyRand>,
+    mut rng: Single<&mut WyRand, With<GlobalRng>>,
     mut boards: Query<(Entity, &Board, &BoardParams), Changed<Board>>,
     mut transforms: Query<&mut Transform>,
 ) {
@@ -214,7 +214,7 @@ pub fn update_board(
 
 pub fn spawn_fence(
     mut commands: Commands,
-    mut rng: GlobalEntropy<WyRand>,
+    mut rng: Single<&mut WyRand, With<GlobalRng>>,
     fences: Query<(Entity, &Fence, Option<&Children>), Changed<Fence>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,

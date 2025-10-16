@@ -39,7 +39,7 @@ impl Default for SetVoxelsSdfParams {
     }
 }
 
-pub fn apply_tree(mut voxels: Query<&mut Voxels>, mut commands: EventReader<VoxelCommand>) {
+pub fn apply_tree(mut voxels: Query<&mut Voxels>, mut commands: MessageReader<VoxelCommand>) {
     for command in commands.read() {
         for mut voxels in &mut voxels {
             command.apply_tree(&mut voxels.tree);
@@ -47,7 +47,7 @@ pub fn apply_tree(mut voxels: Query<&mut Voxels>, mut commands: EventReader<Voxe
     }
 }
 
-pub fn apply_sim(mut sims: Query<&mut SimChunks>, mut commands: EventReader<VoxelCommand>) {
+pub fn apply_sim(mut sims: Query<&mut SimChunks>, mut commands: MessageReader<VoxelCommand>) {
     for command in commands.read() {
         for mut sim in &mut sims {
             command.apply_sim(&mut *sim);
@@ -56,7 +56,7 @@ pub fn apply_sim(mut sims: Query<&mut SimChunks>, mut commands: EventReader<Voxe
 }
 
 /// Commands for setting voxels across simulation/tree/network.
-#[derive(Event, Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Message, Debug, Clone, Serialize, Deserialize, Reflect)]
 pub enum VoxelCommand {
     SetVoxel { point: IVec3, voxel: Voxel, params: SetVoxelParams },
     SetVoxelsSdf { origin: IVec3, sdf: SdfNode, voxel: Voxel, params: SetVoxelsSdfParams },

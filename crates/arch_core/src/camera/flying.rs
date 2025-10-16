@@ -12,6 +12,7 @@ use std::f32::consts::*;
 use std::fmt;
 
 use bevy::prelude::*;
+use bevy::window::CursorOptions;
 use bevy_enhanced_input::prelude::*;
 
 use crate::cursor::CursorGrabOffset;
@@ -126,7 +127,7 @@ pub fn started_flying(
 pub fn handle_rotation(
     trigger: Trigger<Fired<CameraRotate>>,
     mut camera: Query<(&mut Transform, &mut FlyingState, &FlyingSettings)>,
-    windows: Query<&Window>,
+    windows: Query<(&Window, &CursorOptions)>,
     mut cursor_grab_offset: ResMut<CursorGrabOffset>,
 ) -> Result<()> {
     let Ok((mut transform, mut state, settings)) = camera.get_mut(trigger.target()) else {

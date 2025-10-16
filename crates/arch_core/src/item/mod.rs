@@ -2,7 +2,7 @@ use avian3d::prelude::*;
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
-use bevy_mod_outline::OutlineVolume;
+// use bevy_mod_outline::OutlineVolume;
 
 pub mod prefab_registry;
 
@@ -15,7 +15,7 @@ pub fn plugin(app: &mut App) {
     app.add_plugins(prefab_registry::plugin);
 
     app.add_systems(Startup, spawn_test_items);
-    app.add_systems(Update, ItemOutline::lerp_color);
+    // app.add_systems(Update, ItemOutline::lerp_color);
 }
 
 pub fn spawn_test_items(
@@ -63,6 +63,7 @@ impl Default for ItemOutline {
     }
 }
 
+/*
 impl ItemOutline {
     pub fn lerp_color(
         mut outlines: Query<(&mut OutlineVolume, &mut ItemOutline)>,
@@ -92,3 +93,4 @@ impl ItemOutline {
         }
     }
 }
+*/

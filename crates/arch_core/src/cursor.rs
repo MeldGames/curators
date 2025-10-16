@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
-use bevy_enhanced_input::prelude::*;
+use bevy::window::{CursorGrabMode, CursorOptions};
+use bevy_enhanced_input::prelude::{*, Press};
 
 use crate::camera::flying::FlyingCamera;
 use crate::character::input::PlayerInput;
@@ -26,8 +26,8 @@ pub fn plugin(app: &mut App) {
 }
 
 // Run condition helper.
-pub fn cursor_grabbed(windows: Query<&Window>) -> bool {
-    windows.iter().any(|window| window.cursor_options.grab_mode == CursorGrabMode::Locked)
+pub fn cursor_grabbed(windows: Query<(&Window, &CursorOptions)>) -> bool {
+    windows.iter().any(|(window, cursor_options)| cursor_options.grab_mode == CursorGrabMode::Locked)
 }
 
 pub fn spawn_cursor_input(mut commands: Commands) {
@@ -56,7 +56,7 @@ pub struct CursorGrabToggle(pub bool);
 
 pub fn cursor_grab(
     mut offset: ResMut<CursorGrabOffset>,
-    mut windows: Query<&mut Window>,
+    mut windows: Query<(&mut Window, &mut CursorOptions)>,
     free_cursor: Query<&Action<FreeCursor>>,
     toggle_cursor: Query<&ActionEvents, With<Action<ToggleCursor>>>,
     grabbers: Query<(), Or<(With<Actions<FlyingCamera>>, With<Actions<PlayerInput>>)>>,
@@ -71,7 +71,7 @@ pub fn cursor_grab(
         info!("toggled cursor: {:?}", toggle.0);
     }
 
-    for mut window in &mut windows {
+    for (mut window, mut cursor_options) in &mut windows {
         let mut grab = false;
         if window.focused {
             // Is there anything that wants control of the cursor?
@@ -95,16 +95,16 @@ pub fn cursor_grab(
             grab = false;
         }
 
-        if grab && window.cursor_options.grab_mode == CursorGrabMode::None {
-            window.cursor_options.grab_mode = CursorGrabMode::Locked;
-            window.cursor_options.visible = false;
+        if grab && cursor_options.grab_mode == CursorGrabMode::None {
+            cursor_options.grab_mode = CursorGrabMode::Locked;
+            cursor_options.visible = false;
 
             let center = window.resolution.size() / 2.0;
             offset.0 = window.cursor_position().map(|current| current - center);
             window.set_cursor_position(Some(center)); // TODO: Figure out a way to ignore this for camera movement.
-        } else if !grab && window.cursor_options.grab_mode == CursorGrabMode::Locked {
-            window.cursor_options.grab_mode = CursorGrabMode::None;
-            window.cursor_options.visible = true;
+        } else if !grab && cursor_options.grab_mode == CursorGrabMode::Locked {
+            cursor_options.grab_mode = CursorGrabMode::None;
+            cursor_options.visible = true;
         }
     }
 

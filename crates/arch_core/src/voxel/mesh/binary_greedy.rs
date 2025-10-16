@@ -2,10 +2,11 @@ use std::collections::{BTreeSet, VecDeque};
 
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
-use bevy::pbr::{NotShadowCaster, NotShadowReceiver};
+use bevy::light::{NotShadowCaster, NotShadowReceiver};
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
-use bevy::render::mesh::{Indices, MeshAabb, VertexAttributeValues};
+use bevy::camera::primitives::MeshAabb;
+use bevy::mesh::{Indices, VertexAttributeValues};
 use bevy::render::render_resource::PrimitiveTopology;
 use bgm::Face;
 use binary_greedy_meshing::{self as bgm, Quad};

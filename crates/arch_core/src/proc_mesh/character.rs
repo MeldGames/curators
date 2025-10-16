@@ -2,10 +2,9 @@
 //! SDFs.
 
 use bevy::asset::RenderAssetUsages;
-use bevy::ecs::schedule::Stepping;
 use bevy::prelude::*;
-use bevy::render::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
-use bevy::render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues, VertexFormat};
+use bevy::mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
+use bevy::mesh::{Indices, PrimitiveTopology, VertexAttributeValues};
 use bevy_math::bounding::Aabb3d;
 use fast_surface_nets::ndshape::{RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
@@ -112,7 +111,7 @@ pub fn update_character_mesh(
                 ))
                 .id();
 
-            let neck_offset = Vec3::new(0.0, (neck_end.y - neck_start.y / 2.0), 0.0);
+            let neck_offset = Vec3::new(0.0, neck_end.y - neck_start.y / 2.0, 0.0);
             let neck_midpoint_joint = commands
                 .spawn((
                     Name::new("Neck midpoint joint"),

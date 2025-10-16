@@ -1,5 +1,5 @@
 use avian3d::prelude::*;
-use bevy::ecs::entity::EntityClonerBuilder;
+use bevy::ecs::entity::{EntityClonerBuilder, OptOut};
 use bevy::ecs::entity_disabling::Disabled;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -42,7 +42,7 @@ impl Prefabs {
         };
 
         let mut e = commands.entity(entity);
-        e.clone_and_spawn_with(|builder| {
+        e.clone_and_spawn_with_opt_out(|builder| {
             builder.deny::<Disabled>();
             builder.deny::<Prefab>();
         });
@@ -53,14 +53,14 @@ impl Prefabs {
         &self,
         commands: &'b mut Commands,
         tag: impl AsRef<String>,
-        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
     ) -> Option<EntityCommands<'a>> {
         let Some(entity) = self.prefabs.get(tag.as_ref()).copied() else {
             return None;
         };
 
         let mut e = commands.entity(entity);
-        e.clone_and_spawn_with(|builder| {
+        e.clone_and_spawn_with_opt_out(|builder| {
             builder.deny::<Disabled>();
             builder.deny::<Prefab>();
             config(builder);
