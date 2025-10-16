@@ -6,6 +6,9 @@ use bevy::anti_alias::taa::TemporalAntiAliasPlugin;
 use bevy::pbr::wireframe::WireframePlugin;
 use bevy::light::{DirectionalLightShadowMap, PointLightShadowMap};
 use bevy::prelude::*;
+
+use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
+
 // use bevy_edge_detection::*;
 // use bevy_enhanced_input::{actions, bindings};
 use bevy_enhanced_input::prelude::*;
@@ -46,6 +49,8 @@ pub fn shared(app: &mut App) {
     // app.add_plugins(TemporalAntiAliasPlugin);
     app.add_plugins(ssao::plugin);
 
+    app.add_plugins(FpsOverlayPlugin::default());
+
     app.insert_resource(Time::<Fixed>::from_hz(60.0));
 
     let seed: u64 = 1;
@@ -72,7 +77,7 @@ pub fn shared(app: &mut App) {
         // })
         .add_plugins(WireframePlugin::default())
         .add_plugins(AutoExposurePlugin)
-        .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
+        // .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default())
         .add_plugins(bevy::diagnostic::EntityCountDiagnosticsPlugin::default())
         .add_plugins(bevy::diagnostic::SystemInformationDiagnosticsPlugin);
         // .add_plugins(bevy::render::diagnostic::RenderDiagnosticsPlugin)

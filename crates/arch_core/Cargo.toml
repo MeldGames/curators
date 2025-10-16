@@ -26,6 +26,7 @@ bevy = {version = "0.17.2", default-features = false, features = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_dev_tools",
   # "bevy_core_widgets", 
   "bevy_anti_alias",
   "bevy_gilrs",
