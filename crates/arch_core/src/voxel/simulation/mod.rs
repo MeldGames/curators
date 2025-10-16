@@ -6,7 +6,6 @@
 use bevy::ecs::intern::Interned;
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
-use std::sync::{Mutex, Arc};
 
 pub use data::{SimChunk, SimChunks};
 #[cfg(feature = "trace")]
@@ -15,7 +14,7 @@ use tracing::*;
 use crate::voxel::commands::SetVoxelParams;
 use crate::voxel::simulation::data::{CHUNK_LENGTH, ChunkPoint};
 use crate::voxel::tree::VoxelNode;
-use crate::voxel::{Voxel, VoxelCommand, VoxelCommands, VoxelSet, Voxels};
+use crate::voxel::{Voxel, VoxelCommand, VoxelSet, Voxels};
 
 pub mod data;
 pub mod debug_dirty;
@@ -29,21 +28,21 @@ pub mod set;
 #[reflect(Default, Clone, Debug)]
 pub enum SimStep {
     #[default]
-    AddVoxelsToSim,
-    PullFromTree,
     FlagDirty,
     Simulate,
+    PullFromTree,
+    AddVoxelsToSim,
     PropagateToTree,
 }
 
 impl SimStep {
     pub fn next(&self) -> Self {
         match self {
-            SimStep::AddVoxelsToSim => SimStep::PullFromTree,
-            SimStep::PullFromTree => SimStep::FlagDirty,
             SimStep::FlagDirty => SimStep::Simulate,
-            SimStep::Simulate => SimStep::PropagateToTree,
-            SimStep::PropagateToTree => SimStep::AddVoxelsToSim,
+            SimStep::Simulate => SimStep::PullFromTree,
+            SimStep::PullFromTree => SimStep::AddVoxelsToSim,
+            SimStep::AddVoxelsToSim => SimStep::PropagateToTree,
+            SimStep::PropagateToTree => SimStep::FlagDirty,
         }
     }
 }
@@ -66,10 +65,10 @@ impl Plugin for SimPlugin {
         app.configure_sets(
             self.sim_schedule,
             (
-                SimStep::AddVoxelsToSim.run_if(SimRun::should_step(SimStep::AddVoxelsToSim)),
-                SimStep::PullFromTree.run_if(SimRun::should_step(SimStep::PullFromTree)),
                 SimStep::FlagDirty.run_if(SimRun::should_step(SimStep::FlagDirty)),
                 SimStep::Simulate.run_if(SimRun::should_step(SimStep::Simulate)),
+                SimStep::PullFromTree.run_if(SimRun::should_step(SimStep::PullFromTree)),
+                SimStep::AddVoxelsToSim.run_if(SimRun::should_step(SimStep::AddVoxelsToSim)),
                 SimStep::PropagateToTree.run_if(SimRun::should_step(SimStep::PropagateToTree)),
             )
                 .chain()
@@ -78,11 +77,12 @@ impl Plugin for SimPlugin {
 
         app.add_systems(self.sim_run_schedule, SimRun::advance_step);
 
-        // app.add_systems(self.sim_schedule, add_sand.in_set(SimStep::AddVoxelsToSim))
-        app.add_systems(self.sim_schedule, pull_from_tree.in_set(SimStep::PullFromTree))
+        app
             .add_systems(self.sim_schedule, spread_updates.in_set(SimStep::FlagDirty))
-            .add_systems(self.sim_schedule, simulate.in_set(SimStep::Simulate));
-            // .add_systems(self.sim_schedule, propagate_to_tree.in_set(SimStep::PropagateToTree));
+            .add_systems(self.sim_schedule, simulate.in_set(SimStep::Simulate))
+            .add_systems(self.sim_schedule, pull_from_tree.in_set(SimStep::PullFromTree))
+            .add_systems(self.sim_schedule, add_sand.in_set(SimStep::AddVoxelsToSim))
+            .add_systems(self.sim_schedule, propagate_to_tree.in_set(SimStep::PropagateToTree));
 
         app.add_systems(First, sim_settings.run_if(resource_exists::<ButtonInput<KeyCode>>));
 
@@ -239,10 +239,7 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
             let Some((chunk_key, dirty_key)) = sim_chunks.from_chunk_point.get(&ChunkPoint(*chunk_point)) else {
                 continue;
             };
-        //     let sim_chunk = sim_chunks.chunks.get(*chunk_key).unwrap();
-        // }
-        // for (chunk_point, (chunk_key, _dirty_key)) in &sim_chunks.from_chunk_point {
-            // info!("propagating to tree: {:?}", chunk_point);
+
             let sim_chunk = sim_chunks.chunks.get(*chunk_key).unwrap();
 
             if !sim_chunk.modified.any_set() {
@@ -258,8 +255,7 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
                         leaf[voxel_index] = sim_chunk.voxels[voxel_index];
                     }
 
-                    // TODO: Set updated neighboring chunks here
-                    // all neighbors should re-mesh
+                    // TODO: Be smarter about which chunks need to be updated here
                     for x in -1..=1 {
                         for y in -1..=1 {
                             for z in -1..=1 {
@@ -275,14 +271,12 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
     }
 }
 
-pub fn add_sand(mut grids: Query<(Entity, &mut VoxelCommands)>) {
-    for (_grid_entity, mut voxel_commands) in &mut grids {
-        voxel_commands.push(VoxelCommand::SetVoxel {
-            point: IVec3::new(10, 20, 10),
-            voxel: Voxel::Sand,
-            params: SetVoxelParams { can_replace: VoxelSet::AIR },
-        });
-    }
+pub fn add_sand(mut voxel_commands: EventWriter<VoxelCommand>) {
+    voxel_commands.write(VoxelCommand::SetVoxel {
+        point: IVec3::new(10, 20, 10),
+        voxel: Voxel::Sand,
+        params: SetVoxelParams { can_replace: VoxelSet::AIR },
+    });
 }
 
 pub fn spread_updates(mut grids: Query<(Entity, &mut SimChunks)>) {

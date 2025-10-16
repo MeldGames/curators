@@ -1,18 +1,19 @@
 use bevy::prelude::*;
-use bevy_math::bounding::Aabb3d;
 use serde::{Deserialize, Serialize};
 
 use crate::sdf::{SdfNode, Sdf};
 use crate::voxel::data::linearize;
 use crate::voxel::simulation::SimChunks;
 use crate::voxel::tree::VoxelTree;
-use crate::voxel::{Voxel, VoxelNode, VoxelSet, Voxels};
+use crate::voxel::{SimStep, Voxel, VoxelNode, VoxelSet, Voxels};
 use crate::sdf::voxel_rasterize::{PointIter, ChunkIntersectIter};
 
 pub fn plugin(app: &mut App) {
-    app.register_type::<VoxelCommands>();
+    app.register_type::<VoxelCommand>();
+    app.add_event::<VoxelCommand>();
 
-    app.add_systems(FixedPreUpdate, VoxelCommands::apply_commands);
+    app.add_systems(FixedPostUpdate, apply_sim.in_set(SimStep::AddVoxelsToSim));
+    app.add_systems(PostUpdate, apply_tree);
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
@@ -38,29 +39,24 @@ impl Default for SetVoxelsSdfParams {
     }
 }
 
-#[derive(Component, Clone, Debug, Reflect, Default)]
-#[reflect(Component)]
-pub struct VoxelCommands {
-    queue: Vec<VoxelCommand>,
-}
-
-impl VoxelCommands {
-    pub fn apply_commands(mut voxels: Query<(&mut Voxels, &mut SimChunks, &mut VoxelCommands)>) {
-        for (mut voxels, mut sim, mut queue) in &mut voxels {
-            for command in queue.queue.drain(..) {
-                command.apply_sim(&mut *sim);
-                command.apply_tree(&mut voxels.tree);
-            }
+pub fn apply_tree(mut voxels: Query<&mut Voxels>, mut commands: EventReader<VoxelCommand>) {
+    for command in commands.read() {
+        for mut voxels in &mut voxels {
+            command.apply_tree(&mut voxels.tree);
         }
     }
+}
 
-    pub fn push(&mut self, command: VoxelCommand) {
-        self.queue.push(command);
+pub fn apply_sim(mut sims: Query<&mut SimChunks>, mut commands: EventReader<VoxelCommand>) {
+    for command in commands.read() {
+        for mut sim in &mut sims {
+            command.apply_sim(&mut *sim);
+        }
     }
 }
 
 /// Commands for setting voxels across simulation/tree/network.
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Event, Debug, Clone, Serialize, Deserialize, Reflect)]
 pub enum VoxelCommand {
     SetVoxel { point: IVec3, voxel: Voxel, params: SetVoxelParams },
     SetVoxelsSdf { origin: IVec3, sdf: SdfNode, voxel: Voxel, params: SetVoxelsSdfParams },
@@ -118,7 +114,7 @@ impl VoxelCommand {
     }
 
     pub fn apply_sim(&self, sim_chunks: &mut SimChunks) {
-        // info!("applying command to sim: {:?}", self);
+        info!("applying command to sim: {:?}", self);
 
         let mut set = 0;
         match self {
@@ -133,10 +129,10 @@ impl VoxelCommand {
             Self::SetVoxelsSdf { origin, sdf, voxel, params } => {
                 // TODO: Get the overlapping chunks and the overlaps in the chunks for setting.
                 // This should save us a lot of lookup time for setting.
-
-                for sdf_point in PointIter::from_sdf(sdf) {
-                    let point = *origin + sdf_point;
-                    if sdf.sdf(point.as_vec3()) >= params.within {
+                let sdf = sdf.translate(origin.as_vec3());
+                for point in PointIter::from_sdf(&sdf) {
+                    let dist = sdf.sdf(point.as_vec3());
+                    if dist >= params.within {
                         continue;
                     }
 

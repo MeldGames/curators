@@ -1,14 +1,10 @@
-use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
-use bevy_math::bounding::Aabb3d;
 
 use crate::sdf;
-use crate::sdf::voxel_rasterize::RasterConfig;
-use crate::voxel::commands::{SetVoxelsSdfParams, VoxelCommands};
-use crate::voxel::raycast::VoxelHit;
-use crate::voxel::{CursorVoxel, Voxel, VoxelCommand, VoxelSet, Voxels};
+use crate::voxel::commands::SetVoxelsSdfParams;
+use crate::voxel::{CursorVoxel, Voxel, VoxelCommand, VoxelSet};
 
 pub fn plugin(app: &mut App) {
     app.add_input_context::<VoxelPainter>();
@@ -112,7 +108,7 @@ pub fn paint_voxels(
     cursor_voxel: Res<CursorVoxel>,
     painters: Query<&VoxelPainter>,
 
-    mut commands: Query<&mut VoxelCommands>,
+    mut commands: EventWriter<VoxelCommand>,
 ) {
     // info!("painting");
     let Ok(painter) = painters.get(trigger.target()) else {
@@ -124,14 +120,12 @@ pub fn paint_voxels(
         let point = hit.voxel + normal;
 
         info!("painting at {:?}", hit);
-        for mut command_queue in &mut commands {
-            command_queue.push(VoxelCommand::SetVoxelsSdf {
-                origin: point,
-                sdf: painter.brush().as_node(),
-                voxel: painter.voxel(),
-                params: SetVoxelsSdfParams { within: 0.0, can_replace: VoxelSet::AIR },
-            });
-        }
+        commands.write(VoxelCommand::SetVoxelsSdf {
+            origin: point,
+            sdf: painter.brush().as_node(),
+            voxel: painter.voxel(),
+            params: SetVoxelsSdfParams { within: 0.0, can_replace: VoxelSet::AIR },
+        });
     }
 }
 
@@ -140,7 +134,7 @@ pub fn erase_voxels(
     cursor_voxel: Res<CursorVoxel>,
     painters: Query<&VoxelPainter>,
 
-    mut commands: Query<&mut VoxelCommands>,
+    mut commands: EventWriter<VoxelCommand>,
 ) {
     let Ok(painter) = painters.get(trigger.target()) else {
         return;
@@ -151,13 +145,11 @@ pub fn erase_voxels(
         let point = hit.voxel;
 
         info!("erasing at {:?}", hit);
-        for mut command_queue in &mut commands {
-            command_queue.push(VoxelCommand::SetVoxelsSdf {
-                origin: point,
-                sdf: painter.brush().as_node(),
-                voxel: Voxel::Air,
-                params: SetVoxelsSdfParams { within: 0.0, can_replace: VoxelSet::BREAKABLE },
-            });
-        }
+        commands.write(VoxelCommand::SetVoxelsSdf {
+            origin: point,
+            sdf: painter.brush().as_node(),
+            voxel: Voxel::Air,
+            params: SetVoxelsSdfParams { within: 0.0, can_replace: VoxelSet::BREAKABLE },
+        });
     }
 }

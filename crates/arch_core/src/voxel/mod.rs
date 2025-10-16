@@ -1,6 +1,6 @@
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
-pub use commands::{VoxelCommand, VoxelCommands};
+pub use commands::VoxelCommand;
 pub use mesh::UpdateVoxelMeshSet;
 pub use pick::CursorVoxel;
 pub use simulation::*;
@@ -42,15 +42,15 @@ impl Plugin for VoxelPlugin {
             .add_plugins(raycast::plugin)
             .add_plugins(painter::plugin)
             .add_plugins(simulation::SimPlugin {
-                // sim_schedule: FixedPostUpdate.intern(),
-                // sim_run_schedule: FixedLast.intern(),
-                sim_schedule: PostUpdate.intern(),
-                sim_run_schedule: Last.intern(),
+                sim_schedule: FixedPostUpdate.intern(),
+                sim_run_schedule: FixedLast.intern(),
+                // sim_schedule: PostUpdate.intern(),
+                // sim_run_schedule: Last.intern(),
             });
 
         app.add_systems(Startup, spawn_voxel_grid);
         app.add_systems(Startup, spawn_directional_lights);
-        app.add_systems(Update, dynamic_scene);
+        // app.add_systems(Update, dynamic_scene);
     }
 }
 
@@ -60,13 +60,13 @@ pub fn spawn_voxel_grid(mut commands: Commands) {
         // Voxels::new(IVec3::new(15, 15, 15)),
         Transform { scale: GRID_SCALE, ..default() },
         SimChunks::new(),
-        VoxelCommands::default(),
         mesh::surface_net::SurfaceNet::default(),
         // mesh::ass_mesh::ASSMesh,
         // mesh::meshem::Meshem,
         // mesh::binary_greedy::BinaryGreedy,
     ));
 }
+
 fn dynamic_scene(mut suns: Query<&mut Transform, With<Sun>>, time: Res<Time>) {
     suns.iter_mut()
         .for_each(|mut tf| tf.rotate_z(-time.delta_secs() * std::f32::consts::PI / 1000.0));
