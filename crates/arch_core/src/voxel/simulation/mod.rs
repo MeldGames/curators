@@ -7,13 +7,14 @@ use bevy::ecs::intern::Interned;
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 pub use data::{SimChunk, SimChunks};
 #[cfg(feature = "trace")]
 use tracing::*;
 
 use crate::voxel::commands::SetVoxelParams;
 use crate::voxel::simulation::data::{CHUNK_LENGTH, ChunkPoint};
-use crate::voxel::tree::VoxelNode;
+use crate::voxel::tree::{DebugTree, VoxelNode};
 use crate::voxel::{Voxel, VoxelCommand, VoxelSet, Voxels};
 
 pub mod data;
@@ -60,7 +61,18 @@ impl Plugin for SimPlugin {
             .register_type::<SimRun>();
 
         app.insert_resource(FallingSandTick(0));
-        app.insert_resource(SimSettings::default());
+        app.insert_resource(SimSettings {
+            // step: SimRun::Continuous,
+            // step: SimRun::Step,
+            step: SimRun::Granular(default()),
+            step_once: false,
+            display_modified: false,
+            display_flagged: false,
+            sim_threads: 4,
+        });
+
+        app.add_plugins(ResourceInspectorPlugin::<SimSettings>::default());
+        app.add_plugins(ResourceInspectorPlugin::<DebugTree>::default());
 
         app.configure_sets(
             self.sim_schedule,
@@ -206,9 +218,10 @@ pub fn pull_from_tree(
     // TODO: Stop doing this on every chunk every frame, should only do this on
     // modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        for z in 0..16 {
-            for x in 0..16 {
-                for y in 0..16 {
+        let sim_bounds = IVec3::new(4, 2, 4);
+        for z in 0..sim_bounds.z {
+            for x in 0..sim_bounds.x {
+                for y in 0..sim_bounds.y {
                     let chunk_point = IVec3::new(x, y, z);
                     if sim_chunks.from_chunk_point.contains_key(&ChunkPoint(chunk_point)) {
                         continue;

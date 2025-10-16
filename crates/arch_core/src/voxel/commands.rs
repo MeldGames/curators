@@ -114,7 +114,7 @@ impl VoxelCommand {
     }
 
     pub fn apply_sim(&self, sim_chunks: &mut SimChunks) {
-        info!("applying command to sim: {:?}", self);
+        // info!("applying command to sim: {:?}", self);
 
         let mut set = 0;
         match self {
