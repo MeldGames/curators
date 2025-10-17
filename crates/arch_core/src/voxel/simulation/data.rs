@@ -88,26 +88,34 @@ slotmap::new_key_type! { pub struct BlockKey; }
 
 // TODO: Double buffer this data so we can throw this on another thread,
 // and we can read the current chunks from the last sim
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Reflect)]
+#[reflect(Component)]
 pub struct SimChunks {
+    #[reflect(ignore)]
     pub chunks: SlotMap<ChunkKey, SimChunk>, // active chunks
+    #[reflect(ignore)]
     pub dirty: SlotMap<DirtyKey, ChunkSet>,
 
+    #[reflect(ignore)]
     pub from_chunk_point: HashMap<ChunkPoint, (ChunkKey, DirtyKey)>,
 
     // 0 => 0, 0, 0
     // 1 => 1, 1, 1
+    #[reflect(ignore)]
     pub to_block_index: [HashMap<ChunkPoint, BlockKey>; 8],
+    #[reflect(ignore)]
     pub blocks: [SlotMap<BlockKey, ChunkKeys>; 8],
 
     /// 0..8 offsets
     pub margolus_offset: usize,
 
+    #[reflect(ignore)]
     pub spread_list: Arc<Mutex<SpreadList>>,
 }
 
+#[derive(Default)]
 pub struct SpreadList {
-    pub spread_list: HashMap<IVec3, [bool; 6]>,
+    pub spread_list: HashMap<IVec3, Preserve>,
 }
 
 impl SpreadList {
@@ -116,14 +124,14 @@ impl SpreadList {
     }
 
     pub fn mark(&mut self, chunk_point: IVec3) {
-        self.spread_list.entry(chunk_point).or_insert([false; 6]);
+        self.spread_list.entry(chunk_point).or_insert(Preserve::default());
     }
 
-    pub fn with_preserve(&mut self, chunk_point: IVec3, preserve: [bool; 6]) {
+    pub fn with_preserve(&mut self, chunk_point: IVec3, preserve: Preserve) {
         self.spread_list.insert(chunk_point, preserve);
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (IVec3, [bool; 6])> {
+    pub fn iter(&self) -> impl Iterator<Item = (IVec3, Preserve)> {
         self.spread_list.iter().map(|(point, preserve)| (*point, *preserve))
     }
 
@@ -489,16 +497,15 @@ impl SimChunks {
             // dirty.assert_occupancy("pulling vertical chunks");
 
             // preserve previous dirty on boundaries
-            let [above, below, right, left, back, forward] = preserve;
 
             // Vertical masks are fully populated on the XZ plane, so all bits are set.
             pub const VERTICAL_PRESERVE_MASK: u64 = u64::MAX;
             // Left = (x == 0)
             // Right = (x == 15)
             // there are 16 bits per X axis, so every 4 masks is a new X.
-            pub const LEFT_PRESERVE_MASK: u64 =
-                0b1111111111111111_0000000000000000_0000000000000000_0000000000000000;
             pub const RIGHT_PRESERVE_MASK: u64 =
+                0b1111111111111111_0000000000000000_0000000000000000_0000000000000000;
+            pub const LEFT_PRESERVE_MASK: u64 =
                 0b0000000000000000_0000000000000000_0000000000000000_1111111111111111;
 
             // Trickier one, the edge on the Z axis is the first or last bit of every 16
@@ -511,14 +518,15 @@ impl SimChunks {
             // For every index, we can potentially preserve the start and end in the Z
             // directions.
             let mut initial_preserve_mask = 0u64;
-            if !forward {
+            if preserve.fore {
                 initial_preserve_mask |= FORWARD_PRESERVE_MASK;
             }
-            if !back {
+            if preserve.back {
                 initial_preserve_mask |= BACKWARD_PRESERVE_MASK;
             }
 
-            for (index, modified_mask) in chunk.modified.iter_masks().enumerate() {
+            // for (index, modified_mask) in chunk.modified.iter_masks().enumerate() {
+            for index in 0..64 {
                 use crate::voxel::simulation::set::{
                     is_bottom_index, is_left_index, is_right_index, is_top_index,
                 };
@@ -528,15 +536,17 @@ impl SimChunks {
                 // adding chunks to the simulation, or more commonly, the margolus offset
                 // changing
                 let mut preserve_mask = initial_preserve_mask;
-                // if (!above && is_top_index(index)) || (!below && is_bottom_index(index)) {
-                //     preserve_mask |= VERTICAL_PRESERVE_MASK;
-                // }
+                if (preserve.above && is_top_index(index))
+                    || (preserve.below && is_bottom_index(index))
+                {
+                    preserve_mask |= VERTICAL_PRESERVE_MASK;
+                }
 
-                // if !left && is_left_index(index) {
-                //     preserve_mask |= LEFT_PRESERVE_MASK;
-                // } else if !right && is_right_index(index) {
-                //     preserve_mask |= RIGHT_PRESERVE_MASK;
-                // }
+                if preserve.right && is_right_index(index) {
+                    preserve_mask |= RIGHT_PRESERVE_MASK;
+                } else if preserve.left && is_left_index(index) {
+                    preserve_mask |= LEFT_PRESERVE_MASK;
+                }
 
                 // cool debug visualization of the preserve mask ngl
                 // println!("preserve mask: {:b}", preserve_mask);
@@ -544,8 +554,6 @@ impl SimChunks {
                 let new_dirty =
                     dirty.get_mask(index) | (previous_dirty.get_mask(index) & preserve_mask);
                 dirty.set_mask(index, new_dirty);
-
-                // dirty.assert_occupancy("preserve masking");
             }
         }
 
@@ -646,11 +654,36 @@ impl<'a> BlockView<'a> {
                     }
                 });
 
+                let preserve = Preserve {
+                    above: !exists[0],
+                    below: !exists[1],
+                    right: !exists[2],
+                    left: !exists[3],
+                    fore: !exists[4],
+                    back: !exists[5],
+                };
+
                 // We should spread the modified
                 let mut spread_list = spread_list.lock().unwrap();
-                spread_list.with_preserve(chunk_point, exists.map(|e| !e));
+                spread_list.with_preserve(chunk_point, preserve);
             }
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct Preserve {
+    pub above: bool,
+    pub below: bool,
+    pub left: bool,
+    pub right: bool,
+    pub back: bool,
+    pub fore: bool,
+}
+
+impl Default for Preserve {
+    fn default() -> Self {
+        Self { above: false, below: false, left: false, right: false, back: false, fore: false }
     }
 }
 

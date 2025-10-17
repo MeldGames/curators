@@ -284,7 +284,7 @@ pub fn update_surface_net_mesh(
                 let material = materials.add(voxel.material());
                 // let material = materials.add(voxel.material());
                 // let material = voxel_materials.get(voxel);
-                let voxel_mesh_commands = commands.spawn((
+                let mut voxel_mesh_commands = commands.spawn((
                     Name::new(format!("Voxel Mesh ({:?})", voxel.as_name())),
                     Mesh3d(mesh_handle),
                     MeshMaterial3d(material),
@@ -296,12 +296,12 @@ pub fn update_surface_net_mesh(
                     },
                 ));
 
-                // if !voxel.shadow_caster() {
-                //     voxel_mesh_commands.insert(NotShadowCaster);
-                // }
-                // if !voxel.shadow_receiver() {
-                //     voxel_mesh_commands.insert(NotShadowReceiver);
-                // }
+                if !voxel.shadow_caster() {
+                    voxel_mesh_commands.insert(NotShadowCaster);
+                }
+                if !voxel.shadow_receiver() {
+                    voxel_mesh_commands.insert(NotShadowReceiver);
+                }
 
                 let id = voxel_mesh_commands.id();
 

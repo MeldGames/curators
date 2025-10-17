@@ -56,14 +56,15 @@ impl Plugin for SimPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<FallingSandTick>()
             .register_type::<SimSettings>()
+            .register_type::<SimChunks>()
             .register_type::<SimStep>()
             .register_type::<SimRun>();
 
         app.insert_resource(FallingSandTick(0));
         app.insert_resource(SimSettings {
-            // step: SimRun::Continuous,
+            step: SimRun::Continuous,
             // step: SimRun::Step,
-            step: SimRun::Granular(default()),
+            // step: SimRun::Granular(default()),
             step_once: false,
             display_modified: false,
             display_flagged: false,
@@ -216,8 +217,8 @@ pub fn pull_from_tree(
     // TODO: Stop doing this on every chunk every frame, should only do this on
     // modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        // let sim_bounds = IVec3::new(4, 2, 4);
-        let sim_bounds = IVec3::splat(16);
+        let sim_bounds = IVec3::new(4, 2, 4);
+        // let sim_bounds = IVec3::splat(16);
         for z in 0..sim_bounds.z {
             for x in 0..sim_bounds.x {
                 for y in 0..sim_bounds.y {
@@ -285,7 +286,7 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
     }
 }
 
-pub fn add_sand(mut voxel_commands: EventWriter<VoxelCommand>) {
+pub fn add_sand(mut voxel_commands: MessageWriter<VoxelCommand>) {
     voxel_commands.write(VoxelCommand::SetVoxel {
         point: IVec3::new(10, 20, 10),
         voxel: Voxel::Sand,
