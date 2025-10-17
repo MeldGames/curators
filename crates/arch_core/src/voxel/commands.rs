@@ -13,8 +13,8 @@ pub fn plugin(app: &mut App) {
     // app.add_message::<VoxelCommand>();
     app.init_resource::<Messages<VoxelCommand>>();
 
-    app.add_systems(FixedLast, update_command_messages);
-    app.add_systems(FixedPostUpdate, apply_sim.in_set(SimStep::AddVoxelsToSim));
+    // app.add_systems(FixedLast, update_command_messages);
+    app.add_systems(FixedPostUpdate, (apply_sim, update_command_messages).in_set(SimStep::AddVoxelsToSim));
     app.add_systems(PostUpdate, apply_tree);
 }
 
