@@ -4,11 +4,11 @@ use std::collections::VecDeque;
 use avian3d::collision::collider::TrimeshFlags;
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
+use bevy::camera::primitives::{Aabb, MeshAabb};
 use bevy::light::{NotShadowCaster, NotShadowReceiver};
+use bevy::mesh::{Indices, VertexAttributeValues};
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
-use bevy::mesh::{Indices, VertexAttributeValues};
-use bevy::camera::primitives::{Aabb, MeshAabb};
 use bevy::render::render_resource::PrimitiveTopology;
 use fast_surface_nets::ndshape::{ConstShape3u32, RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
@@ -116,6 +116,9 @@ pub fn update_surface_net_mesh(
 
     mut apply_later: Local<Vec<(Entity, Handle<Mesh>, Option<Aabb>, usize)>>,
 ) {
+    #[cfg(feature = "trace")]
+    let priority_span = info_span!("surface_net_priority").entered();
+
     apply_later.retain(|(_, _, _, count)| *count != 0);
 
     for (entity, mesh, aabb, count) in &mut apply_later {
@@ -142,6 +145,9 @@ pub fn update_surface_net_mesh(
         }
     }
 
+    #[cfg(feature = "trace")]
+    priority_span.exit();
+
     let mut pop_count = 0;
     while pop_count < remesh.surface_net {
         let mut processed = false;
@@ -161,6 +167,9 @@ pub fn update_surface_net_mesh(
             continue;
         };
 
+        #[cfg(feature = "trace")]
+        let surface_net_iter_span = info_span!("surface_net_iter").entered();
+
         // if !is_surface_nets.contains(*chunk_entity) {
         //     warn!("doesn't have surface net");
         //     continue;
@@ -173,7 +182,11 @@ pub fn update_surface_net_mesh(
         let max = chunk_max + IVec3::ONE;
         // info!("chunk_min: {chunk_min}, chunk_max: {chunk_max:?}");
 
-        VoxelSampler::sample(&voxels, &mut sample_buffers, min, max);
+        {
+            #[cfg(feature = "trace")]
+            let span = info_span!("sample").entered();
+            VoxelSampler::sample(&voxels, &mut sample_buffers, min, max);
+        }
 
         let Ok((mut chunk_meshes, mut chunk_colliders)) =
             chunk_mesh_entities.get_mut(*chunk_entity)
@@ -193,7 +206,11 @@ pub fn update_surface_net_mesh(
             let sample_buffer = sample_buffers.buffers[voxel_id as usize];
             let shape = SurfaceNetShape {};
             // info!("creating surface net mesh");
-            surface_nets(&sample_buffer, &shape, [0; 3], [17; 3], &mut surface_net_buffer);
+            {
+                #[cfg(feature = "trace")]
+                let span = info_span!("generate").entered();
+                surface_nets(&sample_buffer, &shape, [0; 3], [17; 3], &mut surface_net_buffer);
+            }
 
             let SurfaceNetsBuffer { ref mut normals, ref mut positions, .. } = *surface_net_buffer;
             for (position, normal) in positions.iter_mut().zip(normals.iter_mut()) {
@@ -209,6 +226,9 @@ pub fn update_surface_net_mesh(
 
             let mut mesh = surface_net_to_mesh(&surface_net_buffer);
             if voxel.collidable() {
+                #[cfg(feature = "trace")]
+                let span = info_span!("to_collider").entered();
+
                 let collider_mesh = surface_net_to_collider_trimesh(&surface_net_buffer);
                 match collider_mesh {
                     Some(new_collider) => {

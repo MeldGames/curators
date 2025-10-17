@@ -1,6 +1,5 @@
-
 use bevy::prelude::*;
-use bevy_enhanced_input::prelude::{*, Press};
+use bevy_enhanced_input::prelude::{Press, *};
 
 use crate::sdf;
 use crate::voxel::commands::SetVoxelsSdfParams;
@@ -86,7 +85,7 @@ pub fn add_voxel_painter(mut commands: Commands) {
     ));
 }
 
-pub fn cycle_voxel(trigger: Trigger<Fired<CycleVoxel>>, mut painters: Query<&mut VoxelPainter>) {
+pub fn cycle_voxel(trigger: On<Fire<CycleVoxel>>, mut painters: Query<&mut VoxelPainter>) {
     let Ok(mut painter) = painters.get_mut(trigger.target()) else {
         return;
     };
@@ -95,7 +94,7 @@ pub fn cycle_voxel(trigger: Trigger<Fired<CycleVoxel>>, mut painters: Query<&mut
     info!("voxel: {:?}", painter.voxel());
 }
 
-pub fn cycle_brush(trigger: Trigger<Fired<CycleBrush>>, mut painters: Query<&mut VoxelPainter>) {
+pub fn cycle_brush(trigger: On<Fire<CycleBrush>>, mut painters: Query<&mut VoxelPainter>) {
     let Ok(mut painter) = painters.get_mut(trigger.target()) else {
         return;
     };
@@ -104,7 +103,7 @@ pub fn cycle_brush(trigger: Trigger<Fired<CycleBrush>>, mut painters: Query<&mut
 }
 
 pub fn paint_voxels(
-    trigger: Trigger<Fired<Paint>>,
+    trigger: On<Fire<Paint>>,
     cursor_voxel: Res<CursorVoxel>,
     painters: Query<&VoxelPainter>,
 
@@ -119,7 +118,7 @@ pub fn paint_voxels(
         let normal = hit.normal.unwrap_or(IVec3::Y);
         let point = hit.voxel + normal;
 
-        info!("painting at {:?}", hit);
+        // info!("painting at {:?}", hit);
         commands.write(VoxelCommand::SetVoxelsSdf {
             origin: point,
             sdf: painter.brush().as_node(),

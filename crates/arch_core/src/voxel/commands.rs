@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::sdf::{SdfNode, Sdf};
+use crate::sdf::voxel_rasterize::{ChunkIntersectIter, PointIter};
+use crate::sdf::{Sdf, SdfNode};
 use crate::voxel::data::linearize;
 use crate::voxel::simulation::SimChunks;
 use crate::voxel::tree::VoxelTree;
 use crate::voxel::{SimStep, Voxel, VoxelNode, VoxelSet, Voxels};
-use crate::sdf::voxel_rasterize::{PointIter, ChunkIntersectIter};
 
 pub fn plugin(app: &mut App) {
     app.register_type::<VoxelCommand>();
@@ -14,7 +14,10 @@ pub fn plugin(app: &mut App) {
     app.init_resource::<Messages<VoxelCommand>>();
 
     // app.add_systems(FixedLast, update_command_messages);
-    app.add_systems(FixedPostUpdate, (apply_sim, update_command_messages).in_set(SimStep::AddVoxelsToSim));
+    app.add_systems(
+        FixedPostUpdate,
+        (apply_sim, update_command_messages).in_set(SimStep::AddVoxelsToSim),
+    );
     app.add_systems(PostUpdate, apply_tree);
 }
 
@@ -89,11 +92,8 @@ impl VoxelCommand {
                         continue;
                     }
 
-                    let chunk = tree.get_chunk_mut(*chunk_point);
-                    chunk.subdivide();
-                    let VoxelNode::Leaf { leaf, ..} = chunk else {
-                        error!("chunk was not a leaf");
-                        continue;
+                    let VoxelNode::Leaf { leaf, .. } = tree.root.get_leaf_mut(*chunk_point) else {
+                        panic!("chunk was not a leaf");
                     };
 
                     let chunk_min = chunk_point.0 * IVec3::splat(16);

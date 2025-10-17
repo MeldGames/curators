@@ -1,4 +1,5 @@
 use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex};
 
 use bevy::platform::collections::HashMap;
 use bevy::platform::collections::hash_map::Entry;
@@ -8,10 +9,8 @@ use slotmap::SlotMap;
 #[cfg(feature = "trace")]
 use tracing::*;
 
-use std::sync::{Mutex, Arc};
-
-use crate::sdf::voxel_rasterize::PointIter;
 use crate::sdf::Sdf;
+use crate::sdf::voxel_rasterize::PointIter;
 use crate::voxel::Voxel;
 use crate::voxel::simulation::FallingSandTick;
 use crate::voxel::simulation::kinds::VoxelPosition;
@@ -77,7 +76,10 @@ impl SimChunk {
 
 #[derive(Clone)]
 struct SpreadUpdate {
-    chunk_point: IVec3, chunk_key: ChunkKey, dirty_key: DirtyKey, preserve: [bool; 6],
+    chunk_point: IVec3,
+    chunk_key: ChunkKey,
+    dirty_key: DirtyKey,
+    preserve: [bool; 6],
 }
 
 slotmap::new_key_type! { pub struct ChunkKey; }
@@ -110,9 +112,7 @@ pub struct SpreadList {
 
 impl SpreadList {
     pub fn new() -> Self {
-        Self {
-            spread_list: HashMap::with_capacity(128),
-        }
+        Self { spread_list: HashMap::with_capacity(128) }
     }
 
     pub fn mark(&mut self, chunk_point: IVec3) {
@@ -261,7 +261,8 @@ impl SimChunks {
                 existing_chunk.set(index, voxel);
             }
         } else {
-            let chunk_key = self.chunks.insert(SimChunk { chunk_point, modified: ChunkSet::filled(), voxels });
+            let chunk_key =
+                self.chunks.insert(SimChunk { chunk_point, modified: ChunkSet::filled(), voxels });
             let dirty_key = self.dirty.insert(ChunkSet::filled()); // this doesn't really matter, it'll get overwritten later
             self.from_chunk_point.insert(chunk_point, (chunk_key, dirty_key));
 
@@ -372,7 +373,7 @@ impl SimChunks {
         let mut views = current_blocks
             .iter()
             .map(|(block_key, keys)| BlockView {
-                block_key: block_key,
+                block_key,
                 start_chunk_point: keys.start_chunk_point,
                 chunks: ChunkView { chunks: std::array::from_fn(|_| None) },
                 dirty_sets: std::array::from_fn(|_| None),
@@ -432,7 +433,8 @@ impl SimChunks {
         }
 
         for (chunk_point, preserve) in spread_list.spread_list.iter() {
-            let Some((chunk_key, dirty_key)) = self.from_chunk_point.get(&ChunkPoint(*chunk_point)) else {
+            let Some((chunk_key, dirty_key)) = self.from_chunk_point.get(&ChunkPoint(*chunk_point))
+            else {
                 warn!("missing from_chunk_point entry for a spread list entry: {:?}", chunk_point);
                 continue;
             };
@@ -485,8 +487,6 @@ impl SimChunks {
                 dirty.pull_below_chunk(&below_chunk.modified);
             }
             // dirty.assert_occupancy("pulling vertical chunks");
-
-            continue;
 
             // preserve previous dirty on boundaries
             let [above, below, right, left, back, forward] = preserve;
@@ -624,7 +624,9 @@ impl<'a> BlockView<'a> {
                 voxel.simulate(&mut self.chunks, position, tick);
             }
 
-            if self.chunks.chunks[chunk_index].as_ref().unwrap().modified.any_set() || dirty.any_set() {
+            if self.chunks.chunks[chunk_index].as_ref().unwrap().modified.any_set()
+                || dirty.any_set()
+            {
                 let rel_chunk_point = ChunkView::delinearize_chunk(chunk_index);
                 let chunk_point = self.start_chunk_point + rel_chunk_point;
                 let neighbors = [

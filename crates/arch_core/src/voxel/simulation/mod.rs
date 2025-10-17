@@ -6,7 +6,6 @@
 use bevy::ecs::intern::Interned;
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
-
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 pub use data::{SimChunk, SimChunks};
 #[cfg(feature = "trace")]
@@ -89,8 +88,7 @@ impl Plugin for SimPlugin {
 
         app.add_systems(self.sim_run_schedule, SimRun::advance_step);
 
-        app
-            .add_systems(self.sim_schedule, spread_updates.in_set(SimStep::FlagDirty))
+        app.add_systems(self.sim_schedule, spread_updates.in_set(SimStep::FlagDirty))
             .add_systems(self.sim_schedule, simulate.in_set(SimStep::Simulate))
             .add_systems(self.sim_schedule, pull_from_tree.in_set(SimStep::PullFromTree))
             .add_systems(self.sim_schedule, add_sand.in_set(SimStep::AddVoxelsToSim))
@@ -218,7 +216,8 @@ pub fn pull_from_tree(
     // TODO: Stop doing this on every chunk every frame, should only do this on
     // modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        let sim_bounds = IVec3::new(4, 2, 4);
+        // let sim_bounds = IVec3::new(4, 2, 4);
+        let sim_bounds = IVec3::splat(16);
         for z in 0..sim_bounds.z {
             for x in 0..sim_bounds.x {
                 for y in 0..sim_bounds.y {
@@ -249,7 +248,9 @@ pub fn propagate_to_tree(mut grids: Query<(Entity, &mut Voxels, &SimChunks)>) {
     for (_grid_entity, mut voxels, sim_chunks) in &mut grids {
         let spread_list = sim_chunks.spread_list.lock().unwrap();
         for (chunk_point, _) in spread_list.spread_list.iter() {
-            let Some((chunk_key, dirty_key)) = sim_chunks.from_chunk_point.get(&ChunkPoint(*chunk_point)) else {
+            let Some((chunk_key, dirty_key)) =
+                sim_chunks.from_chunk_point.get(&ChunkPoint(*chunk_point))
+            else {
                 continue;
             };
 
@@ -302,11 +303,7 @@ pub fn spread_updates(mut grids: Query<(Entity, &mut SimChunks)>) {
     }
 }
 
-
 pub fn simulate(mut grids: Query<(Entity, &mut SimChunks)>, mut sim_tick: ResMut<FallingSandTick>) {
-    #[cfg(feature = "trace")]
-    let falling_sands_span = info_span!("falling_sands").entered();
-
     sim_tick.0 = (sim_tick.0 + 1) % (u32::MAX / 2);
 
     for (_grid_entity, mut sim_chunks) in &mut grids {
@@ -316,11 +313,15 @@ pub fn simulate(mut grids: Query<(Entity, &mut SimChunks)>, mut sim_tick: ResMut
 
         // Parallel version
         views.into_par_iter().for_each(|mut block_view| {
+            #[cfg(feature = "trace")]
+            let block_span = info_span!("block_simulation").entered();
             block_view.simulate(spread_list.clone(), *sim_tick);
         });
 
         // Single threaded version
         // views.into_iter().for_each(|mut chunk_view| {
+        //     #[cfg(feature = "trace")]
+        //     let block_span = info_span!("block_simulation").entered();
         //     chunk_view.simulate(*sim_tick);
         // });
     }

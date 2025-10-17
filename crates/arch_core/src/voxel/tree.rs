@@ -436,28 +436,37 @@ impl VoxelNode {
         }
     }
 
-    pub fn set_chunk_data<'a>(
+    pub fn get_leaf_mut<'a>(
         &'a mut self,
         chunk_point: IVec3, // voxel point divided by chunk/leaf size
-        chunk_data: [Voxel; CHUNK_LENGTH],
-    ) {
+    ) -> &'a mut VoxelNode {
         match self {
             // traverse downwards
             VoxelNode::Children { shared, children } => {
                 let sublayer_index = get_sublayer_index_from_chunk(shared.layer, chunk_point);
                 let next_node = &mut children[sublayer_index];
-                next_node.set_chunk_data(chunk_point, chunk_data);
+                next_node.get_leaf_mut(chunk_point)
             },
             // fracture into child or leaf
             solid @ VoxelNode::Solid { .. } => {
                 solid.subdivide();
                 let subdivided = solid;
-                subdivided.set_chunk_data(chunk_point, chunk_data); // recurse into the correct path
+                subdivided.get_leaf_mut(chunk_point) // recurse into the correct path
             },
-            VoxelNode::Leaf { leaf, .. } => {
-                **leaf = chunk_data;
-            },
+            leaf @ VoxelNode::Leaf { .. } => leaf,
         }
+    }
+
+    pub fn set_chunk_data<'a>(
+        &'a mut self,
+        chunk_point: IVec3, // voxel point divided by chunk/leaf size
+        chunk_data: [Voxel; CHUNK_LENGTH],
+    ) {
+        let VoxelNode::Leaf { leaf, .. } = self.get_leaf_mut(chunk_point) else {
+            panic!("subdivided recursively should end in a leaf node");
+        };
+
+        **leaf = chunk_data;
     }
 
     pub fn is_subdivided(&self) -> bool {
@@ -606,6 +615,21 @@ impl VoxelTree {
                 }
             }
         }
+    }
+
+    pub fn get_leaf_mut(&mut self, chunk_point: IVec3) -> &mut VoxelNode {
+        assert!(self.chunk_point_in_bounds(chunk_point));
+        // we could do a better job about this.
+        for x in -1..=1 {
+            for y in -1..=1 {
+                for z in -1..=1 {
+                    let offset = IVec3::new(x, y, z);
+                    self.changed_chunks.insert(chunk_point + offset);
+                }
+            }
+        }
+
+        self.root.get_leaf_mut(chunk_point)
     }
 
     pub fn get_chunk_mut(&mut self, chunk_point: IVec3) -> &mut VoxelNode {
