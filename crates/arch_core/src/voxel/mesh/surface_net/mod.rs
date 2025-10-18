@@ -7,6 +7,7 @@ use bevy::mesh::{Indices, VertexAttributeValues};
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 use bevy::render::render_resource::PrimitiveTopology;
+use bevy_math::Affine3A;
 use fast_surface_nets::ndshape::{ConstShape3u32, RuntimeShape, Shape};
 use fast_surface_nets::{SurfaceNetsBuffer, surface_nets};
 use priority_queue::PriorityQueue;
@@ -94,7 +95,7 @@ pub fn update_surface_net_mesh(
     mut commands: Commands,
     is_surface_nets: Query<(), With<SurfaceNet>>,
 
-    (remesh_center, remesh_priority): (Res<RemeshCenter>, Query<&GlobalTransform>),
+    remesh_center: Res<RemeshCenter>,
 
     grids: Query<(Entity, &Voxels, &Chunks /* &mut Remeshed */)>,
     mut chunk_mesh_entities: Query<(&mut SurfaceNetMeshes, &mut SurfaceNetColliders)>,
@@ -119,9 +120,6 @@ pub fn update_surface_net_mesh(
     #[cfg(feature = "trace")]
     let priority_span = info_span!("surface_net_priority").entered();
 
-    let priority_position =
-        remesh_priority.get(remesh_center.0).map(|g| g.translation()).unwrap_or(Vec3::ZERO);
-
     apply_later.retain(|(_, _, _, count)| *count != 0);
 
     for (entity, mesh, aabb, count) in &mut apply_later {
@@ -140,32 +138,55 @@ pub fn update_surface_net_mesh(
     // increase priority of all in the queue currently
     for (chunk, priority) in queue.iter_mut() {
         // center of chunk
-        const WIDTH: Vec3 = Vec3::splat(CHUNK_WIDTH as f32);
-        let chunk_center = ((chunk.chunk_point.as_vec3() * WIDTH) + (WIDTH / 2.0)) * GRID_SCALE;
+        let chunk_size = Vec3::splat(CHUNK_WIDTH as f32) * GRID_SCALE;
+        let chunk_radius = chunk_size.length() / 2.0;
+        let chunk_min = chunk.chunk_point.as_vec3() * chunk_size;
+        let chunk_max = chunk_min + chunk_size;
+        let chunk_center = (chunk.chunk_point.as_vec3() * chunk_size) + (chunk_size / 2.0);
+        let chunk_aabb = Aabb::from_min_max(chunk_min, chunk_max);
 
         // flash chunks in queue
         gizmos.cuboid(
-            Transform { translation: chunk_center, scale: WIDTH * GRID_SCALE, ..default() },
+            Transform { translation: chunk_center, scale: chunk_size, ..default() },
             Color::srgb(0.0, 0.0, 1.0),
         );
 
         // simplistic priority
         // if the chunk center is within the sphere around the priority position, then
         // prioritize more
-        let priority_radius = CHUNK_WIDTH as f32;
-        let distance = chunk_center.distance(priority_position);
-        if distance < priority_radius {
-            // within a chunk radius
+        // gizmos.sphere(
+        //     remesh_center.transform.translation,
+        //     chunk_radius,
+        //     Color::srgb(1.0, 0.0, 1.0),
+        // );
+
+        // base priority gain
+        *priority += 1;
+
+        // more if within a chunk radius
+        let origin_distance = chunk_center.distance(remesh_center.transform.translation);
+        if origin_distance < chunk_radius {
+            *priority += 7;
+        } else if origin_distance < chunk_radius * 2.0 {
             *priority += 6;
-        } else if distance < priority_radius * 2.0 {
-            // within a 2 chunk radius
-            *priority += 5;
-        } else if distance < priority_radius * 3.0 {
-            // within a 3 chunk radius
+        } else if origin_distance < chunk_radius * 3.0 {
             *priority += 3;
-        } else {
-            // outside radius but in queue
-            *priority += 1;
+        }
+
+        // more if within camera frustum
+        if remesh_center.frustum.intersects_obb(&chunk_aabb, &Affine3A::IDENTITY, true, true) {
+            gizmos.sphere(chunk_center, 0.5, Color::srgb(1.0, 0.0, 1.0));
+
+            // adjust by distance
+            if origin_distance < chunk_radius {
+                *priority += 4;
+            } else if origin_distance < chunk_radius * 4.0 {
+                *priority += 3;
+            } else if origin_distance < chunk_radius * 8.0 {
+                *priority += 2;
+            } else {
+                *priority += 1;
+            }
         }
     }
 
@@ -175,8 +196,28 @@ pub fn update_surface_net_mesh(
             continue;
         }
 
-        if !queue.change_priority_by(&changed_chunk, |priority| *priority += 1) {
-            queue.push(changed_chunk, 1);
+        let ChangedChunk { grid_entity, chunk_point } = changed_chunk;
+
+        let Ok((_, _, voxel_chunks)) = grids.get(grid_entity) else {
+            warn!("No voxels for entity `{}`", named.get(grid_entity).unwrap());
+            continue;
+        };
+
+        let Some(chunk_entity) = voxel_chunks.get(&chunk_point) else {
+            warn!("no chunk entities for {:?}", chunk_point);
+            continue;
+        };
+
+        let Ok((chunk_meshes, _)) = chunk_mesh_entities.get(*chunk_entity) else {
+            warn!("no chunk_mesh/chunk_collider for {:?}", named.get(*chunk_entity).unwrap());
+            continue;
+        };
+
+        // set priority higher for chunks that have not been meshed
+        let priority_amount = if chunk_meshes.0.len() == 0 { 20 } else { 1 };
+
+        if !queue.change_priority_by(&changed_chunk, |priority| *priority += priority_amount) {
+            queue.push(changed_chunk, priority_amount);
         }
     }
 

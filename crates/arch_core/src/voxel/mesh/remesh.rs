@@ -1,5 +1,6 @@
 //! Control remeshing amounts per frame.
 
+use bevy::camera::primitives::Frustum;
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
@@ -33,7 +34,7 @@ pub struct Remesh {
 impl Default for Remesh {
     fn default() -> Self {
         Self {
-            surface_net_per_frame: 1.0,
+            surface_net_per_frame: 0.1,
             bgm_per_frame: 64.0,
             collider_per_frame: 0.5,
 
@@ -65,21 +66,25 @@ pub fn accumulate_remesh(mut remesh: ResMut<Remesh>) {
 }
 
 #[derive(Resource, Debug)]
-pub struct RemeshCenter(pub Entity);
+pub struct RemeshCenter {
+    pub transform: Transform,
+    pub frustum: Frustum,
+}
 
 impl Default for RemeshCenter {
     fn default() -> Self {
-        Self(Entity::PLACEHOLDER)
+        Self { transform: Transform::IDENTITY, frustum: Frustum::default() }
     }
 }
 
 pub fn position_remesh_center(
-    cameras: Query<(Entity, &Camera)>,
+    cameras: Query<(Entity, &GlobalTransform, &Camera, &Frustum)>,
     mut remesh_center: ResMut<RemeshCenter>,
 ) {
-    for (entity, camera) in cameras {
+    for (entity, transform, camera, frustum) in cameras {
         if camera.is_active {
-            remesh_center.0 = entity;
+            remesh_center.transform = transform.compute_transform();
+            remesh_center.frustum = frustum.clone();
             return;
         }
     }
