@@ -607,27 +607,13 @@ impl VoxelTree {
         self.root.set_chunk_data(chunk_point, chunk_data);
 
         // all neighbors should re-mesh
-        for x in -1..=1 {
-            for y in -1..=1 {
-                for z in -1..=1 {
-                    let offset = IVec3::new(x, y, z);
-                    self.changed_chunks.insert(chunk_point + offset);
-                }
-            }
-        }
+        self.mark_neighbors_changed(chunk_point);
     }
 
     pub fn get_leaf_mut(&mut self, chunk_point: IVec3) -> &mut VoxelNode {
         assert!(self.chunk_point_in_bounds(chunk_point));
         // we could do a better job about this.
-        for x in -1..=1 {
-            for y in -1..=1 {
-                for z in -1..=1 {
-                    let offset = IVec3::new(x, y, z);
-                    self.changed_chunks.insert(chunk_point + offset);
-                }
-            }
-        }
+        self.mark_neighbors_changed(chunk_point);
 
         self.root.get_leaf_mut(chunk_point)
     }
@@ -635,6 +621,12 @@ impl VoxelTree {
     pub fn get_chunk_mut(&mut self, chunk_point: IVec3) -> &mut VoxelNode {
         assert!(self.chunk_point_in_bounds(chunk_point));
         // we could do a better job about this.
+        self.mark_neighbors_changed(chunk_point);
+
+        self.root.get_chunk_mut(chunk_point)
+    }
+
+    pub fn mark_neighbors_changed(&mut self, chunk_point: IVec3) {
         for x in -1..=1 {
             for y in -1..=1 {
                 for z in -1..=1 {
@@ -643,8 +635,6 @@ impl VoxelTree {
                 }
             }
         }
-
-        self.root.get_chunk_mut(chunk_point)
     }
 
     pub fn voxel_point_in_bounds(&self, voxel_point: IVec3) -> bool {

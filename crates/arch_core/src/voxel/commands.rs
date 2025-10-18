@@ -92,7 +92,7 @@ impl VoxelCommand {
                         continue;
                     }
 
-                    let VoxelNode::Leaf { leaf, .. } = tree.root.get_leaf_mut(*chunk_point) else {
+                    let VoxelNode::Leaf { leaf, .. } = tree.get_leaf_mut(*chunk_point) else {
                         panic!("chunk was not a leaf");
                     };
 

@@ -1,6 +1,3 @@
-use std::cmp::Ordering;
-use std::collections::VecDeque;
-
 use avian3d::collision::collider::TrimeshFlags;
 use avian3d::prelude::*;
 use bevy::asset::RenderAssetUsages;
@@ -17,12 +14,13 @@ use priority_queue::PriorityQueue;
 use crate::voxel::mesh::binary_greedy::Chunks;
 use crate::voxel::mesh::chunk::VoxelChunk;
 use crate::voxel::mesh::frustum_chunks::FrustumChunks;
-use crate::voxel::mesh::remesh::Remesh;
+use crate::voxel::mesh::remesh::{Remesh, RemeshCenter};
 // use crate::voxel::mesh::surface_net::fast_surface_nets::VoxelAccess;
 use crate::voxel::mesh::{ChangedChunk, padded};
 use crate::voxel::simulation::data::ChunkPoint;
+use crate::voxel::tree::CHUNK_WIDTH;
 use crate::voxel::voxel::VoxelSet;
-use crate::voxel::{UpdateVoxelMeshSet, Voxel, Voxels};
+use crate::voxel::{GRID_SCALE, UpdateVoxelMeshSet, Voxel, Voxels};
 
 // pub mod fast_surface_nets;
 
@@ -95,6 +93,9 @@ impl SampleBuffers {
 pub fn update_surface_net_mesh(
     mut commands: Commands,
     is_surface_nets: Query<(), With<SurfaceNet>>,
+
+    (remesh_center, remesh_priority): (Res<RemeshCenter>, Query<&GlobalTransform>),
+
     grids: Query<(Entity, &Voxels, &Chunks /* &mut Remeshed */)>,
     mut chunk_mesh_entities: Query<(&mut SurfaceNetMeshes, &mut SurfaceNetColliders)>,
 
@@ -105,19 +106,21 @@ pub fn update_surface_net_mesh(
     mut surface_net_buffer: Local<SurfaceNetsBuffer>,
     mut sample_buffers: ResMut<SampleBuffers>,
 
-    mut changed_chunks: EventReader<ChangedChunk>,
+    mut changed_chunks: MessageReader<ChangedChunk>,
 
     named: Query<NameOrEntity>,
-
     mut queue: Local<PriorityQueue<ChangedChunk, usize>>,
 
     remesh: Res<Remesh>,
-    frustum_chunks: Res<FrustumChunks>,
-
+    // frustum_chunks: Res<FrustumChunks>,
     mut apply_later: Local<Vec<(Entity, Handle<Mesh>, Option<Aabb>, usize)>>,
+    mut gizmos: Gizmos,
 ) {
     #[cfg(feature = "trace")]
     let priority_span = info_span!("surface_net_priority").entered();
+
+    let priority_position =
+        remesh_priority.get(remesh_center.0).map(|g| g.translation()).unwrap_or(Vec3::ZERO);
 
     apply_later.retain(|(_, _, _, count)| *count != 0);
 
@@ -135,11 +138,43 @@ pub fn update_surface_net_mesh(
     }
 
     // increase priority of all in the queue currently
-    for (_, priority) in queue.iter_mut() {
-        *priority += 1;
+    for (chunk, priority) in queue.iter_mut() {
+        // center of chunk
+        const WIDTH: Vec3 = Vec3::splat(CHUNK_WIDTH as f32);
+        let chunk_center = ((chunk.chunk_point.as_vec3() * WIDTH) + (WIDTH / 2.0)) * GRID_SCALE;
+
+        // flash chunks in queue
+        gizmos.cuboid(
+            Transform { translation: chunk_center, scale: WIDTH * GRID_SCALE, ..default() },
+            Color::srgb(0.0, 0.0, 1.0),
+        );
+
+        // simplistic priority
+        // if the chunk center is within the sphere around the priority position, then
+        // prioritize more
+        let priority_radius = CHUNK_WIDTH as f32;
+        let distance = chunk_center.distance(priority_position);
+        if distance < priority_radius {
+            // within a chunk radius
+            *priority += 6;
+        } else if distance < priority_radius * 2.0 {
+            // within a 2 chunk radius
+            *priority += 5;
+        } else if distance < priority_radius * 3.0 {
+            // within a 3 chunk radius
+            *priority += 3;
+        } else {
+            // outside radius but in queue
+            *priority += 1;
+        }
     }
 
     for &changed_chunk in changed_chunks.read() {
+        // TODO: add the upper bounds here if they exist
+        if changed_chunk.chunk_point.min_element() < 0 {
+            continue;
+        }
+
         if !queue.change_priority_by(&changed_chunk, |priority| *priority += 1) {
             queue.push(changed_chunk, 1);
         }

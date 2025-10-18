@@ -5,8 +5,10 @@ use bevy::prelude::*;
 pub fn plugin(app: &mut App) {
     app.register_type::<Remesh>();
     app.insert_resource(Remesh { ..default() });
+    app.insert_resource(RemeshCenter::default());
 
     app.add_systems(First, accumulate_remesh);
+    app.add_systems(First, position_remesh_center);
 }
 
 #[derive(Resource, Clone, Copy, Debug, Reflect)]
@@ -31,7 +33,7 @@ pub struct Remesh {
 impl Default for Remesh {
     fn default() -> Self {
         Self {
-            surface_net_per_frame: 10.0,
+            surface_net_per_frame: 1.0,
             bgm_per_frame: 64.0,
             collider_per_frame: 0.5,
 
@@ -60,4 +62,25 @@ pub fn accumulate_remesh(mut remesh: ResMut<Remesh>) {
     remesh.surface_net = this_frame(&mut remesh.surface_net_accumulator);
     remesh.bgm = this_frame(&mut remesh.bgm_accumulator);
     remesh.collider = this_frame(&mut remesh.collider_accumulator);
+}
+
+#[derive(Resource, Debug)]
+pub struct RemeshCenter(pub Entity);
+
+impl Default for RemeshCenter {
+    fn default() -> Self {
+        Self(Entity::PLACEHOLDER)
+    }
+}
+
+pub fn position_remesh_center(
+    cameras: Query<(Entity, &Camera)>,
+    mut remesh_center: ResMut<RemeshCenter>,
+) {
+    for (entity, camera) in cameras {
+        if camera.is_active {
+            remesh_center.0 = entity;
+            return;
+        }
+    }
 }

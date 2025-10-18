@@ -217,8 +217,8 @@ pub fn pull_from_tree(
     // TODO: Stop doing this on every chunk every frame, should only do this on
     // modified chunks.
     for (_grid_entity, voxels, mut sim_chunks) in &mut grids {
-        let sim_bounds = IVec3::new(4, 2, 4);
-        // let sim_bounds = IVec3::splat(16);
+        // let sim_bounds = IVec3::new(4, 2, 4);
+        let sim_bounds = IVec3::splat(16);
         for z in 0..sim_bounds.z {
             for x in 0..sim_bounds.x {
                 for y in 0..sim_bounds.y {

@@ -74,14 +74,6 @@ impl SimChunk {
     }
 }
 
-#[derive(Clone)]
-struct SpreadUpdate {
-    chunk_point: IVec3,
-    chunk_key: ChunkKey,
-    dirty_key: DirtyKey,
-    preserve: [bool; 6],
-}
-
 slotmap::new_key_type! { pub struct ChunkKey; }
 slotmap::new_key_type! { pub struct DirtyKey; }
 slotmap::new_key_type! { pub struct BlockKey; }
