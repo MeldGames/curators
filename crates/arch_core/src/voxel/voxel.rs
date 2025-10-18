@@ -468,7 +468,7 @@ impl Voxel {
             },
             Voxel::Grass => StandardMaterial {
                 perceptual_roughness: 1.0,
-                base_color: Color::srgb(124.0 / 225.0, 252.0 / 255.0, 0.0 / 255.0),
+                base_color: Color::srgb(124.0 / 225.0, 212.0 / 255.0, 0.0 / 255.0),
                 ..default_material
             },
             Voxel::Base => StandardMaterial {

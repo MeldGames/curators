@@ -146,10 +146,10 @@ pub fn update_surface_net_mesh(
         let chunk_aabb = Aabb::from_min_max(chunk_min, chunk_max);
 
         // flash chunks in queue
-        gizmos.cuboid(
-            Transform { translation: chunk_center, scale: chunk_size, ..default() },
-            Color::srgb(0.0, 0.0, 1.0),
-        );
+        // gizmos.cuboid(
+        //     Transform { translation: chunk_center, scale: chunk_size, ..default() },
+        //     Color::srgb(0.0, 0.0, 1.0),
+        // );
 
         // simplistic priority
         // if the chunk center is within the sphere around the priority position, then
@@ -175,7 +175,7 @@ pub fn update_surface_net_mesh(
 
         // more if within camera frustum
         if remesh_center.frustum.intersects_obb(&chunk_aabb, &Affine3A::IDENTITY, true, true) {
-            gizmos.sphere(chunk_center, 0.5, Color::srgb(1.0, 0.0, 1.0));
+            // gizmos.sphere(chunk_center, 0.5, Color::srgb(1.0, 0.0, 1.0));
 
             // adjust by distance
             if origin_distance < chunk_radius {
@@ -301,7 +301,9 @@ pub fn update_surface_net_mesh(
             }
 
             let mut mesh = surface_net_to_mesh(&surface_net_buffer);
-            if voxel.collidable() {
+            if false {
+                // if voxel.collidable() {
+
                 #[cfg(feature = "trace")]
                 let span = info_span!("to_collider").entered();
 

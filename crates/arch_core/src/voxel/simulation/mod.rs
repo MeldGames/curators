@@ -234,7 +234,7 @@ pub fn pull_from_tree(
                     };
 
                     if let Some(voxels) = voxels {
-                        info!("added chunk to sim: {:?}", chunk_point);
+                        // info!("added chunk to sim: {:?}", chunk_point);
                         sim_chunks.add_chunk(ChunkPoint(chunk_point), voxels);
                     }
                 }

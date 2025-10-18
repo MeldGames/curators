@@ -8,8 +8,8 @@ use bevy_math::bounding::Aabb3d;
 use tracing::*;
 
 use super::raycast::Hit;
-use crate::sdf::voxel_rasterize::PointIter;
 use crate::sdf::Sdf;
+use crate::sdf::voxel_rasterize::PointIter;
 use crate::voxel::mesh::binary_greedy::Chunks;
 // use crate::voxel::mesh::surface_net::Remeshed;
 use crate::voxel::mesh::{BinaryGreedy, ChangedChunk, SurfaceNet};
@@ -54,7 +54,10 @@ pub struct Voxels {
 impl Voxels {
     pub fn new(voxel_size: IVec3) -> Self {
         let mut tree = VoxelTree::new();
-        tree.grow_n_layers(3);
+        tree.grow_n_layers(4);
+        let max_width = tree.root.voxel_width();
+        let voxel_size = IVec3::splat(max_width as i32);
+        info!("voxel tree max width: {:?}", max_width);
         Self { tree, voxel_size }
     }
 
