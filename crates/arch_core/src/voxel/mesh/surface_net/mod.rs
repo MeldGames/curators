@@ -169,8 +169,10 @@ pub fn update_surface_net_mesh(
             *priority += 7;
         } else if origin_distance < chunk_radius * 2.0 {
             *priority += 6;
-        } else if origin_distance < chunk_radius * 3.0 {
+        } else if origin_distance < chunk_radius * 4.0 {
             *priority += 3;
+        } else if origin_distance < chunk_radius * 8.0 {
+            *priority += 1;
         }
 
         // more if within camera frustum
@@ -179,10 +181,12 @@ pub fn update_surface_net_mesh(
 
             // adjust by distance
             if origin_distance < chunk_radius {
-                *priority += 4;
-            } else if origin_distance < chunk_radius * 4.0 {
-                *priority += 3;
+                *priority += 5;
             } else if origin_distance < chunk_radius * 8.0 {
+                *priority += 4;
+            } else if origin_distance < chunk_radius * 32.0 {
+                *priority += 3;
+            } else if origin_distance < chunk_radius * 64.0 {
                 *priority += 2;
             } else {
                 *priority += 1;
