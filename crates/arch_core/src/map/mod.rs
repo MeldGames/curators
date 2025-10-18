@@ -76,7 +76,7 @@ pub fn create_basic_map(mut commands: Commands) {
                     min: IVec3::ZERO,
                     // max: IVec3::new(61 * 4, 48, 61 * 4),
                     // max: IVec3::new(1000, 256, 1000),
-                    max: IVec3::new(4096, 32, 4096),
+                    max: IVec3::new(1024, 32, 1024),
                 },
                 // aabb: VoxelAabb::from_size(IVec3::new(3, 3, 3), IVec3::new(2, 4, 2)),
                 kind: TerrainKind::Hilly,

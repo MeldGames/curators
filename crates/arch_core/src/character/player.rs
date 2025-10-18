@@ -1,7 +1,7 @@
 use avian3d::prelude::*;
 use bevy::color::palettes::css::GRAY;
 use bevy::prelude::*;
-use bevy_enhanced_input::prelude::{*, Release};
+use bevy_enhanced_input::prelude::{Release, *};
 
 use super::input::DigState;
 use crate::camera::flying::{CameraMove, CameraRotate};
@@ -80,6 +80,12 @@ pub fn spawn_player(
             FlyingState::default(),
             camera_components(),
             IsDefaultUiCamera,
+            PointLight {
+                color: Color::srgb(1.0, 1.0, 1.0),
+                intensity: 100_000f32,
+                range: 40.0,
+                ..default()
+            },
             Transform::from_translation(Vec3::new(-3., 3.0, -3.0))
                 .looking_at(Vec3::new(1.0, 1.0, 1.0), Vec3::Y),
             //  Transform::from_translation(Vec3::new(8., 5.0, 8.0))
