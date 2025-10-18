@@ -34,7 +34,7 @@ pub struct Remesh {
 impl Default for Remesh {
     fn default() -> Self {
         Self {
-            surface_net_per_frame: 0.1,
+            surface_net_per_frame: 10.0,
             bgm_per_frame: 64.0,
             collider_per_frame: 0.5,
 

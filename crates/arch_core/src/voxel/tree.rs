@@ -147,7 +147,7 @@ pub enum VoxelNode {
     Children { shared: SharedData, children: Box<[VoxelNode; TREE_LENGTH]> },
     /// Leaf node/bottom of the graph, holds fine-grain voxel data.
     Leaf {
-        // layer is assumed 0
+        // layer should be 0
         shared: SharedData,
         leaf: Box<[Voxel; CHUNK_LENGTH]>,
     },
@@ -189,6 +189,7 @@ impl Debug for VoxelNode {
 }
 
 impl VoxelNode {
+    /// Draw a debug view of the voxel octree using [`Gizmos`].
     pub fn draw_gizmo(&self, origin: IVec3, gizmos: &mut Gizmos) {
         match self {
             Self::Solid { shared, .. } => {
@@ -261,6 +262,9 @@ impl VoxelNode {
         }
     }
 
+    /// Subdivides this voxel node if it is [`VoxelNode::Solid`], otherwise does
+    /// nothing since [`VoxelNode::Leaf`] and [`VoxelNode::Children`] are
+    /// already subdivided.
     pub fn subdivide(&mut self) {
         // layer 0 subdivision is a leaf
         // layer 1+ subdivision are children
@@ -290,7 +294,8 @@ impl VoxelNode {
         }
     }
 
-    /// Compress into a Solid node if all of the voxels are the same.
+    /// Compress into a [`VoxelNode::Solid`] node if all of the voxels are the
+    /// same.
     pub fn compress(&mut self) {
         match self {
             Self::Children { shared, children } => {
@@ -338,6 +343,7 @@ impl VoxelNode {
         }
     }
 
+    /// Get an individual voxel from the tree.
     pub fn get_voxel(&self, voxel_point: IVec3) -> Voxel {
         match self {
             // traverse downwards
@@ -360,7 +366,7 @@ impl VoxelNode {
     }
 
     /// Set a specific voxel at the lowest layer of the voxel tree.
-    /// This will fracture any [`VoxelNode::Solid`] nodes on the way down.
+    /// This will subdivide any [`VoxelNode::Solid`] nodes on the way down.
     pub fn set_voxel(&mut self, voxel_point: IVec3, voxel: Voxel) -> bool {
         match self {
             // traverse downwards
@@ -399,7 +405,8 @@ impl VoxelNode {
         }
     }
 
-    /// Get the contents of a bottom level chunk
+    /// Get the lowest layer in the tree as either a [`VoxelNode::Solid`] or
+    /// [`VoxelNode::Leaf`].
     pub fn get_chunk<'a>(
         &'a self,
         chunk_point: IVec3, // voxel point divided by chunk/leaf size
@@ -418,6 +425,8 @@ impl VoxelNode {
         }
     }
 
+    /// Get the lowest layer in the tree mutably as either a
+    /// [`VoxelNode::Solid`] or [`VoxelNode::Leaf`].
     pub fn get_chunk_mut<'a>(
         &'a mut self,
         chunk_point: IVec3, // voxel point divided by chunk/leaf size
@@ -436,6 +445,8 @@ impl VoxelNode {
         }
     }
 
+    /// Get the lowest layer in the tree as a [`VoxelNode::Leaf`], subdividing
+    /// if a [`VoxelNode::Solid`] is found.
     pub fn get_leaf_mut<'a>(
         &'a mut self,
         chunk_point: IVec3, // voxel point divided by chunk/leaf size
