@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
-    app.insert_resource(AmbientLight { brightness: 2500.0, ..default() });
+    app.insert_resource(AmbientLight { brightness: 50.0, ..default() });
     // app.add_systems(Startup, setup);
     // app.add_systems(Update, update);
 }

@@ -108,7 +108,7 @@ Freecam Controls:
 }
 
 pub fn started_flying(
-    trigger: Trigger<OnInsert, ContextActivity<FlyingCamera>>,
+    trigger: On<Insert, ContextActivity<FlyingCamera>>,
     mut query: Query<(&Transform, &ContextActivity<FlyingCamera>, &mut FlyingState)>,
 ) {
     let Ok((transform, context_activity, mut state)) = query.get_mut(trigger.target()) else {
@@ -125,7 +125,7 @@ pub fn started_flying(
 }
 
 pub fn handle_rotation(
-    trigger: Trigger<Fired<CameraRotate>>,
+    trigger: On<Fire<CameraRotate>>,
     mut camera: Query<(&mut Transform, &mut FlyingState, &FlyingSettings)>,
     windows: Query<(&Window, &CursorOptions)>,
     mut cursor_grab_offset: ResMut<CursorGrabOffset>,
@@ -163,7 +163,7 @@ pub fn handle_rotation(
 }
 
 pub fn handle_movement(
-    trigger: Trigger<Fired<CameraMove>>,
+    trigger: On<Fire<CameraMove>>,
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Transform, &FlyingSettings, &mut FlyingState), With<Camera>>,
@@ -182,7 +182,22 @@ pub fn handle_movement(
         } else {
             settings.walk_speed
         };
-        state.velocity = movement.normalize() * max_speed;
+        // Smoothly interpolate from min_altitude..max_altitude into a 1..max_multiplier
+        // multiplier on fly camera speed This mapping provides more responsive
+        // speed control based on altitude.
+        let min_altitude = 10.0;
+        let max_altitude = 500.0;
+        let max_multiplier = 50.0;
+        let altitude = transform.translation.y;
+        let exponential = if altitude <= min_altitude {
+            1.0
+        } else if altitude >= max_altitude {
+            max_multiplier
+        } else {
+            let t = (altitude - min_altitude) / (max_altitude - min_altitude);
+            1.0 + (max_multiplier - 1.0) * t
+        };
+        state.velocity = movement.normalize() * max_speed * exponential.clamp(1.0, 100.0);
     } else {
         let friction = settings.friction.clamp(0.0, 1.0);
         state.velocity *= 1.0 - friction;

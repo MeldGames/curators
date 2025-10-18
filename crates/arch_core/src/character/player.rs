@@ -80,10 +80,16 @@ pub fn spawn_player(
             FlyingState::default(),
             camera_components(),
             IsDefaultUiCamera,
-            PointLight {
+            // PointLight {
+            //     color: Color::srgb(1.0, 1.0, 1.0),
+            //     intensity: 100_000f32,
+            //     range: 40.0,
+            //     ..default()
+            // },
+            SpotLight {
                 color: Color::srgb(1.0, 1.0, 1.0),
-                intensity: 100_000f32,
-                range: 40.0,
+                intensity: 1_000_000f32,
+                range: 80.0,
                 ..default()
             },
             Transform::from_translation(Vec3::new(-3., 3.0, -3.0))

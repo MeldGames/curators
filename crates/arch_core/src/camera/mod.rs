@@ -1,7 +1,8 @@
 use bevy::core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass};
 use bevy::anti_alias::smaa::{Smaa, SmaaPreset};
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::pbr::{Atmosphere, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel};
+use bevy::light::SunDisk;
+use bevy::pbr::{Atmosphere, AtmosphereMode, AtmosphereSettings, ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel};
 use bevy::prelude::*;
 // use bevy_edge_detection::EdgeDetection;
 use bevy_enhanced_input::prelude::*;
@@ -41,6 +42,13 @@ pub fn camera_components() -> impl Bundle {
         MotionVectorPrepass,
         Tonemapping::default(),
         Atmosphere::EARTH,
+        AtmosphereSettings { 
+            rendering_method: AtmosphereMode::Raymarched, 
+            ..default() 
+        },
+        SunDisk::EARTH,
+
+
         // Exposure::SUNLIGHT,
         // Bloom::NATURAL,
         /*bevy::core_pipeline::auto_exposure::AutoExposure {
